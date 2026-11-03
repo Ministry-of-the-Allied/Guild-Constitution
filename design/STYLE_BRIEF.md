@@ -79,5 +79,5 @@ Three materials do almost all the work:
 1. Gold is metallic, always as a gradient. Never flat yellow.
 2. Text on parchment is ink, never pure black and never grey on beige below a 4.5:1 contrast ratio.
 3. Every official act gets a seal.
-4. One window, six pages; related things go in sub-views, never new windows.
+4. One window, one page per subject (seven pages so far); related things go in sub-views, never new windows.
 5. Nothing looks like a modern web app: no rounded pill buttons, no flat cards, no drop-shadow blobs.
