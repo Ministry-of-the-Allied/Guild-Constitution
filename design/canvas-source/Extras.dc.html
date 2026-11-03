@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Small extras</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/37c0b5564853a6f17d31a9869c3f2f1d">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Cinzel+Decorative:wght@400;700;900&family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F3D98A}a:hover{color:#FFF3C4}
+.herald{position:relative;display:flex;align-items:center;gap:16px;height:96px;padding:0 44px 0 40px;margin:0 22px;
+  background-color:#F1E4C3;background-image:linear-gradient(180deg,rgba(255,255,255,.35),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 70%,rgba(110,75,25,.18)),url(/_blob/00ab4eb8d608d7736c517e36369471ae);
+  box-shadow:inset 0 3px 0 #C9A24A,inset 0 4px 0 #5A3F10,inset 0 -3px 0 #C9A24A,inset 0 -4px 0 #5A3F10,0 14px 28px rgba(0,0,0,.6);
+  transform-origin:center;animation:unroll .7s cubic-bezier(.2,.9,.3,1) both}
+.herald::before,.herald::after{content:"";position:absolute;top:-8px;bottom:-8px;width:24px;border-radius:12px;
+  background:linear-gradient(90deg,#8A6420 0%,#E9C877 30%,#FFF3C4 45%,#C9A24A 65%,#5A3F10 100%);box-shadow:0 4px 10px rgba(0,0,0,.5)}
+.herald::before{left:-14px}.herald::after{right:-14px}
+.herald .seal{width:74px;height:74px;flex:none;margin-top:6px;filter:drop-shadow(0 4px 4px rgba(0,0,0,.3))}
+.herald h3{margin:0;font-family:'Cinzel Decorative',serif;font-weight:700;font-size:21px;color:#1B3570;line-height:1.1}
+.herald p{margin:3px 0 0;font-size:16px;color:#2A1F14}
+.herald .eyebrow{font-size:9.5px}
+@keyframes unroll{0%{transform:scaleX(.04);opacity:0}35%{opacity:1}100%{transform:scaleX(1);opacity:1}}
+.mini{position:relative;width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%),radial-gradient(circle at 40% 40%,#5B6B4A,#3C4A33 50%,#2A3424 100%);
+  box-shadow:0 0 0 5px #3A2A0A,0 0 0 9px #C9A24A,0 0 0 10px #2a1d06,0 12px 28px rgba(0,0,0,.6),inset 0 0 30px rgba(0,0,0,.6)}
+.mini::after{content:"";position:absolute;left:50%;top:50%;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:16px solid #F3D98A;transform:translate(-50%,-60%)}
+.tip{position:relative;padding:14px 16px;color:#E8EEFF;background:linear-gradient(180deg,rgba(18,36,82,.97),rgba(10,22,52,.97));
+  box-shadow:0 0 0 1px #F3D98A,0 0 0 3px #0B1838,0 0 0 4px rgba(201,162,74,.6),0 14px 30px rgba(0,0,0,.65)}
+.tip .eyebrow{color:#C9D6F5}
+.sw{position:relative;flex:none;width:58px;height:28px;border:none;padding:0;cursor:pointer;border-radius:14px;background:rgba(110,79,23,.22);box-shadow:inset 0 0 0 1px rgba(110,79,23,.6),inset 0 2px 4px rgba(0,0,0,.25)}
+.sw span{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#D2C4A8,#8C7A5C);box-shadow:0 1px 3px rgba(0,0,0,.45);transition:left .2s}
+.sw.on{background:linear-gradient(180deg,#2E58AA,#1B3570);box-shadow:inset 0 0 0 1px #0A1636,0 0 0 2px #C9A24A}
+.sw.on span{left:32px;background:radial-gradient(circle at 35% 30%,#FFF3C4,#C9A24A 60%,#8A6420)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px dotted rgba(110,79,23,.45)}
+.setrow label{display:flex;flex-direction:column;gap:1px;font-family:'Cinzel',serif;font-weight:700;font-size:12.5px;letter-spacing:.08em;color:#2A1F14}
+.setrow label small{font-family:'EB Garamond',serif;font-weight:400;font-size:14px;letter-spacing:0;color:#5E4B33}
+.seg{display:inline-flex;padding:3px;gap:3px;background:rgba(110,79,23,.12);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
+.seg button{min-height:28px;padding:0 10px;border:none;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5E4B33;background:transparent}
+.seg button.on{color:#F3D98A;background:linear-gradient(180deg,#2E58AA,#1B3570)}
+</style>
+</helmet>
+<div class="stage" style="width: 1440px; height: 900px">
+
+  <span class="board-label" style="left: 60px; top: 44px">Herald pop-ups · slide in live for everyone online</span>
+  <div style="position: absolute; left: 60px; top: 80px; width: 720px; display: flex; flex-direction: column; gap: 30px">
+    <div class="herald">
+      <img class="seal" src="/_blob/19c005d5f1860452928780ca70041223" alt="">
+      <div style="flex: 1; min-width: 0">
+        <p class="eyebrow">Hear ye · the Ballot Hall</p>
+        <h3>The polls are open!</h3>
+        <p>Citizens of the Cathedral Ward: elect your Representative before Friday, 9 pm.</p>
+      </div>
+      <button class="btn sm" type="button">Vote now</button>
+    </div>
+    <div class="herald" style="animation-delay: .15s">
+      <img class="seal" src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="">
+      <div style="flex: 1; min-width: 0">
+        <p class="eyebrow">By Royal Assent</p>
+        <h3>The Guild Bank Levy is law</h3>
+        <p>Given under the seal of King Aldmere. In force until 30 January.</p>
+      </div>
+      <button class="btn quiet sm" type="button">Read it</button>
+    </div>
+    <div class="herald" style="animation-delay: .3s">
+      <img class="seal" src="/_blob/2548a4e779105c6802c9276a14f27592" alt="">
+      <div style="flex: 1; min-width: 0">
+        <p class="eyebrow">Crossing the floor</p>
+        <h3>Elowen Marsh defects!</h3>
+        <p>She leaves the Silverhand for the Azeroth Exchange.</p>
+      </div>
+      <button class="btn quiet sm" type="button" aria-label="Dismiss">Dismiss</button>
+    </div>
+  </div>
+
+  <span class="board-label" style="left: 60px; top: 520px">Citizen card · hover any guild member</span>
+  <div style="position: absolute; left: 60px; top: 556px; display: flex; gap: 28px; align-items: flex-start">
+    <div class="win-rim" style="position: relative; width: 250px; height: 250px">
+      <div class="win-leather" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 2px">
+        <span class="eyebrow" style="color: #C9D6F5; font-size: 9.5px; margin-bottom: 6px">Guild roster</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #C3CFEC; padding: 4px 6px">Aldric Vane</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #FFF3C4; padding: 4px 6px; background: rgba(243,217,138,.16); box-shadow: inset 0 0 0 1px rgba(243,217,138,.4)">Seraphine Vale</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #C3CFEC; padding: 4px 6px">Garrick Thorne</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #C3CFEC; padding: 4px 6px">Bram Coppervein</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #C3CFEC; padding: 4px 6px">Elowen Marsh</span>
+        <span style="font-family: 'EB Garamond', serif; font-size: 15px; color: #C3CFEC; padding: 4px 6px">Hal Brennick</span>
+      </div>
+    </div>
+    <div class="tip" style="width: 330px; margin-top: 30px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div class="portrait" style="--pc: #F48CBA">SV</div>
+        <div style="display: flex; flex-direction: column">
+          <span style="font-family: 'Cinzel', serif; font-weight: 700; font-size: 16px; color: #F3D98A">Lady Seraphine Vale</span>
+          <span style="font-size: 14.5px; color: #C3CFEC">Level 60 Paladin · citizen since 1 Sept</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="chip" style="--c: #6B44A8">Arcane Ward</span><span class="chip" style="--c: #3A63B8">Silverhand</span></div>
+      <div style="height: 1px; background: linear-gradient(90deg,rgba(243,217,138,0),rgba(243,217,138,.7),rgba(243,217,138,0))"></div>
+      <div style="display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 3px; align-items: baseline; font-size: 14.5px">
+        <span class="eyebrow" style="font-size: 9px">Holds</span><span style="color: #FFF3C4">Prime Minister</span>
+        <span class="eyebrow" style="font-size: 9px">Held</span><span style="color: #C3CFEC">Minister of Trade, First Government</span>
+        <span class="eyebrow" style="font-size: 9px">Voted</span><span style="color: #C3CFEC">11 of 12 ballots</span>
+        <span class="eyebrow" style="font-size: 9px">Record</span><span style="color: #C3CFEC">Clean · no rulings</span>
+      </div>
+    </div>
+  </div>
+
+  <span class="board-label" style="left: 900px; top: 44px">Minimap seal</span>
+  <div style="position: absolute; left: 1120px; top: 70px">
+    <div class="mini"></div>
+    <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Ministry of the Allied minimap button" style="position: absolute; left: -26px; top: 128px; width: 72px; height: 72px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6))">
+    <span class="badge-count" style="position: absolute; left: 26px; top: 132px">1</span>
+  </div>
+  <div class="tip" style="position: absolute; left: 860px; top: 214px; width: 220px; display: flex; flex-direction: column; gap: 4px">
+    <span style="font-family: 'Cinzel', serif; font-weight: 700; font-size: 14px; color: #F3D98A">Ministry of the Allied</span>
+    <span style="font-size: 14px; color: #FFD0C4">1 ballot awaits your seal</span>
+    <span style="font-size: 14px; color: #C3CFEC">Click: open the Ministry<br>Right-click: settings<br>Drag: move the seal</span>
+  </div>
+
+  <span class="board-label" style="left: 900px; top: 368px">Settings · in the game's options</span>
+  <div class="page" style="position: absolute; left: 900px; top: 404px; width: 480px; height: 440px">
+    <div class="parch" style="padding: 22px 28px; display: flex; flex-direction: column">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px">
+        <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 44px; height: 44px">
+        <div style="display: flex; flex-direction: column"><span class="eyebrow" style="font-size: 9.5px">Options</span><h2 class="h-page" style="font-size: 22px">Ministry of the Allied</h2></div>
+      </div>
+      <div class="setrow"><label>Herald pop-ups<small>Announce votes, laws and defections live</small></label><button class="{{sw.herald}}" type="button" aria-label="Herald pop-ups" aria-pressed="{{pressed.herald}}" onClick="{{flip.herald}}"><span></span></button></div>
+      <div class="setrow"><label>Fanfare<small>Play the game's own trumpet with each herald</small></label><button class="{{sw.sound}}" type="button" aria-label="Fanfare sound" aria-pressed="{{pressed.sound}}" onClick="{{flip.sound}}"><span></span></button></div>
+      <div class="setrow"><label>District glow<small>Light your district on the world map</small></label><button class="{{sw.glow}}" type="button" aria-label="District glow" aria-pressed="{{pressed.glow}}" onClick="{{flip.glow}}"><span></span></button></div>
+      <div class="setrow"><label>Citizen cards<small>Show the card when hovering guild members</small></label><button class="{{sw.cards}}" type="button" aria-label="Citizen cards" aria-pressed="{{pressed.cards}}" onClick="{{flip.cards}}"><span></span></button></div>
+      <div class="setrow" style="border-bottom: none"><label>Herald size<small>How grand the pop-ups appear</small></label>
+        <div class="seg" role="group" aria-label="Herald size"><button class="{{seg.small}}" type="button" onClick="{{size.small}}">Modest</button><button class="{{seg.full}}" type="button" onClick="{{size.full}}">Royal</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const val = (k, d) => (st[k] === undefined ? d : st[k]);
+    const keys = { herald: true, sound: true, glow: true, cards: false };
+    const sw = {}, pressed = {}, flip = {};
+    Object.keys(keys).forEach((k) => {
+      const on = val(k, keys[k]);
+      sw[k] = on ? 'sw on' : 'sw';
+      pressed[k] = on ? 'true' : 'false';
+      flip[k] = () => this.setState({ [k]: !on });
+    });
+    const size = val('size', 'full');
+    return {
+      sw, pressed, flip,
+      seg: { small: size === 'small' ? 'on' : '', full: size === 'full' ? 'on' : '' },
+      size: { small: () => this.setState({ size: 'small' }), full: () => this.setState({ size: 'full' }) }
+    };
+  }
+}
+</script>
+</body>
+</html>
