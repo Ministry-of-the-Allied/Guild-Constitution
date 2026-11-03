@@ -79,7 +79,19 @@ The party that loses a General Election forms the Official Opposition. The leade
 
 Political life in the Ministry of the Allied is organised around two registered parties. Each party holds a founding ideology and a set of positions on guild policy. Parties must be formally registered with the Crown before fielding candidates.
 
-### 3.2 General Elections
+### 3.2 Party Membership
+
+Each registered party operates its own membership system, independent of guild citizenship. Party membership is voluntary and open to any citizen in good standing.
+
+To become a party member, a citizen pays a minimum donation of **5 gold** directly to their chosen party's designated officer. Members may donate any amount above this floor. Total membership donations are published publicly at the close of each election campaign period — this serves as a visible measure of a party's support and its capacity to fund campaigning.
+
+Party members elect their own party leader through an internal vote. That leader is the candidate who stands for Prime Minister in the General Election. Citizens who are not party members do not participate in internal leadership elections but retain their full vote in the General Election.
+
+**Campaign funding** — parties may use their membership donations freely during the campaign period to advance their electoral prospects. This includes gifting elixirs, consumables, or other items to citizens to court their vote. Campaign spending is a matter of political competition, not regulation. Citizens are free to accept gifts and vote however they choose.
+
+Party membership donations are separate from guild treasury taxation and do not count toward any treasury contribution requirement for candidacy.
+
+### 3.3 General Elections
 
 A General Election is held at the end of every three-month term, or earlier in the event of a Snap Election. The election period runs as follows:
 
@@ -88,7 +100,7 @@ A General Election is held at the end of every three-month term, or earlier in t
 - **End of Week 2:** Voting opens for 48 hours. All citizens cast their vote by direct ballot.
 - **Vote close:** Results announced by the Crown. Incoming Prime Minister takes office within 24 hours.
 
-### 3.3 Candidacy Requirements
+### 3.4 Candidacy Requirements
 
 To stand as a candidate for Prime Minister, a citizen must meet the requirements in force at the time of the election. Requirements formalise as the guild and server mature:
 
@@ -98,7 +110,7 @@ To stand as a candidate for Prime Minister, a citizen must meet the requirements
 
 The Crown reserves the right to rule a candidate ineligible where eligibility is disputed.
 
-### 3.4 Snap Elections
+### 3.5 Snap Elections
 
 A Snap Election may be triggered in two ways:
 
@@ -225,4 +237,4 @@ This Charter may be amended by the Crown at any time. Proposed amendments brough
 ---
 
 *The Ministry of the Allied — Stormwind, Azeroth*
-*Version 1.0 — November 2026*
+*Version 1.1 — November 2026 — Added Part III §3.2 Party Membership*
