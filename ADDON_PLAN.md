@@ -2,7 +2,7 @@
 
 The single source of truth for the guild add-on. Read this before working on the add-on; update it whenever a decision is made.
 
-Last updated: 2026-11-03
+Last updated: 2026-11-04
 
 ---
 
@@ -50,7 +50,7 @@ Planned modules:
 - **Chat tags:** check that the add-on can still change how guild chat lines are displayed (11.6).
 - **Duel results:** check that the "has defeated … in a duel" message reaches add-ons, so the Gladiator's Ring bracket can update itself (11.8).
 - **Guild bank money log:** check which guild ranks can see it, and how many entries the game keeps before old ones drop off (11.9).
-- **World map window:** check that the Forever client uses the modern world map window (with the quest log docked beside it), that the party skin (11.10) stays on when the map is enlarged or shrunk, and that opening the map in combat causes no errors.
+- **World map window:** a Forever screenshot (`design/reference/forever-world-map.webp`) confirms the client uses the modern world map window ("Map & Quest Log", with the location bar and the quest log toggle). Still to check: that the party skin (11.10) stays on when the map is enlarged or shrunk, that opening the map in combat causes no errors, and whether the "Player / Cursor" coordinates strip along the bottom of the screenshot is a Forever feature or came from that player's own add-ons.
 - **Interface (TOC) version number** for the Forever client: read it in game with `/dump (select(4, GetBuildInfo()))`.
 
 ## 5. Game client (researched 2026-11-03)
@@ -223,13 +223,20 @@ WoW: Forever has a guild bank, and the game keeps a money log of every deposit, 
 *Agreed with Max on 2026-11-03.*
 
 - The game's own world map window gets a frame in the player's party style. Only the window around the map changes. The map itself, its pins and the district highlights (Districts & Map module) are left alone.
-- **What gets skinned (for now):** the whole window: the border, the title bar, the close and resize buttons, the location bar along the top (e.g. "Eastern Kingdoms > Elwynn Forest > Stormwind City") and the quest log docked beside the map. If that turns out to be too much, cut it back later.
+- **What gets skinned (for now):** the whole window. If that turns out to be too much, cut it back later. A Forever screenshot (`design/reference/forever-world-map.webp`) shows the window's parts:
+  - the frame border: thin dark metal with gold trim;
+  - the title bar: "Map & Quest Log" in gold on a dark strip;
+  - the enlarge and close buttons: Blizzard's red squares, which take the party's colours;
+  - the location bar ("World > Eastern Kingdoms > Elwynn Forest"): its red highlight on the current step, its dropdown arrows and the small button at its right end;
+  - the round buttons over the map (a diamond button top left, a "!" button top right): their rims take the party style so they match the frame *(agreed 2026-11-04)*;
+  - the quest log toggle in the bottom-right corner (an arrow with "?"), and the docked quest log when it's open.
+- **Left as they are:** the map art itself, including its torn parchment edges, the zone name shown on hover (e.g. "Fargodeep Mine"), and the quest and travel markers.
 - **The skins.** Each one is a version of the one Ministry theme: the same frame shape and materials, with the metal, wax and emblem swapped.
   - **Silverhand:** silver metalwork, argent wax and the blue hand. The party colour (`#1F4290`) is almost the Ministry's own blue, so the silver has to set it apart from the default.
   - **Azeroth Exchange:** deep crimson (`#9E1B22`) and gold, with the coin-scale.
   - **The Crown:** a skin of its own, built around the Crown seal (royal blue wax, gold lion). The Ministry default uses the same blue and gold, so the Crown's must look clearly grander. Details to be designed.
   - **Ministry default:** the royal blue and gold theme, for citizens who aren't in a party (membership is voluntary, Charter 3.2).
-- **The corner seal.** On the map, the party's seal takes the top-left corner instead of the Alliance crest, and the Crown has the Crown seal. Citizens who aren't in a party keep the Alliance crest. This is the one exception to the universal crest rule (section 3).
+- **The corner seal.** On the map, the party's seal takes the top-left corner instead of the Alliance crest, and the Crown has the Crown seal. Citizens who aren't in a party keep the Alliance crest. This is the one exception to the universal crest rule (section 3). The seal replaces the round book icon that already sits in the window's top-left corner and breaks out over the frame, the same way our crest does.
 - **Player choice.** Settings offers Party (the default), Ministry or Blizzard's plain map. Under Party, the Crown sees the Crown skin and citizens who aren't in a party see the Ministry default.
 - **It follows membership.** Joining or leaving a party (section 7) switches the skin straight away, so crossing the floor shows on the defector's map at once.
 - **Only on your own screen.** Each player sees only their own skin, and party membership is public anyway (section 7), so nothing private is shown.
@@ -238,7 +245,7 @@ WoW: Forever has a guild bank, and the game keeps a money log of every deposit, 
   - The game redraws the border whenever the map is enlarged or shrunk, so the add-on puts the skin back on each time.
   - The skins are kept in one list, one entry per party, so a new party or a reworked skin only needs new artwork.
   - Before skinning, the add-on checks that each part of the window is there. If a Blizzard patch has changed the window, the plain map is left alone instead of throwing errors.
-  - If another map add-on is running (ElvUI, Leatrix Maps, Mapster), ours steps back and leaves the map to it.
+  - If another add-on restyles or replaces the map window's frame (for example ElvUI's skins), ours steps back and leaves the frame to it. Add-ons that only add things to the map, such as a coordinates readout, don't count, so they don't switch the skin off.
 - **Design first:** needs a board on the design canvas showing all four skins before any code is written.
 - Test after launch (section 4).
 
