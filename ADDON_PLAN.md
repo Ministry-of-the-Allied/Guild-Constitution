@@ -2,7 +2,7 @@
 
 The single source of truth for the guild add-on. Read this before working on the add-on; update it whenever a decision is made.
 
-Last updated: 2026-11-03
+Last updated: 2026-11-04
 
 ---
 
@@ -45,6 +45,9 @@ Planned modules:
 - **Ballots stay on the guild channel, counted by every member (11.3).** Claude pointed out that someone running their own script could log who voted for what, since add-on messages always carry the sender's name. Max judged that unlikely and kept the simpler design; ballots aren't routed through private scrutineers. *(Decided 2026-11-03)*
 - **Everyone's add-on reads the guild bank money log** (11.9), not just the Treasurer's. *(Decided 2026-11-03)*
 - **Debates happen on Discord voice chat, not in game chat.** The add-on doesn't run in-game debate tools (11.17). *(Noted 2026-11-03)*
+- **Party membership and privacy** as set out in section 7: join through the party's designated officer after paying 5g, leaders elected inside the Party Chamber, 14-day cooling-off after crossing the floor. *(Decided 2026-11-04)*
+- **The treasury ledger is fully public.** Every line on the Treasury page shows the member's name, withdrawals included (11.9). *(Decided 2026-11-04)*
+- **The Court** works as set out in 11.22. *(Decided 2026-11-04)*
 
 ## 4. Open questions / to test after launch
 
@@ -114,13 +117,14 @@ The add-on is **one window with seven pages**. Every page shares the same frame:
 
 The goal is that neither party can see the other party's private chamber. Joining a party and quickly switching sides to spy shouldn't be possible.
 
-Proposed design *(to confirm with Max; also needs matching to Charter 3.2, see section 10)*:
+Agreed with Max on 2026-11-04 ("yes to all for now"), matched to Charter 3.2:
 
 - **Party membership is public, party business is private.** Who belongs to which party is visible to all, like real politics. The Party Chamber is not.
-- **Only the party's leadership can admit members.** The Party Leader is registered with the Crown, as the Charter already requires. The leader can name a few **Whips** who can also admit members. A citizen applies, then the leader or a whip approves. Nobody can flag themselves into a party.
-- **"Crossing the floor" is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a cooling-off period, for example 14 days, before another party can admit that person. Quick spy-switching becomes impossible, and a defection becomes a visible political event.
+- **Joining goes through the party's designated officer.** A citizen applies in the add-on and pays at least 5g to the party's designated officer (Charter 3.2). The officer's add-on records the payment (11.19), and the officer then accepts the citizen into the party. Nobody can flag themselves into a party.
+- **The party leader is elected by its members.** The internal leadership vote runs inside the Party Chamber, so only that party's members see it. The winner is the party's candidate for PM (Charter 3.2) and is registered with the Crown.
+- **"Crossing the floor" is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a **14-day** cooling-off period before the other party can accept that person. Quick spy-switching becomes impossible, and a defection becomes a visible political event.
 - **Chamber data never goes on the guild channel.** It's sent only by private add-on whisper to characters on that party's verified roster. Members of the other party never receive it at all, so there's nothing to snoop on.
-- **Changes to the party roster are only accepted from the leader's or a whip's character.** WoW tells the receiver the real sender of every add-on message, and that can't be faked, so every client can check who issued each change.
+- **Changes to the party roster are only accepted from the designated officer's or the leader's character.** WoW tells the receiver the real sender of every add-on message, and that can't be faked, so every client can check who issued each change.
 - **Honest limits.** A real defector keeps whatever they already read, which is a spy, and that's good roleplay. A player skilled enough to rewrite the add-on's code could still cause trouble, so this is strong guild-level security, not bank-level.
 
 ## 8. Live herald pop-ups
@@ -144,14 +148,11 @@ The visual design is done in Claude Design. Style brief: `design/STYLE_BRIEF.md`
 Kept open on purpose. Max will come back to these later.
 
 - **The real map:** the Districts board uses an illustrated Stormwind chart. In game, the glow is drawn over the real Stormwind map using zone coordinates, so district shapes need tracing against the live map after launch.
-- **Party membership (Charter 3.2, added 2026-11-03) and section 7:** joining a party now means paying at least 5g to the party's designated officer, and party members elect their leader by internal vote. To decide: (1) the designated officer admits members in the add-on once the 5g arrives, replacing "leader or whip approves"; (2) the internal leadership vote runs inside the Party Chamber; (3) keep a cooling-off period (e.g. 14 days) before someone who leaves can join the other party.
-- **Ledger privacy (11.9):** the add-on shows the guild bank money log on the Treasury page to every citizen, including ranks the game wouldn't normally let see it. So everyone would see lines like "Bram withdrew 50g". Decide: show every entry with names (fully public accounts), or show deposits by name but withdrawals only as totals.
 - **AI voiceovers (in progress with Max):** spoken lines for the herald, e.g. a town crier calling "Hear ye! The polls are open!" when a pop-up appears. Notes so far:
   - The game can only play sound files that ship inside the add-on's folder, so lines are recorded in advance. Fixed lines work ("The polls are open", "The Crown has declared the result"). Lines with names or numbers in them would need a clip for every name, so those stay as text.
   - The game also has its own text-to-speech that can read any text aloud, but in a flat computer voice. A possible fallback; check it still works for add-ons in the Midnight-era client.
   - The voice must be an original AI voice, not a copy of a Blizzard character or a real actor, and the voice tool's licence must allow sharing the files inside the add-on.
   - Needs an on/off switch and volume in settings, like the herald pop-ups.
-- **The Court (Charter 6 and 7):** how accusations, defences, rulings and appeals work in the add-on. Explained to Max 2026-11-03; waiting on his answer.
 
 ## 11. Features added after the first design pass
 
@@ -226,7 +227,7 @@ WoW: Forever has a guild bank, and the game keeps a money log of every deposit, 
 - **Missed entries.** The log is short, so entries drop off if nobody opens the bank during a busy spell. More readers make this rarer, and the balance check flags any gap.
 - **Rank permissions.** Some ranks may not be able to see the money log at all, so they can't help read it.
 - **The Minister of the Treasury adds the reasons.** The log shows who moved how much, never why. Only the Minister can add a note such as "raid repairs".
-- **Still open:** how public the withdrawals are (section 10).
+- **Fully public:** every line shows the member's name, withdrawals included (decided 2026-11-04).
 
 ### 11.10 Elections run themselves
 
@@ -292,7 +293,7 @@ WoW: Forever has a guild bank, and the game keeps a money log of every deposit, 
 
 - Charter 3.2: joining a party costs at least 5g, paid to the party's designated officer. When the gold is traded or mailed to that officer, the officer's add-on records it automatically (who, how much, when).
 - At the close of each campaign period the add-on publishes each party's donation total on the Parties page, as the Charter requires.
-- How membership itself is granted is still open (section 10).
+- Once the payment is recorded, the officer accepts the citizen into the party (section 7).
 
 ### 11.20 Diplomacy register
 
@@ -303,6 +304,18 @@ WoW: Forever has a guild bank, and the game keeps a money log of every deposit, 
 
 - Results, laws, rulings, the Law Registry and Gladiator champions can be turned into ready-formatted text. You copy it from a box in the add-on and paste it into Discord (or GitHub).
 - Add-ons can't post to Discord themselves, so this is copy and paste.
+
+### 11.22 The Court
+
+Agreed with Max on 2026-11-04. It follows Charter 6 and 7.
+
+1. **Accusation.** Any citizen files an accusation privately to the three Justices: who, which law was broken, and what happened. Only the Justices and the accused see it.
+2. **Summons.** The accused gets a sealed letter of summons (11.18) and can write a statement in their defence.
+3. **Deliberation.** The case appears on the Justices' duties panel (11.14). They discuss it and seal a ruling, choosing a sanction from the punishment ladder (Charter 7.1).
+4. **Ruling.** The ruling is published in the Statute Book (Rulings) and written into the Chronicle. The punishment is applied as far as the add-on can (11.15).
+5. **Appeal.** The accused has 48 hours to appeal to the Crown (Charter 7.2). The appeal appears on the Crown's duties panel, and the Crown's decision is final.
+
+Justices can't hold any other office while they serve (Charter 6.1); the add-on refuses an appointment that breaks this.
 
 ## 12. Parked (kept on the plan, not being built yet)
 
