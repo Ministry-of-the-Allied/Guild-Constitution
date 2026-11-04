@@ -10,9 +10,9 @@ Three materials do almost all the work:
 
 | Material | Used for | Feel |
 |---|---|---|
-| **Royal blue leather / velvet** | The window frame, tab rail, headers | Deep, rich, slightly worn, with tooled gold lines |
+| **Royal blue leather / velvet** | The window frame, tab rail, headers | Deep, rich, slightly worn, with a soft (not sharp) grain and tooled gold lines |
 | **Burnished gold** | Borders, trims, dividers, the crest, active states | Metallic: bright highlight, warm mid, brown shadow. Never flat yellow |
-| **Parchment** | Every content page | Warm vellum with grain and darker, age-stained edges |
+| **Parchment** | Every content page | Smooth warm vellum with very subtle mottling and darker, age-stained edges. No heavy grain: ink must stay easy to read |
 
 **Wax** is the accent: seals mark anything official (casting a vote, Royal Assent, a party chamber, a herald notice).
 
@@ -22,7 +22,7 @@ Three materials do almost all the work:
 - An outer royal blue leather frame with a double gold rule, gold corner pieces and a riveted gold rim.
 - **The Alliance crest sits in the top-left corner**, breaking out over the frame by about a third of its height. It's the mark of the whole add-on.
 - The title plaque sits across the top: "MINISTRY OF THE ALLIED", with the page name underneath.
-- A left-hand **tab rail** of six engraved gold-and-blue tabs. The active tab is lit, as if gold leaf is catching the light.
+- A left-hand **tab rail** of six engraved tabs pressed in oxblood wax, with the same gradient and gloss as the official seal. The active tab is lit gold, as if gold leaf is catching the light, and carries the window's ornate border in miniature: double rule, stitching and jewelled filigree corners. Tab names always sit on one line; a count badge pins over the tab's right edge rather than squeezing the name.
 - The content area is a parchment page inset into the frame, with a soft inner shadow.
 - Sub-views within a page use **ribbon tabs** (silk ribbons with notched ends) across the top of the parchment.
 

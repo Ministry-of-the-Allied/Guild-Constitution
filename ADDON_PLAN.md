@@ -19,7 +19,7 @@ Planned modules:
 | Citizens | Who counts as an active voter, alt links (one person, one vote), district assignment and transfers |
 | Offices & Ranks | Knows who holds which office (Crown, PM, Cabinet, Justices, Reps); applies guild promote/demote after results; each office holder's duties |
 | Laws & Court | Register of active laws, their three-month expiry and renewal; rulings and punishments |
-| Parties | Party pages, members, manifestos, district bases, membership donations |
+| Parties | Party pages, members, manifestos, district bases, membership donations, party skins for the world map (11.23) |
 | Treasury | Minister of the Treasury (appointed by the PM), the automatic ledger, taxes |
 | Districts & Map | Each citizen's district, highlighted on the Stormwind map |
 | Chronicle & Honours | The realm's permanent history; honours and titles awarded by the Crown |
@@ -39,6 +39,7 @@ Planned modules:
 - **District map highlights:** a citizen's own district is drawn as a highlighted area on the Stormwind city map. *(Decided 2026-11-03)*
 - **Visual theme:** regal Stormwind/Alliance. Parchment, wax seals, royal blue and gold. It must feel premium and ceremonial, not basic. *(Decided 2026-11-03)*
 - **Universal window crest:** the Stormwind Alliance crest (gold lion-head shield on royal blue, crossed swords, hammer on top, gold filigree) sits at the **top-left corner of every add-on window**, breaking out over the frame border, as the shared mark of the whole UI. Reference image: `design/reference/alliance-crest.png`. In game, check for a built-in texture/atlas of the crest before shipping our own. *(Decided 2026-11-03)*
+- **World map skins:** the game's world map window is reskinned to match the player's party (or the Crown), with the party seal in the top-left corner in place of the Alliance crest. Details in 11.23. *(Decided 2026-11-03)*
 - **Voting is direct, not by constituency.** The Prime Minister is elected in one guild-wide count, and every citizen's vote counts the same (the Charter: "direct popular vote of all citizens"). Votes of No Confidence are guild-wide too. A citizen's district never changes the weight of their vote. Districts only matter when electing each district's Regional Representative (Charter 8.2). *(Confirmed 2026-11-03)*
 - **The Treasurer is appointed by the PM**, as the Minister of the Treasury (Charter 2.2), not elected. *(Decided 2026-11-03)*
 - **No waiting period for brand-new members.** The 10-day rule in 11.2 only applies to citizens returning from inactivity. *(Decided 2026-11-03)*
@@ -59,6 +60,7 @@ Planned modules:
 - **Duel results:** expected to work, since "X has defeated Y in a duel" is an ordinary chat system message. Quick check after launch (11.8).
 - **Guild bank money log:** check which guild ranks can see it, and how many entries the game keeps before old ones drop off (11.9).
 - **Trade window warning:** check the add-on can show a warning when a trade window opens with a citizen under embargo (11.15).
+- **World map window:** a Forever screenshot (`design/reference/forever-world-map.webp`) confirms the client uses the modern world map window ("Map & Quest Log", with the location bar and the quest log toggle). Still to check: that the party skin (11.23) stays on when the map is enlarged or shrunk, that opening the map in combat causes no errors, and whether the "Player / Cursor" coordinates strip along the bottom of the screenshot is a Forever feature or came from that player's own add-ons.
 - **Interface (TOC) version number** for the Forever client: read it in game with `/dump (select(4, GetBuildInfo()))`.
 
 ## 5. Game client (researched 2026-11-03)
@@ -111,7 +113,8 @@ The add-on is **one window with seven pages**. Every page shares the same frame:
 - **Herald pop-ups:** live notices such as "Polls are open!" (see section 8).
 - **Sealed letters:** personal notices you break open (11.18).
 - **Citizen card:** a small card shown when you hover over a guild member, with their district, party, offices held, honours, any unpaid fine or embargo, and whether they have voted (never how they voted).
-- **Settings panel:** the add-on's options in the standard game settings.
+- **Settings panel:** the add-on's options in the standard game settings, including the world map skin choice (11.23).
+- **World map skins:** the party, Crown and Ministry skins for the game's own map window (11.23). Needs a design board.
 
 ## 7. Party privacy (secret party information)
 
@@ -156,7 +159,7 @@ Kept open on purpose. Max will come back to these later.
 
 ## 11. Features added after the first design pass
 
-Agreed with Max on 2026-11-03. Each one lives inside an existing page, apart from the Gladiator's Ring, which is a new subject and so gets its own page.
+Agreed with Max on 2026-11-03. Each one lives inside an existing page, with two exceptions. The Gladiator's Ring is a new subject, so it gets its own page. The party map skins (11.23) change the game's own world map window rather than a page.
 
 ### 11.1 One person, one vote (alt links)
 
@@ -316,6 +319,37 @@ Agreed with Max on 2026-11-04. It follows Charter 6 and 7.
 5. **Appeal.** The accused has 48 hours to appeal to the Crown (Charter 7.2). The appeal appears on the Crown's duties panel, and the Crown's decision is final.
 
 Justices can't hold any other office while they serve (Charter 6.1); the add-on refuses an appointment that breaks this.
+
+### 11.23 Party map skins
+
+*Agreed with Max on 2026-11-03.*
+
+- The game's own world map window gets a frame in the player's party style. Only the window around the map changes. The map itself, its pins and the district highlights (Districts & Map module) are left alone.
+- **What gets skinned (for now):** the whole window. If that turns out to be too much, cut it back later. A Forever screenshot (`design/reference/forever-world-map.webp`) shows the window's parts:
+  - the frame border: thin dark metal with gold trim;
+  - the title bar: "Map & Quest Log" in gold on a dark strip;
+  - the enlarge and close buttons: Blizzard's red squares, which take the party's colours;
+  - the location bar ("World > Eastern Kingdoms > Elwynn Forest"): its red highlight on the current step, its dropdown arrows and the small button at its right end;
+  - the round buttons over the map (a diamond button top left, a "!" button top right): their rims take the party style so they match the frame *(agreed 2026-11-04)*;
+  - the quest log toggle in the bottom-right corner (an arrow with "?"), and the docked quest log when it's open.
+- **Left as they are:** the map art itself, including its torn parchment edges, the zone name shown on hover (e.g. "Fargodeep Mine"), and the quest and travel markers.
+- **The skins.** Each one is a version of the one Ministry theme: the same frame shape and materials, with the metal, wax and emblem swapped.
+  - **Silverhand:** silver metalwork, argent wax and the blue hand. The party colour (`#1F4290`) is almost the Ministry's own blue, so the silver has to set it apart from the default.
+  - **Azeroth Exchange:** deep crimson (`#9E1B22`) and gold, with the coin-scale.
+  - **The Crown:** a skin of its own, built around the Crown seal (royal blue wax, gold lion). The Ministry default uses the same blue and gold, so the Crown's must look clearly grander. Details to be designed.
+  - **Ministry default:** the royal blue and gold theme, for citizens who aren't in a party (membership is voluntary, Charter 3.2).
+- **The corner seal.** On the map, the party's seal takes the top-left corner instead of the Alliance crest, and the Crown has the Crown seal. Citizens who aren't in a party keep the Alliance crest. This is the one exception to the universal crest rule (section 3). The seal replaces the round book icon that already sits in the window's top-left corner and breaks out over the frame, the same way our crest does.
+- **Player choice.** Settings offers Party (the default), Ministry or Blizzard's plain map. Under Party, the Crown sees the Crown skin and citizens who aren't in a party see the Ministry default.
+- **It follows membership.** Joining or leaving a party (section 7) switches the skin straight away, so crossing the floor shows on the defector's map at once.
+- **Only on your own screen.** Each player sees only their own skin, and party membership is public anyway (section 7), so nothing private is shown.
+- **How it's built:**
+  - The map's border is made of corner and edge pieces, like the tab frame on the design canvas. The add-on swaps those pictures and recolours the rest. It never replaces Blizzard's own map code, which keeps it clear of "taint" (the error that breaks the game's own buttons when add-ons interfere).
+  - The game redraws the border whenever the map is enlarged or shrunk, so the add-on puts the skin back on each time.
+  - The skins are kept in one list, one entry per party, so a new party or a reworked skin only needs new artwork.
+  - Before skinning, the add-on checks that each part of the window is there. If a Blizzard patch has changed the window, the plain map is left alone instead of throwing errors.
+  - If another add-on restyles or replaces the map window's frame (for example ElvUI's skins), ours steps back and leaves the frame to it. Add-ons that only add things to the map, such as a coordinates readout, don't count, so they don't switch the skin off.
+- **Design first:** needs a board on the design canvas showing all four skins before any code is written.
+- Test after launch (section 4).
 
 ## 12. Parked (kept on the plan, not being built yet)
 
