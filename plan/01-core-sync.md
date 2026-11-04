@@ -81,7 +81,7 @@ During catch-up, members pass on other people's records, so the sender isn't the
 
 Permission comes from the book itself, rooted in something the game controls: **guild rank**.
 
-- **The Crown** is defined by guild rank, which only the Guild Master can set, so nobody can claim it through the add-on. *To decide at setup: which rank(s) mean "the Crown" (the Guild Master's rank plus the co-monarch's rank).*
+- **The Crown** is defined by guild rank, which only the Guild Master can set, so nobody can claim it through the add-on. **Decided 2026-11-04:** both co-monarchs hold the guild rank named **"The Crown"**. The add-on treats every character on that rank as the Crown. Only the Guild Master can rename ranks or move people onto it. If the rank is ever renamed, the add-on stops recognising the Crown until the name is set back or updated in the add-on's settings by the Guild Master.
 - Every other office comes from records the Crown or the voters created. The PM is whoever won the last declared election; Cabinet ministers are whoever the PM appointed; Justices are whoever the Crown appointed; and so on.
 - So when a record arrives, the add-on checks: "at the time of this record, did its author hold an office that allows it?" If not, it's ignored.
 
@@ -119,6 +119,5 @@ This is strong protection against ordinary mischief, not bank-level security. A 
 
 ## 11. Open questions
 
-- Which guild rank(s) mean "the Crown" (section 5).
 - Message size and throttle limits in the Forever client (section 3) *(to test)*.
 - Whether add-on messages are blocked in combat or instances (section 8) *(to test)*.
