@@ -114,7 +114,7 @@ The add-on is **one window with seven pages**. Every page shares the same frame:
 - **Sealed letters:** personal notices you break open (11.18).
 - **Citizen card:** a small card shown when you hover over a guild member, with their district, party, offices held, honours, any unpaid fine or embargo, and whether they have voted (never how they voted).
 - **Settings panel:** the add-on's options in the standard game settings, including the world map skin choice (11.23).
-- **World map skins:** the party, Crown and Ministry skins for the game's own map window (11.23). Needs a design board.
+- **World map skins:** the party, Crown and Ministry skins for the game's own map window (11.23). First design pass on the canvas, 2026-11-04.
 
 ## 7. Party privacy (secret party information)
 
@@ -336,7 +336,7 @@ Justices can't hold any other office while they serve (Charter 6.1); the add-on 
 - **The skins.** Each one is a version of the one Ministry theme: the same frame shape and materials, with the metal, wax and emblem swapped.
   - **Silverhand:** silver metalwork, argent wax and the blue hand. The party colour (`#1F4290`) is almost the Ministry's own blue, so the silver has to set it apart from the default.
   - **Azeroth Exchange:** deep crimson (`#9E1B22`) and gold, with the coin-scale.
-  - **The Crown:** a skin of its own, built around the Crown seal (royal blue wax, gold lion). The Ministry default uses the same blue and gold, so the Crown's must look clearly grander. Details to be designed.
+  - **The Crown:** the Azeroth Exchange's design with royal purple in place of its crimson, taken from a royal robe Max chose: deep, with the same gradient and depth as the Exchange's red. The Crown seal is to be redesigned later as a regal crest *(decided 2026-11-04)*. Most of the purple is the deep shade, with the lighter purple used only as small highlights (the centre of the title band and the top edge of each step and button), for a more expensive look *(decided 2026-11-05)*. Gold filigree ornaments sit on the two bottom corners, inside the frame *(decided 2026-11-05)*.
   - **Ministry default:** the royal blue and gold theme, for citizens who aren't in a party (membership is voluntary, Charter 3.2).
 - **The corner seal.** On the map, the party's seal takes the top-left corner instead of the Alliance crest, and the Crown has the Crown seal. Citizens who aren't in a party keep the Alliance crest. This is the one exception to the universal crest rule (section 3). The seal replaces the round book icon that already sits in the window's top-left corner and breaks out over the frame, the same way our crest does.
 - **Player choice.** Settings offers Party (the default), Ministry or Blizzard's plain map. Under Party, the Crown sees the Crown skin and citizens who aren't in a party see the Ministry default.
@@ -348,7 +348,7 @@ Justices can't hold any other office while they serve (Charter 6.1); the add-on 
   - The skins are kept in one list, one entry per party, so a new party or a reworked skin only needs new artwork.
   - Before skinning, the add-on checks that each part of the window is there. If a Blizzard patch has changed the window, the plain map is left alone instead of throwing errors.
   - If another add-on restyles or replaces the map window's frame (for example ElvUI's skins), ours steps back and leaves the frame to it. Add-ons that only add things to the map, such as a coordinates readout, don't count, so they don't switch the skin off.
-- **Design first:** needs a board on the design canvas showing all four skins before any code is written.
+- **Design:** the "World map skins" board on the design canvas shows all four skins on the real Elwynn Forest map, plus the setting *(first pass 2026-11-04)*. Second pass the same day: the title strip, location bar and gap above the map now follow the game window's own proportions (about 15% of the map's height), the enlarge and close buttons are squares flush in the top-right corner like the game's, and the outer rim is about 30% thinner. The docked quest log isn't drawn yet: it needs a Forever screenshot with the quest log open.
 - Test after launch (section 4).
 
 ## 12. Parked (kept on the plan, not being built yet)

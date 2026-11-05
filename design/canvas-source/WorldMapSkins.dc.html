@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World map skins</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/92b4fa14869576666ce050f265fa7623">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Cinzel+Decorative:wght@400;700;900&family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F3D98A}a:hover{color:#FFF3C4}
+
+/* ---------- one skin = one set of materials on the same frame ---------- */
+.sk-min{--metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--hi:#C9A24A;--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--title:var(--metal);--line:linear-gradient(90deg,#8A6420,#FFF3C4 50%,#8A6420);
+  --hide:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#3360B4 0%,#1E3B7C 34%,#142B5E 62%,#0B1838 100%);
+  --bar:linear-gradient(180deg,#0A1530,#0F1F47);--crumb:linear-gradient(180deg,#24468F,#17326C);--crumb-ink:#C9D6F5;--cur-ink:#FFF3C4;
+  --knob:radial-gradient(circle at 35% 30%,#3C68BE,#1B3570 60%,#0B1838);--knob-ink:#F3D98A;
+  --wax:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.14),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#B9503F 0%,#6E1712 42%,#2C0705 100%);--wax-ink:#FBEFC4;
+  --home:var(--wax);--home-ink:#E5CF92}
+.sk-sh{--metal:linear-gradient(180deg,#FFFFFF 0%,#E3E8EE 18%,#AEB8C6 42%,#6B7483 58%,#AEB8C6 76%,#EEF2F6 100%);--hi:#B8C2CF;--dk:#1B1F27;
+  --rule:rgba(205,214,227,.55);--title:linear-gradient(180deg,#FFFFFF 0%,#F1F4F8 32%,#B3BDCA 56%,#E9EEF3 100%);--line:linear-gradient(90deg,#7C8796,#FFFFFF 50%,#7C8796);
+  --hide:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#3A5DAE 0%,#1F4290 34%,#173470 62%,#0C1C44 100%);
+  --bar:linear-gradient(180deg,#0C1838,#122450);--crumb:linear-gradient(180deg,#2A4C98,#1A3674);--crumb-ink:#D5DEF0;--cur-ink:#FFFFFF;
+  --knob:radial-gradient(circle at 35% 30%,#4570C4,#1F4290 60%,#0C1C44);--knob-ink:#F2F5F9;
+  --wax:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.7),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#FFFFFF 0%,#D3DAE3 45%,#8A95A5 100%);--wax-ink:#1F4290;
+  --home:var(--wax);--home-ink:#1F4290}
+.sk-ex{--metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--hi:#C9A24A;--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--title:var(--metal);--line:linear-gradient(90deg,#8A6420,#FFF3C4 50%,#8A6420);
+  --hide:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#B8343C 0%,#8E1A21 34%,#661118 62%,#2E0609 100%);
+  --bar:linear-gradient(180deg,#220507,#330A0E);--crumb:linear-gradient(180deg,#8A1C23,#5E1016);--crumb-ink:#F2CDBE;--cur-ink:#FFF3C4;
+  --knob:radial-gradient(circle at 35% 30%,#C23A42,#8E1A21 60%,#3A070B);--knob-ink:#F3D98A;
+  --wax:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420);--wax-ink:#6B1016;
+  --home:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 25%,#C9A24A 60%,#A47A2A 100%);--home-ink:#5A0E13}
+/* the Crown: the Exchange's design, with royal purple in place of its crimson */
+.sk-cr{--metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--hi:#C9A24A;--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--title:var(--metal);--line:linear-gradient(90deg,#8A6420,#FFF3C4 50%,#8A6420);
+  --hide:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#86296A 0%,#58143F 10%,#3D0B2D 26%,#2A0720 52%,#140210 100%);
+  --bar:linear-gradient(180deg,#140310,#1F0518);--crumb:linear-gradient(180deg,#661A4E 0%,#3E0C2F 38%,#270620 100%);--crumb-ink:#EBCBDF;--cur-ink:#FFF3C4;
+  --knob:radial-gradient(circle at 35% 30%,#8E2E6E,#4E1039 50%,#1C0415);--knob-ink:#F3D98A;
+  --wax:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420);--wax-ink:#4F0F3B;
+  --home:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 25%,#C9A24A 60%,#A47A2A 100%);--home-ink:#3E0A2F}
+
+/* ---------- the map window frame, in the proportions of the game's own ---------- */
+.mw{position:absolute;width:800px;height:595px}
+.mw-rim{position:absolute;inset:0;padding:2px;border-radius:8px;background:var(--metal);
+  box-shadow:0 0 0 1px var(--dk),0 26px 60px rgba(0,0,0,.75),0 6px 16px rgba(0,0,0,.55)}
+.mw-hide{position:relative;width:100%;height:100%;border-radius:6px;background:var(--hide);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.65),inset 0 2px 0 rgba(255,255,255,.1),inset 0 0 34px rgba(0,0,0,.5)}
+.mw-hide::before{content:"";position:absolute;inset:4px;border:1px solid var(--rule);border-radius:4px;pointer-events:none}
+.mw-seal{position:absolute;left:-26px;top:-28px;width:92px;height:92px;z-index:20;filter:drop-shadow(0 10px 10px rgba(0,0,0,.65)) drop-shadow(0 0 18px rgba(243,217,138,.18))}
+.mw-seal.crest{left:-30px;top:-42px;width:100px;height:112px}
+
+.mw-title{position:absolute;left:96px;right:96px;top:3px;height:25px;display:flex;align-items:center;justify-content:center;gap:12px;z-index:3}
+.mw-title::before,.mw-title::after{content:"";width:46px;height:1px;background:linear-gradient(90deg,rgba(0,0,0,0),var(--hi))}
+.mw-title::after{transform:scaleX(-1)}
+.mw-title h3{margin:0;font-family:'Cinzel Decorative','Cinzel',Georgia,serif;font-weight:900;font-size:14px;letter-spacing:.14em;line-height:1;white-space:nowrap;
+  background:var(--title);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.7))}
+.mw-sep{position:absolute;left:2px;right:2px;top:28px;height:3px;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1px,var(--sep,var(--hi)) 1px 2px,rgba(0,0,0,.35) 2px 3px)}
+
+/* enlarge and close: square, sitting flush in the top-right corner like the game's own */
+.mw-btns{position:absolute;right:2px;top:2px;display:flex;gap:2px;z-index:4}
+.mw-knob{width:29px;height:26px;border-radius:2px;display:grid;place-items:center;border:none;padding:0;cursor:pointer;color:var(--knob-ink);background:var(--knob);
+  box-shadow:inset 0 0 0 1.5px var(--hi),inset 0 0 0 2.5px rgba(0,0,0,.55),inset 0 4px 5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.5)}
+.mw-knob.wax{color:var(--wax-ink);background:var(--wax);border-top-right-radius:6px}
+.mw-knob svg{width:13px;height:13px}
+
+.mw-nav{position:absolute;left:77px;right:9px;top:36px;height:33px;display:flex;align-items:stretch;padding:2px;background:var(--bar);border-radius:2px;z-index:2;
+  box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px rgba(0,0,0,.6),inset 0 2px 6px rgba(0,0,0,.5)}
+.crumb{position:relative;display:flex;align-items:center;gap:6px;padding:0 24px 0 22px;margin-right:-9px;border:none;cursor:pointer;white-space:nowrap;
+  font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:11.5px;letter-spacing:.08em;color:var(--crumb-ink);background:var(--crumb);
+  clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%,11px 50%)}
+.crumb.home{padding-left:14px;color:var(--home-ink);background:var(--home);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%)}
+.crumb.cur{color:var(--cur-ink)}
+.crumb.cur::after{content:"";position:absolute;left:20px;right:22px;bottom:4px;height:2px;background:var(--line)}
+.crumb svg{width:10px;height:10px;flex:none}
+.nav-drop{margin-left:auto;width:28px;flex:none;border:none;padding:0;display:grid;place-items:center;cursor:pointer;color:var(--knob-ink);background:var(--knob);box-shadow:inset 0 0 0 1px var(--hi)}
+.nav-drop svg{width:12px;height:12px}
+
+.mw-map{position:absolute;left:9px;top:79px;width:782px;height:507px;overflow:hidden;background:#3a2c14;
+  box-shadow:0 0 0 1px var(--dk),0 0 0 2px var(--map-ring,var(--hi)),0 0 0 3px rgba(0,0,0,.6)}
+.mw-map img{display:block;width:100%;height:100%;object-fit:cover}
+.mw-map::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 16px rgba(0,0,0,.5);pointer-events:none}
+.mw-round{position:absolute;top:87px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:none;padding:0;cursor:pointer;z-index:3;
+  color:var(--knob-ink);background:var(--knob);box-shadow:0 0 0 2px var(--hi),0 0 0 3px var(--dk),0 2px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
+.mw-round.tl{left:17px}
+.mw-round.tr{left:755px}
+.mw-round svg{width:14px;height:14px}
+.mw-toggle{position:absolute;left:739px;top:550px;width:44px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:1px;border:none;padding:0;cursor:pointer;z-index:3;
+  color:var(--knob-ink);background:var(--knob);box-shadow:0 0 0 2px var(--hi),0 0 0 3px var(--dk),0 2px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
+.mw-toggle svg{width:15px;height:15px}
+/* the Crown's gold filigree ornaments, on the two bottom corners, kept inside the frame */
+.mw-corner{position:absolute;width:44px;height:44px;background:url(/_blob/6d5fbe8d4c5384d8cf626886038701ac) 0 0/contain no-repeat;pointer-events:none;z-index:6}
+.mw-corner.bl{left:-1px;bottom:-1px;transform:scaleY(-1)}
+.mw-corner.br{right:-1px;bottom:-1px;transform:scale(-1,-1)}
+
+/* ---------- captions and the setting ---------- */
+.cap{position:absolute;display:flex;flex-direction:column;gap:5px;width:800px}
+.cap .board-label{position:static}
+.cap .board-note{position:static}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.setrow label{display:flex;flex-direction:column;gap:2px;font-family:'Cinzel',serif;font-weight:700;font-size:12.5px;letter-spacing:.08em;color:#2A1F14}
+.setrow label small{font-family:'EB Garamond',serif;font-weight:400;font-size:14px;letter-spacing:0;color:#5E4B33}
+.seg{display:inline-flex;flex:none;padding:3px;gap:3px;background:rgba(110,79,23,.12);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
+.seg button{min-height:30px;padding:0 12px;border:none;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5E4B33;background:transparent}
+.seg button.on{color:#F3D98A;background:linear-gradient(180deg,#2E58AA,#1B3570)}
+</style>
+</helmet>
+<div class="stage" style="width: 1800px; height: 1790px">
+
+  <span class="board-label" style="left: 64px; top: 44px">The game's own map window · dressed by party</span>
+  <span class="board-note" style="left: 64px; top: 72px">Only the frame changes, in the game's own proportions. The map art, its pins and markers stay exactly as the game draws them.</span>
+
+  <!-- Silverhand -->
+  <div class="mw sk-sh" style="left: 64px; top: 170px">
+    <div class="mw-rim"><div class="mw-hide"></div></div>
+    <img class="mw-seal" src="/_blob/dd8568019d0ff8be3c87935987cf352a" alt="Silverhand seal">
+    <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
+    <div class="mw-sep"></div>
+    <div class="mw-btns">
+      <button class="mw-knob" type="button" aria-label="Enlarge map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 5H5v14h14v-5"></path></svg></button>
+      <button class="mw-knob wax" type="button" aria-label="Close map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+    </div>
+    <nav class="mw-nav" aria-label="Map location">
+      <button class="crumb home" type="button">World</button>
+      <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    </nav>
+    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
+    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+  </div>
+  <div class="cap" style="left: 64px; top: 787px">
+    <span class="board-label">Silverhand</span>
+    <span class="board-note">Silver metalwork and argent wax on the party blue, under the blue hand.</span>
+  </div>
+
+  <!-- Azeroth Exchange -->
+  <div class="mw sk-ex" style="left: 968px; top: 170px">
+    <div class="mw-rim"><div class="mw-hide"></div></div>
+    <img class="mw-seal" src="/_blob/2548a4e779105c6802c9276a14f27592" alt="Azeroth Exchange seal">
+    <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
+    <div class="mw-sep"></div>
+    <div class="mw-btns">
+      <button class="mw-knob" type="button" aria-label="Enlarge map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 5H5v14h14v-5"></path></svg></button>
+      <button class="mw-knob wax" type="button" aria-label="Close map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+    </div>
+    <nav class="mw-nav" aria-label="Map location">
+      <button class="crumb home" type="button">World</button>
+      <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    </nav>
+    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
+    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+  </div>
+  <div class="cap" style="left: 968px; top: 787px">
+    <span class="board-label">Azeroth Exchange</span>
+    <span class="board-note">Crimson leather and gold, with a gold coin to close, under the coin-scale.</span>
+  </div>
+
+  <!-- The Crown -->
+  <div class="mw sk-cr" style="left: 64px; top: 900px">
+    <div class="mw-rim"><div class="mw-hide"></div></div>
+    <span class="mw-corner bl"></span><span class="mw-corner br"></span>
+    <img class="mw-seal" src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Crown seal">
+    <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
+    <div class="mw-sep"></div>
+    <div class="mw-btns">
+      <button class="mw-knob" type="button" aria-label="Enlarge map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 5H5v14h14v-5"></path></svg></button>
+      <button class="mw-knob wax" type="button" aria-label="Close map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+    </div>
+    <nav class="mw-nav" aria-label="Map location">
+      <button class="crumb home" type="button">World</button>
+      <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    </nav>
+    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
+    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+  </div>
+  <div class="cap" style="left: 64px; top: 1517px">
+    <span class="board-label">The Crown</span>
+    <span class="board-note">Royal purple leather and gold, with a gold coin to close, under the Crown seal.</span>
+  </div>
+
+  <!-- Ministry default -->
+  <div class="mw sk-min" style="left: 968px; top: 900px">
+    <div class="mw-rim"><div class="mw-hide"></div></div>
+    <img class="mw-seal crest" src="/_blob/f5b35b474a9d0add72bbf035c80e74e8" alt="Stormwind Alliance crest">
+    <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
+    <div class="mw-sep"></div>
+    <div class="mw-btns">
+      <button class="mw-knob" type="button" aria-label="Enlarge map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 5H5v14h14v-5"></path></svg></button>
+      <button class="mw-knob wax" type="button" aria-label="Close map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+    </div>
+    <nav class="mw-nav" aria-label="Map location">
+      <button class="crumb home" type="button">World</button>
+      <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+    </nav>
+    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
+    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+  </div>
+  <div class="cap" style="left: 968px; top: 1517px">
+    <span class="board-label">Ministry default</span>
+    <span class="board-note">For citizens in no party: the add-on's own blue and gold, under the Alliance crest.</span>
+  </div>
+
+  <span class="board-label" style="left: 64px; top: 1610px">Settings · in the game's options</span>
+  <div class="page" style="position: absolute; left: 64px; top: 1646px; width: 940px; height: 84px">
+    <div class="parch plain" style="padding: 0 24px; display: flex; align-items: center">
+      <div class="setrow" style="width: 100%">
+        <label>World map skin<small>Party shows the Crown skin to the Crown, and the Ministry skin to citizens in no party.</small></label>
+        <div class="seg" role="group" aria-label="World map skin"><button class="on" type="button" aria-pressed="true">Party</button><button type="button" aria-pressed="false">Ministry</button><button type="button" aria-pressed="false">Plain</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1800,"height":1790}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
