@@ -119,10 +119,14 @@ MOTADB = {
         --     tops     = {},  -- [author] = highest record number held
         --     reserved = {},  -- highest number another member says they hold of ours
         --     peers    = {},  -- last hello from each member's addon
+        --     myBallots = {}, -- [character][ballot] = this character's own ballot: the choice
+        --                     --   only until a King's receipt arrives, then just "delivered" (8.2)
         --     state    = {},  -- cached state (6.3), rebuilt from records
         -- }
     },
-    ballotTally = {},       -- Crown clients only, never sent to the guild (8.2)
+    ballotTally = {},       -- Crown clients only, never sent to the guild (8.2):
+                            -- [ballot] = { counts = {per candidate}, counted = {[name] = token}, refused }
+                            -- counts and names are never linked; the names go once declared
     onboarding  = {},       -- local only, never synced (12.3)
     probe = {},             -- last /mota probe report and limits test
     window = {}, minimap = {}, crest = {},  -- window position, size, page; minimap seal; chosen crest
@@ -313,7 +317,7 @@ Addon messages always carry the real name of the sender, which can't be faked.
 - **Records sent by their own author** are accepted if the author was allowed to write that type at that time (section 4).
 - **Records passed on by someone else** (during catch-up) are held as **unconfirmed** until the author sends them, or two different members pass on identical copies. Unconfirmed records are greyed out where it matters.
 - **Record types a copy doesn't know are kept but never acted on**, so a newer copy's records survive in an older one's book.
-- *Built so far:* only records sent by their own author are taken; passed-on records wait for catch-up.
+- *Built so far:* only records sent by their own author are taken; passed-on records wait for catch-up. One exception since Milestone 4: a Crown member's add-on may pass on the open ballot's records (`BO`, 7.5), and those are taken because the Crown is trusted with the count anyway.
 
 **Honest limits:** strong protection against ordinary mischief, not bank-level security. Someone who rewrote the addon could send odd records under their own name, but couldn't pretend to be someone else or use an office they don't hold.
 
@@ -328,13 +332,17 @@ All messages go through **AceComm-3.0** on the prefix `MOTA`.
 | Record | GUILD | One record (7.1) |
 | Summary | GUILD | Highest record number held per author (catch-up) |
 | Catch-up batch | WHISPER | Missing records, packed and compressed |
-| Ballot | WHISPER, to each online King | The sealed vote (8.2) |
-| Ballot receipt | WHISPER, King back to the voter | "Your ballot is sealed" |
-| Tally hand-over | WHISPER, King to King | The running count, when the second King logs in during a session |
+| Ballot (`BV`) | WHISPER, to each online King | The sealed vote: ballot, choice, a one-off token (so a resent ballot isn't taken for a second one) and the voter's `ballot.sealed` record number if it was held (8.2) |
+| Ballot receipt (`BR`) | WHISPER, King back to the voter | `ok`, `dup` (already counted), `closed` (too late) or `unknown` (that King doesn't know the ballot yet) |
+| Tally hand-over (`BT`) | WHISPER, King to King | The running count and who was counted (never how), after counting and whenever the two Kings meet; used both to hand the count over and to compare the two counts |
+| Open ballot (`BO`) | WHISPER, King to a member who said hello | The open ballot's records (open, close, the latest result under a week old, that member's own `voted` record; for the other King, all `voted` and `sealed` records). Accepted only from a Crown member, and only the Crown's own ballot records plus voters' `sealed` records |
+| Sealed ballots heard of (`BS`) | WHISPER, member to a King logging in | Who sealed a ballot while the Kings were away, and when. Only feeds the Crown view's count of ballots still to come |
 | Chamber business | WHISPER, to each member on that party's roster | Party Chamber notes, whip notices and leadership votes (10.16) |
 | Probe | GUILD | Test traffic for `/mota probe limits` (only the sender reads it) |
 
-The brief's other message types are now record types: `BALLOT_OPEN` → `ballot.open`, `BALLOT_CLOSE` → `ballot.close`, `CITIZEN_UPDATE` → `citizen.update`, `STATE_DELTA` → whichever record changed. `PETITION_SIGN` is dropped: no-confidence goes by in-game mail (8.6).
+The ballot's records (built in Milestone 4): `ballot.open` (Crown: name, kind, candidates, closing time), `ballot.sealed` (the voter: who sealed a held ballot and when, never how), `ballot.voted` (Crown: who voted, never how), `ballot.close` (Crown: polls closed early) and `ballot.result` (Crown: the declared result, complete in itself). Close and result are separate records because held ballots sealed before the close still count until the declaration (8.3).
+
+The brief's other message types are now record types: `BALLOT_OPEN` → `ballot.open`, `BALLOT_CLOSE` → `ballot.close` and `ballot.result`, `CITIZEN_UPDATE` → `citizen.update`, `STATE_DELTA` → whichever record changed. `PETITION_SIGN` is dropped: no-confidence goes by in-game mail (8.6).
 
 - **Format:** a record is packed with `C_EncodingUtil.SerializeCBOR` and turned into channel-safe text with `EncodeBase64`; big batches are compressed with `CompressString` first. (Whether Forever accepts raw binary in addon messages, which would save the Base64 step, is untested.) *(Built 2026-11-06 as protocol 2: the envelope is short text fields joined by byte 31 — protocol, kind, then fields — and a record is one field of packed Base64.)*
 - **Versions:** every message carries a protocol version. Hello and hello reply always keep the version first, so an old copy can tell it's out of date. A copy that hears a newer protocol stops writing records and tells the player to update, but keeps reading.
@@ -375,25 +383,27 @@ Polls stay open for `BALLOT_WINDOW_SECONDS` (2 hours, Charter 3.3 as amended 202
 1. Citizen opens Ballot Hall, sees active ballot
 2. Selects option, clicks **Seal My Ballot**
 3. The addon sends the ballot `{ballotId, optionId, timestamp}` by **hidden addon whisper to each King who is online**. Addon whispers never appear in chat and reach only the named character, so officers and everyone else never receive them.
-4. **If no King is online,** the voter's addon holds the sealed ballot and sends it the moment a King logs in, as long as polls are still open. The Ballot Hall shows "Sealed, waiting for the Crown".
+4. **If no King is online,** the voter's addon holds the sealed ballot (kept through `/reload` and logout) and writes a `ballot.sealed` record to the guild: who sealed a ballot and when, never how. It sends the ballot as soon as the voter and a King are online together. The Ballot Hall shows "Sealed, waiting for the Crown", and the Crown's view shows how many sealed ballots are still on their way. A held ballot still counts after the polls close if the King's addon had its `ballot.sealed` record before the close and the result hasn't been declared (8.3).
 5. Each King's addon validates (eligible, not already voted, not a linked alt), adds one to its local `MOTADB.ballotTally`, and **throws the voter's name away** — only "this person has voted" is kept.
 6. The King's addon writes a `ballot.voted` record (who voted, not what they chose) to the guild, and whispers a receipt back.
 7. Citizen's ballot UI updates to "Your ballot is sealed"
 
 - **Two Kings, two counts.** Both Kings receive every ballot sent while they're online, so their counts can be compared before the result is declared. If only one King was online, their addon hands the running count to the other King by whisper when they log in.
+- **The last King's warning:** when the only King online starts to log out while polls are open, their addon warns that ballots will wait with their voters, with **Stay online** (cancels the logout) and **Log out anyway**. *(Decided 2026-11-06; to test, section 18.)*
+- **Later (v2.0): encrypted ballots** that any member's addon can carry, so a ballot reaches the Kings even if the voter is never online at the same time as one (19.1).
 - **Vote secrecy:** raw vote choices are never sent to the GUILD channel or saved with a name. The `voted` list confirms participation, never preference.
 - **Honest limits:** the guild trusts the Kings' count, and the Kings' addons briefly see each ballot. Someone writing their own script to read votes is judged highly unlikely.
 
 ### 8.3 Closing a Session (Crown)
 
-1. After the 2-hour window (or manual close), Crown clicks **Close Polls**
-2. Addon calculates result from the tally, populates `ballot.result`
-3. Writes a `ballot.close` record with the result — all citizens receive it, and a herald announces it
-4. Result is written to `elections` history and the Chronicle
+1. After the 2-hour window the polls close by themselves; the Crown can close them early with **Close Polls**, which writes a `ballot.close` record. No new ballots are taken, but held ballots sealed before the close (8.2, step 4) still count until the result is declared. The Crown's view says how many are still to come; the Crown chooses to wait for them or declare without them.
+2. **Declare the result** writes a `ballot.result` record from that King's own count: name, kind, candidates, votes, total, active citizens, and the winner (or the tied candidates). The first result written stands.
+3. All citizens receive it, and a herald announces it. The King's add-on then drops the names of who it counted.
+4. Result is written to `elections` history and the Chronicle *(the Results view's record of past elections reads the `ballot.result` records; the Chronicle comes later)*
 5. If General Election: Crown is prompted to update `government` state
 6. Ballot resets to `active = false`
 
-**Ties:** a run-off between the tied candidates only, within 48 hours (Charter 2.1). The Crown opens it as a `RUN_OFF` ballot.
+**Ties:** a run-off between the tied candidates only, within 48 hours (Charter 2.1). **Set up the run-off** writes the result with the tie, and fills the Open Polls form with the tied candidates and the kind Run-off; the Crown opens it from there.
 
 ### 8.4 Who may vote
 
@@ -442,6 +452,12 @@ end
 
 The skin is set once on login and refreshed on any `citizen.update` record affecting the current player. It does not hot-swap mid-session without a `/reload`. The Crown skin supersedes party affiliation for Crown rank holders.
 
+*Settled 2026-11-06 (window skins design):*
+- **Only on your own screen.** Each player sees their own skin; nothing about it is sent to anyone.
+- **Settings choice:** "Window skin: Party / Ministry" on the settings page (10.13). Party (the default) uses the rule above. Ministry always shows the blue and gold, for anyone who prefers it, the Crown included. This is separate from the world map's own setting (9.6), which also has Plain.
+- **When it changes:** a change of party or Crown rank shows at the next login or `/reload`, as above. Changing the setting re-skins the window at once, since a skin is only a swap of textures and colours.
+- **Testing:** `/mota skin crown|silverhand|exchange|ministry` shows that skin on your own screen until `/reload`; `/mota skin` alone goes back to your own. So all four can be checked from one character.
+
 ### 9.2 The four skins
 
 | Skin key | Design | Colours | Corner emblem |
@@ -455,18 +471,34 @@ The skin is set once on login and refreshed on any `citizen.update` record affec
 
 **The lion crest** (`design/textures/alliance-crest.png`): the Crown crest's shape with a gold lion head in place of the crown and royal blue in place of the purple. Made in Higgsfield, so it isn't Blizzard's art. The old Stormwind picture stays in `design/reference/alliance-crest.png`. The crest finder (`/mota crests`) stays in, in case the game's own crest is ever wanted.
 
+**The window in each skin** *(designed 2026-11-06 on the "Window skins" board of the live canvas; mirror `design/canvas-source/WindowSkins.dc.html`)*. The same window, with three kinds of part:
+
+- **Changes with every skin:** the leather (the Crown's adds a soft purple glow behind the title); the resting and hover tabs, pressed in the skin's wax; the settings knob, and the close knob in the skin's wax or coin; the corner emblem; the ink of the lit tab's label; the pale ink (page name under the title, the name at the foot of the rail, the status strip).
+  - Ministry: blue leather, oxblood wax tabs, red wax close knob, lion crest (as built in Milestone 2).
+  - Silverhand: party-blue leather, steel-blue wax tabs, argent wax close knob, the blue hand seal.
+  - Exchange: crimson leather, bright crimson wax tabs, gold coin close knob, the coin-scale seal.
+  - Crown: royal purple leather, plum wax tabs with a lighter purple top edge, gold coin close knob, the Crown crest.
+  - The two party seals are round, so they sit a little smaller than the shield crests (132 wide against 152).
+- **Changes with the metal:** the outer rim, double rule and stitching, the three filigree corners, the title, the lit tab and its tooled border, and the metal rim round the parchment page. **Gold** for the Crown, the Exchange and the Ministry; **silver** for Silverhand. Two sets, not four.
+- **Stays the same in every skin:** the parchment page and everything on it (headings, plates, blue buttons, ribbons, seals, the Ballot Hall's pieces); the tab icons and labels; the window's shape, size and shadow; the heralds, the settings page and the minimap seal. Keeping the page the same is what stops every page's pictures being needed four times.
+
 ### 9.3 Colour Tokens
 
-Each skin defines tokens consumed by all UI components. **Final values are taken from the world map skins board on the live canvas** when `Skin.lua` is built; the table below is the brief's placeholder set.
+Each skin defines tokens for the parts drawn as game text or coloured in the game (labels and icons are drawn once in white and coloured with `SetVertexColor`). The leather, wax and metal are pictures (9.7); their full gradients are in the Window skins board's styles, which the texture build draws from. The brief's placeholder tokens (`PRIMARY_BG`, `BORDER`, `ACCENT`, `HEADER_TEXT`, `BUTTON_BG`, `BUTTON_TEXT`) are replaced by these:
 
-| Token | CROWN | SILVERHAND | AZEROTH_EXCHANGE | UNREGISTERED |
-|---|---|---|---|---|
-| `PRIMARY_BG` | `#1A0A2E` | `#0E1F45` | `#2A0A0A` | `#1A1409` |
-| `BORDER` | `#7B4FA6` | `#C9A24A` | `#C9A24A` | `#8A7340` |
-| `ACCENT` | `#9B6EC8` | `#3A63B8` | `#8B1A1A` | `#6B5A28` |
-| `HEADER_TEXT` | `#D4A8FF` | `#F3D98A` | `#F3D98A` | `#D4B96A` |
-| `BUTTON_BG` | `#5C2D8A` | `#1B3570` | `#6E1212` | `#4A3A18` |
-| `BUTTON_TEXT` | `#FFFFFF` | `#F3D98A` | `#F3D98A` | `#D4B96A` |
+| Token | Used for | CROWN | SILVERHAND | AZEROTH_EXCHANGE | UNREGISTERED |
+|---|---|---|---|---|---|
+| `METAL` | which metal set (9.7) | gold | silver | gold | gold |
+| `TAB_INK` | resting tab label and icon | `#F3D98A` | `#DCE3EE` | `#F3D98A` | `#E5CF92` |
+| `TAB_SMALL` | resting tab's second line | `#E8C6DC` | `#AEB9CC` | `#F0C9BC` | `#EBC3B2` |
+| `TAB_INK_ON` | lit tab label and icon | `#3E0A2F` | `#1F4290` | `#5A0E13` | `#0E1F45` |
+| `TAB_SMALL_ON` | lit tab's second line | `#3A2A0A` | `#2B3445` | `#3A2A0A` | `#3A2A0A` |
+| `PALE_INK` | page name, rail foot second line, status strip | `#EBCBDF` | `#C6D2EA` (page name `#D5DEF0`) | `#F2CDBE` | `#B9C9EE` (rail and strip `#AFC0E6`) |
+| `NAME_INK` | name at the foot of the rail | `#FBEFC4` | `#FFFFFF` | `#FBEFC4` | `#FBEFC4` |
+| `PIP` | the sync pip | `#F3D98A` | `#FFFFFF` | `#F3D98A` | `#F3D98A` |
+| `RULE` | thin line above the rail foot | gold at 35% | `#D6DEE9` at 35% | gold at 35% | gold at 35% |
+
+Reference mid tones (for swatches, not used in code): leather `#3D0B2D` / `#1F4290` / `#8E1A21` / `#1E3B7C`; tab wax `#5A1645` / `#2E3E62` / `#7A151C` / `#6E1712`; metal `#C9A24A` / `#AEB8C6`.
 
 ### 9.4 Skin Application
 
@@ -478,8 +510,8 @@ Skins are applied via a central `MOTA.ApplySkin(skin)` function called during fr
 -- MOTA.skin.PRIMARY_BG = { r = 0.10, g = 0.04, b = 0.18 }
 
 -- Usage in any UI file:
-local c = MOTA.skin.PRIMARY_BG
-frame:SetBackdropColor(c.r, c.g, c.b, 1)
+local c = MOTA.skin.TAB_INK
+label:SetVertexColor(c.r, c.g, c.b, 1)
 ```
 
 ### 9.5 Skin.lua
@@ -490,13 +522,12 @@ A dedicated `UI/Skin.lua` file holds all token definitions, the texture set per 
 -- Skin.lua (excerpt)
 local SKINS = {
     CROWN = {
-        PRIMARY_BG   = { r=0.10, g=0.04, b=0.18 },
-        BORDER       = { r=0.48, g=0.31, b=0.65 },
-        ACCENT       = { r=0.61, g=0.43, b=0.78 },
-        HEADER_TEXT  = { r=0.83, g=0.66, b=1.00 },
-        BUTTON_BG    = { r=0.36, g=0.18, b=0.54 },
-        BUTTON_TEXT  = { r=1.00, g=1.00, b=1.00 },
-        CREST        = "Interface\\AddOns\\MinistryOfTheAllied\\Media\\crest_crown",
+        METAL        = "gold",            -- picks frame_gold.tga (9.7)
+        TEXTURE      = "skin_crown",      -- leather, wax tabs, knobs, emblem (9.7)
+        TAB_INK      = { r=0.95, g=0.85, b=0.54 },
+        TAB_INK_ON   = { r=0.24, g=0.04, b=0.18 },
+        PALE_INK     = { r=0.92, g=0.80, b=0.87 },
+        -- ... the rest of the 9.3 tokens
     },
     SILVERHAND = { --[[ ... ]] },
     AZEROTH_EXCHANGE = { --[[ ... ]] },
@@ -524,6 +555,24 @@ The game's own world map window ("Map & Quest Log") gets a frame in the same ski
   - Before skinning, the addon checks that each part of the window is there. If a Blizzard patch has changed it, the plain map is left alone.
   - If another addon restyles or replaces the map window's frame (for example ElvUI's skins), ours steps back. Addons that only add things to the map (such as a coordinates readout) don't count.
 - **Design:** the "World map skins" board on the live canvas shows all four skins on the real Elwynn Forest map, plus the setting (first pass 2026-11-04; second pass the same day matched the game window's proportions: title strip, location bar and gap about 15% of the map's height, square enlarge and close buttons flush top-right, outer rim about 30% thinner). The docked quest log isn't drawn yet: it needs a Forever screenshot with the quest log open. Reference: `design/reference/forever-world-map.webp`.
+
+### 9.7 Building the window skins' textures *(settled 2026-11-06, to build)*
+
+Today the whole window background (rim, leather, corners, title and parchment page) is one picture, `chrome.tga` (2048 × 1024, 8 MB), plus `crest.tga` (1 MB). Copying both per skin would add about 27 MB for the three new skins. Instead `tools/textures/build.py` splits the window into layers, so each part is drawn only as often as it really differs:
+
+| Texture | How many | Size | Holds |
+|---|---|---|---|
+| `parch.tga` | 1, shared | 1024 × 1024, 4 MB | The parchment page alone, at 1.3× (it's soft vellum, so slightly below the window's 1.46× is fine) |
+| `frame_gold.tga`, `frame_silver.tga` | 1 per metal | 1024 × 512, 2 MB each | The rim, double rule, stitching, filigree corners and the page's metal rim, cut into corners and edge strips (like the shadow's nine pieces), drawn with the leather hidden; the title; the lit tab and its tooled border |
+| `skin_crown.tga`, `skin_silverhand.tga`, `skin_exchange.tga`, `skin_ministry.tga` | 1 per skin | 1024 × 512, 2 MB each | The leather drawn small (512 × 512) and stretched, since it's a soft gradient; the resting and hover tab; the two knobs; the corner emblem |
+| `grain.tga` | 1, shared | 256 × 256, 0.25 MB | The leather grain, tiled over the stretched leather so it stays crisp |
+
+- **What each skin adds:** 2 MB. The silver metal adds 2 MB once, for Silverhand.
+- **In total:** the window's pictures go from 9 MB (chrome and crest) to about 16.25 MB, so **the add-on grows by about 7 MB** for all four skins. The textures today come to about 29.5 MB (the Ballot Hall's `ballot.tga` and `papers.tga` are 8 MB of it); the whole add-on folder, with fonts and voice clips, is about 39 MB.
+- **Memory:** the game loads a texture only when it's shown, so a player's memory holds just their own skin; the others only cost download size.
+- **How the build gets the skins:** `layout.html` takes the skin's class (`ws-sh`, `ws-ex`, `ws-cr`, or none for the Ministry) and its emblem; the per-skin styles come from the Window skins board's `<helmet>` styles, read the same way as the Extras and Ballot Hall boards. The script draws the per-skin pieces once per skin, the metal pieces once with a gold skin and once with Silverhand, and the shared pieces once. `Media.lua` gains a `skins` table: per skin, its texture, its metal and where each piece sits.
+- **Coloured in the game, not drawn per skin:** tab labels and icons are already drawn in white; the page names under the title change from blue-grey pictures to white ones, so the 9.3 tokens can colour all of them.
+- **Could go smaller later:** if Forever loads `.blp` files for add-ons, the same textures compressed would be about a quarter of the size. One test before relying on it; not part of this milestone.
 
 ---
 
@@ -805,6 +854,7 @@ MinistryOfTheAllied/
 ├── Comm.lua            (built) AceComm send/receive, packing
 ├── Book.lua            (built) The book of records: numbering, adding, sending, who may write which type
 ├── Hello.lua           (built) Guild handshake and version check
+├── Ballot.lua          (built) The secret ballot: records, whispers, counting (8.2, 8.3)
 ├── Data.lua            (built) Constants (MOTA.CONST); later the state built from records, validators
 ├── Probe.lua           (built) /mota probe and /mota probe limits
 ├── Media.lua           (built) Texture piece positions (written by tools/textures/build.py)
@@ -817,7 +867,7 @@ MinistryOfTheAllied/
 │   ├── Herald.lua      (built) Herald pop-ups
 │   ├── Settings.lua    (built) Settings panel
 │   ├── ThroneRoom.lua          Tab 1
-│   ├── BallotHall.lua          Tab 2
+│   ├── BallotHall.lua          (built) Tab 2
 │   ├── StatuteBook.lua         Tab 3
 │   ├── Court.lua               The Court: accusations, summons, rulings, appeals (Statute Book, Rulings)
 │   ├── Parties.lua             Tab 4
@@ -866,6 +916,7 @@ Roster.lua
 Comm.lua
 Book.lua
 Hello.lua
+Ballot.lua
 Probe.lua
 Media.lua
 Fonts.lua
@@ -898,13 +949,14 @@ Commands.lua
 
 - **Live design canvas:** https://claude.ai/artifact/V6ZmxpJtw85SrWT9S87acJ (private until shared from its Share menu). It has the style guide, the pages as a clickable prototype, the Extras board (settings, heralds) and the world map skins board. **It is the source of truth for the look.** `design/canvas-source/` is a copy, refreshed from the live canvas before each texture build. Style brief: `design/STYLE_BRIEF.md`.
 - **Theme:** regal Stormwind/Alliance. Parchment, wax seals, royal blue and gold. Premium and ceremonial, not basic.
-- **Textures:** `design/textures/` holds the parchment, leather, filigree, divider, wax seals and crests. `tools/textures/build.py` lays the window out with the canvas's own stylesheet, draws each piece in Microsoft Edge and packs the pieces into game textures (`Media/*.tga`), with their positions in `Media.lua`. The settings page and herald come from a second layout, `tools/textures/extras.html`. When the design changes, run the script again.
-- **Sizes:** one large background (frame, title, parchment page) at 1.46× the canvas size; small pieces (tabs, labels, icons, buttons, seals) at 2×, so they stay sharp. The addon folder is about 19 MB, mostly textures.
+- **Textures:** `design/textures/` holds the parchment, leather, filigree, divider, wax seals and crests. `tools/textures/build.py` lays the window out with the canvas's own stylesheet, draws each piece in Microsoft Edge and packs the pieces into game textures (`Media/*.tga`), with their positions in `Media.lua`. The settings page and herald come from a second layout, `tools/textures/extras.html`, and the Ballot Hall's pieces from a third, `tools/textures/ballot.html`. When the design changes, run the script again.
+- **Sizes:** one large background (frame, title, parchment page) at 1.46× the canvas size; small pieces (tabs, labels, icons, buttons, seals) at 2×, so they stay sharp. The add-on folder is about 39 MB (textures about 29.5 MB, the rest fonts and voice clips); the window skins add about 7 MB (9.7).
 - **Fixed-text labels are pictures, live text is game text.** Tab labels, page names and eyebrows are drawn from the canvas, since the game can't space letters like the canvas. Headings, notes and the status strip are game text. Spaced-out capitals in game text are drawn one letter per text piece (`MotA:Tracked`).
 - **Shadow:** a soft picture stretched in nine pieces, so its corners stay round.
 - **Fonts:** Cinzel, Cinzel Decorative and EB Garamond from Google Fonts ship inside the addon with their SIL Open Font License files. If the game can't load them, the addon uses the game's own font.
 - Names, gold amounts, vote counts and laws on the boards are sample data.
-- **To update on the boards:** the Treasury board still says the Treasurer was "Elected"; change it to appointed by the PM. Window skins (9.2) and the voice player (12.5) need drawing.
+- **Window skins:** the "Window skins" board shows the window in all four skins, what changes and what stays, the colours, and the settings switch (9.1, 9.2, 9.7). *(Drawn and approved by Max 2026-11-06; to build.)*
+- **To update on the boards:** the voice player (12.5) needs drawing. *(The Treasury board already shows the Minister of the Treasury as appointed by the PM.)*
 
 ---
 
@@ -919,7 +971,7 @@ Commands.lua
 | **v1.2** | Districts tab with map, Citizen Roll |
 | **v1.3** | Parties tab with the Party Chamber, the Court |
 | **v1.4** | The Ring, world map skins |
-| **v2.0** | External persistence layer, async voting |
+| **v2.0** | External persistence layer, async voting, encrypted ballots (19.1) |
 
 Each phase is built in small milestones that each load in the game and can be tested before the next starts.
 
@@ -952,7 +1004,7 @@ Each phase is built in small milestones that each load in the game and can be te
 
 ### 16.3 Commands
 
-`/mota` (open the window), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`, `/mota scale [n]`, `/mota minimap`, `/mota crests`, `/mota crest <n|ours>`, `/mota settings`, `/mota herald [1|2|3]`, `/mota fanfare [n]`. `/ministry` works the same.
+`/mota` (open the window), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`, `/mota scale [n]`, `/mota minimap`, `/mota crests`, `/mota crest <n|ours>`, `/mota settings`, `/mota herald [1|2|3]`, `/mota fanfare [n]`, `/mota constitution`, `/mota voice [on|off|stop|next|reset]`, `/mota ballot` (opens the Ballot Hall and says where the vote stands and where your ballot is), `/mota ballot count` (the two Crown ranks only: the count, held and refused ballots, and whether the two Kings' counts agree). `/ministry` works the same.
 
 ### 16.4 The code brought in line with this spec *(built 2026-11-06, to test in game)*
 
@@ -967,7 +1019,42 @@ Each phase is built in small milestones that each load in the game and can be te
 
 **To test in game:** `/reload`; `/mota` and `/mota probe` work as before (the probe now says "On the Crown ranks"). With a second guild member online: `/mota who` and `/mota test Hear ye!` both ways.
 
-Milestone 4 is to agree with Max. Candidates: the secret ballot and Ballot Hall; window skins (needs the canvas drawn first); catch-up and the trust rules (needs the guild).
+**Milestone 4 — the secret ballot** *(agreed 2026-11-06; built 2026-11-06, to test in game)*
+
+Window skins come after it. Steps: update the Ballot Hall board on the live canvas, Max reviews it, then build.
+
+1. **The Crown opens polls.** One of the Crown ranks fills in the Open Polls form (election name, candidates with name and party) and clicks Open Polls: a `ballot.open` record, polls open 2 hours (`BALLOT_WINDOW_SECONDS`), and a herald "The polls are open!" for everyone online.
+2. **A citizen votes.** They mark one name and click Seal my ballot. The ballot goes by hidden add-on WHISPER to each online King (never GUILD or OFFICER). The King's add-on whispers a receipt back, and the ballot shows the sealed stamp "Sealed and sent to the Crown".
+3. **No King online.** The ballot shows "Sealed, waiting for the Crown". The voter's add-on keeps the ballot (through `/reload` and logout), writes a `ballot.sealed` record (who, not how), and sends the ballot when the voter and a King are online together. The Crown's view counts the sealed ballots still on their way. When the only King online starts to log out while polls are open, their add-on warns them (Stay online / Log out anyway).
+4. **The Kings count.** Each King's add-on writes a `ballot.voted` record (who voted, not how), drops the voter's name from the count, and refuses a second vote from the same person.
+5. **Live count only in the Kings' add-ons** (`MOTADB.ballotTally`). The two Kings' counts are compared and the Crown view says whether they agree. A King logging in late gets the count handed over by whisper.
+6. **The Crown closes polls and declares the result:** a herald, then the Results view (proclamation, bars, turnout, past elections). A tie offers a run-off between the tied candidates. Held ballots sealed before the close still count until the declaration; the closed view says how many are still to come.
+7. **Logging in mid-poll:** an online King's add-on whispers the open ballot to anyone who says hello (full catch-up isn't built yet).
+8. **Login reminder:** "You haven't voted yet: polls close in …".
+9. **Who may vote, for now:** guild members active in the last 30 days. Later: alt links (10.1), the 10-day return rule (8.4), district elections.
+10. **Not in this milestone:** the Throne Room "Vote now", the phase banner, nominations, the no-confidence tab, full catch-up.
+11. **Testing:** the pretend game client (`python tools/sim/sim.py`) with two Kings, citizens, a King offline, a mid-poll login, a double vote, a tie and a held ballot delivered after the close; then in game with Max (a King) and another member.
+
+**Design:** the Ballot Hall board on the live canvas was updated and reviewed by Max on 2026-11-06 (Crown view, held ballots, the last King's warning). The law vote was taken off the Throne Room, Statute Book, Treasury and Parties boards.
+
+**Built (2026-11-06):**
+- `Ballot.lua`: the five ballot records and the whispers `BV`, `BR`, `BT`, `BO`, `BS` (7.5); held ballots kept through `/reload` and delivered when a King says hello (the `ballot.sealed` record is sent again first, so the King holds it); the Kings' counts with hand-over and comparison; close, declare and the run-off; the "polls are open" and result heralds; the login reminder (herald and chat line, once per ballot per session); the last King's logout warning on `PLAYER_CAMPING` (a game pop-up for now, not the board's parchment one).
+- **Double votes:** a King refuses only a voter it has counted itself (also after a hand-over), never one merely on the public voted list, because the other King may have counted the very same ballot. Each ballot carries a one-off token, so the same ballot sent twice isn't taken for a second one; a second, different ballot is refused and shown under "Second ballots refused".
+- **Comparing the counts:** if one King's counted voters include all the other's, the bigger count is taken; if they share nobody, they're added up; if they partly overlap, both are kept and the Crown view says "Counts differ by N".
+- **A King logging in late** learns the ballot from the other King (`BO`), and other members tell them who sealed a ballot while they were away (`BS`), so "still to come" is right. If neither King's add-on was online when the polls opened, a King logging in later doesn't learn the ballot until full catch-up is built; held ballots stay with their voters until then.
+- `Roster.lua`: days since each member was last online, and the count of active citizens (online, or within 30 days), used for turnout.
+- `UI/BallotHall.lua` on window page 2: ribbons Ballot, Results and Crown (the Crown ribbon for the two Crown ranks only); the ballot paper with the stamp or the held block; "The Crown is counting" and "The Ballot Hall is quiet"; Results with the proclamation, bars, turnout and the record; the Open Polls form (candidates' parties change with a click); the live count with the two Kings' counts, held and refused ballots, Close polls, Declare the result and Set up the run-off. **Not in this milestone:** the Petition ribbon.
+- Textures: a third layout, `tools/textures/ballot.html`, gives `Media/ballot.tga` (ribbons, seals, stamp, buttons, pills) and `Media/papers.tga` (the three papers).
+- Checked in the pretend client (`tools/sim/sim.py`, section 13) with two Kings and five citizens: opening polls, a vote with one King online, a second ballot refused, a held ballot delivered when the King returns, a mid-poll login with the reminder, the hand-over to the second King, the same ballot reaching both Kings, counts that partly overlap, the logout warning, a held ballot sealed before the close counting after it, a tie and its run-off, a held ballot arriving after the declaration refused, and a declared result. **176 checks passed, 0 Lua errors.**
+
+**To test in game (Max, a King, plus one other member):**
+Each member votes once per election, so the two ways a ballot travels get an election each.
+1. Both `/reload`. Max: `/mota ballot`, the Crown ribbon, fill in the form (a name, two candidates), **Open polls**. The other member gets "The polls are open!"; **Vote now** opens the ballot paper.
+2. **Election 1, sent at once:** the member marks a name and seals. Within a few seconds: "Your ballot was received by the Crown (Max)" and the red stamp. Max's Crown view shows 1 vote. `/mota book` on either side shows a `ballot.voted` record and no choice.
+3. Max: **Close polls**, then **Declare the result**. The member gets the result herald; the Results ribbon shows it.
+4. **Election 2, held:** Max opens new polls, then starts to log out: the "last King online" warning should appear. Try **Stay online** (does the logout stop? section 18), then log out for real. The member seals: "Sealed, waiting for the Crown". The member `/reload`s: still waiting. Max logs back in: the member gets the receipt and Max's count shows it.
+5. **Mid-poll login:** with polls open, the member logs out and back in: "You haven't voted yet" is not shown (they voted). A member who hasn't voted, logging in, gets it.
+6. Max closes and declares election 2 (or sets up the run-off if it's a tie). Note anything that looks off against the canvas board.
 
 ### 16.5 How to test
 
@@ -1005,6 +1092,8 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 
 - **Addon message limits:** size and rate throttle, and whether Midnight-era rules block addon messages in instances or combat. `/mota probe limits` measures it; run `/mota probe` in a dungeon too.
 - **Whispered ballots:** that an addon whisper reaches a King on the same realm reliably, and what happens when the King is offline (the send should fail cleanly so the ballot is held).
+- **The last King's logout warning (8.2):** that the addon hears a logout starting (the `PLAYER_CAMPING` event) and that **Stay online** can cancel it (`CancelLogout`). If not, the warning shows when polls are open and the other King is offline, without stopping the logout. Quitting the game outright (rather than logging out) isn't caught yet.
+- **Last-online times and active citizens:** that `GetGuildRosterLastOnline` gives offline members' times, and that the roster lists offline members even with "Show offline members" unticked; otherwise the active-citizen count (turnout) only counts who is online.
 - **Auto promote/demote:** only a character whose rank has the permission can do it, so results may be applied by a Crown client, possibly with a button click.
 - **Honour titles:** that the addon can still add text to friendly nameplates and the mouseover tooltip.
 - **Chat tags:** that the addon can still change how guild chat lines display.
@@ -1025,6 +1114,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Clip 4 is out of date:** The Parties narration says polls open for forty-eight hours; Charter 3.3 has said 2 hours since 2026-11-06. It needs regenerating.
 - **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
+- **Encrypted ballots (v2.0):** the voter's addon locks the ballot so only the Kings can open it and posts it into the shared book, so it reaches the Kings even if the voter is never online with one. Needs encryption written in Lua and a key handed out by each King. Agreed for later on 2026-11-06; until then held ballots follow 8.2, step 4.
 - **Party leader votes:** how the vote inside the Party Chamber is counted (open among members, or secret like the elections) is still to decide when Parties is planned in detail.
 
 ### 19.2 Old-plan ideas set aside for the brief's simpler version
@@ -1056,7 +1146,10 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
   - The window is skinned per party, reusing the four world map skin designs.
   - Everything else follows the brief (19.2 lists what that set aside).
 - **2026-11-06** The treasury goes back to the old plan's automatic ledger, read from the guild bank money log by every member's addon (10.7). Ring entry fees are counted from the bank log, not at sign-up (11.5).
+- **2026-11-06** Milestone 4 is the secret ballot; window skins after it. Held ballots: a public `ballot.sealed` record, held ballots sealed before the close count until the result is declared, and the last King online is warned before logging out (8.2, 8.3). Encrypted ballots later, with v2.0 (19.1). The law vote was taken off every board.
 - **2026-11-06** Parties: joining follows the brief (join button, the Crown records membership); the Party Chamber, leader elections inside it, Chamber privacy by whisper and the 14-day crossing-the-floor rule follow the old plan (10.16). The Court follows the old plan: accusation, summons, Justices' ruling, punishment applied, appeal to the Crown (10.10).
+- **2026-11-06** Milestone 4 build: `ballot.close` and `ballot.result` are separate records (held ballots count until the declaration); a King refuses only voters it counted itself; a Crown member may pass on the open ballot's records to members logging in; members tell a King logging in who sealed while the Kings were away, for the count of ballots still to come only; the logout warning uses the game's pop-up for now; the Petition ribbon waits for a later milestone.
+- **2026-11-06** Window skins designed and approved by Max: the parchment page stays the same in every skin; the metal is gold except Silverhand's silver; resting tabs take each skin's wax; a "Window skin: Party / Ministry" setting and a `/mota skin` test command; the textures are split into shared, per-metal and per-skin layers, about 2 MB per skin and 7 MB in all (9.1, 9.2, 9.3, 9.7).
 - **2026-11-06** Voice onboarding: 2.5 minutes between clips rather than 4; the introduction can't be stopped; clips use herald scrolls rather than a separate notification frame; the readable Charter and its audio live in the Statute Book.
 
 ---

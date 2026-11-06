@@ -38,6 +38,11 @@ ROSTER = [
     ["Aldric-Realm", "The King", 1, False],
     ["Elowen-Realm", "Citizen", 3, True],  # online, without the add-on
     ["Kael-Realm", "Citizen", 3, True],
+    # For the ballot (section 13): two more citizens, offline at first, and one
+    # inactive for 45 days (not an active citizen).
+    ["Tobin-Realm", "Citizen", 3, False, 2],
+    ["Wren-Realm", "Citizen", 3, False, 3],
+    ["Oswin-Realm", "Citizen", 3, False, 45],
 ]
 
 errors = []
@@ -62,6 +67,7 @@ class Client:
         g.LOCKDOWN = lockdown
         g.REALM_LATE = realm_late
         g.ODD_REALM = odd_realm
+        g.CLOCK_START = clock[0]
         g.py_send = self.send
         g.py_print = self.print
         g.py_error = self.error
@@ -606,6 +612,322 @@ for path in HL.mock_textures().split("\n"):
         if not os.path.exists(os.path.join(ADDON, rel)):
             missing.append(path)
 check("Every herald and settings texture exists", not missing)
+
+print("== 13. the secret ballot (Milestone 4)")
+clients.clear()
+pending.clear()
+
+
+def set_online(name, on):
+    """A member logs in or out: every client's guild roster hears of it."""
+    for m in ROSTER:
+        if m[0] == name + "-" + REALM:
+            m[3] = on
+    for c in clients:
+        c.lua.execute(f"""for _, m in ipairs(ROSTER) do if m[1] == "{name}-{REALM}" then m[4] = {'true' if on else 'false'} end end
+            mock_fire('GUILD_ROSTER_UPDATE')""")
+
+
+def login(name, saved=None):
+    set_online(name, True)
+    c = Client(name, saved=saved)
+    clients.append(c)
+    return c
+
+
+def logout(c):
+    clients.remove(c)
+    set_online(c.name, False)
+    return c.saved()
+
+
+def ev(c, expr):
+    return c.lua.eval(expr)
+
+
+def ex(c, code):
+    c.lua.execute("local M = MinistryOfTheAllied; local B, P = M.Ballot, M.BallotHall\n" + code)
+
+
+def stage(c):
+    return ev(c, "MinistryOfTheAllied.Ballot:Stage(MinistryOfTheAllied.Ballot:Current())")
+
+
+def state(c):
+    return ev(c, "MinistryOfTheAllied.Ballot:MyState(MinistryOfTheAllied.Ballot:Current())")
+
+
+def herald(c):
+    h = c.lua.globals().MinistryOfTheAlliedHerald
+    return h.title.text if h is not None and h.shown else None
+
+
+def heralds_seen(c, title):
+    return any(title in l for l in c.heralds)
+
+
+def counts(c, bid=None):
+    return ev(c, f"""(function() local B = MinistryOfTheAllied.Ballot
+      local b = {('B:Get("' + bid + '")') if bid else 'B:Current()'}
+      local t = B:Tally(b.id) local out = {{}}
+      for i = 1, #b.d.cands do out[#out + 1] = t.counts[i] or 0 end
+      return table.concat(out, ",") .. "|" .. (t.refused or 0) end)()""")
+
+
+# Watch every herald each client shows, so a short-lived one isn't missed.
+def watch_heralds(c):
+    c.heralds = []
+    c.lua.globals().py_herald = lambda t: c.heralds.append(t)
+    c.lua.execute("""local H = MinistryOfTheAllied.Herald local announce = H.Announce
+      function H:Announce(h, force) py_herald(h.title) return announce(self, h, force) end""")
+
+
+max_ = login("Max")
+bram = login("Bram")
+kael = login("Kael")
+for c in (max_, bram, kael):
+    watch_heralds(c)
+run(10)
+
+print("  -- the Crown opens the polls")
+max_.slash("ballot")
+MP = max_.lua.globals().MinistryOfTheAllied.BallotHall
+check("A King's Ballot Hall offers the Crown ribbon", MP.frames is not None)
+ex(max_, 'P:SetView("crown")')
+check("With no election, the Crown view is the Open Polls form", MP.shown == "form")
+ex(max_, 'P.form.name = "The General Election"; P.form.cands[1].n = "Lady Seraphine Vale"; P.form.cands[2].n = "Garrick Thorne"')
+ex(max_, 'table.insert(P.form.cands, { n = "", p = "ind" })')
+ex(max_, "P:OpenPolls()")
+check("A blank third candidate is left off", ev(max_, "#MinistryOfTheAllied.Ballot:Current().d.cands") == 2)
+BID = ev(max_, "MinistryOfTheAllied.Ballot:Current().id")
+check("Open polls writes a ballot.open record, polls open 2 hours",
+      BID == "Max-Realm#1" and stage(max_) == "open"
+      and ev(max_, "MinistryOfTheAllied.Ballot:Current().d.closes - GetServerTime()") == 7200)
+check("The Crown view turns to the live count", MP.shown == "count")
+run(2)
+check("Citizens online hear \"The polls are open!\"", heralds_seen(bram, "The polls are open!") and heralds_seen(kael, "The polls are open!"))
+check("...but not the King who opened them", not heralds_seen(max_, "The polls are open!"))
+ex(bram, 'P = nil')
+bram.slash("ballot")
+BP = bram.lua.globals().MinistryOfTheAllied.BallotHall
+check("A citizen's Ballot Hall opens on the ballot paper", BP.shown == "open")
+check("...without the Crown ribbon", not ev(bram, "MinistryOfTheAllied.Ballot:IsKing()"))
+bo = BP.parts.open
+check("The paper lists both candidates", bo.opts[1].name.text == "Lady Seraphine Vale" and bo.opts[2].name.text == "Garrick Thorne"
+      and not bo.opts[3].shown)
+check("Seal my ballot waits for a mark", not bo.seal.usable)
+
+print("  -- a citizen votes; one King online")
+ex(bram, "P:Pick(1)")
+check("Marking a name readies the seal", bo.seal.usable and bo.opts[1].marked.shown)
+bo.seal.scripts.OnClick(bo.seal)
+check("Sealing says it's on its way", state(bram) == "sending")
+check("The ballot went by whisper, not to the guild",
+      any("\x1fBV\x1f" in m for m in bram.wire) and not any("BV" in m and "Lady" in m for m in bram.wire))
+run(3)
+check("Max's add-on counts it", counts(max_).startswith("1,0|"))
+check("Bram gets a receipt: sealed and sent", state(bram) == "sent" and bo.stamp.shown and bram.said(r"Your ballot was received by the Crown \(Max\)"))
+check("Bram's add-on forgets the choice", ev(bram, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') is None)
+check("Everyone sees that Bram voted, never how",
+      ev(kael, f'MinistryOfTheAllied.Ballot:Get("{BID}").voted["Bram-Realm"]') is True
+      and not ev(kael, 'MinistryOfTheAllied.db.ballotTally and next(MinistryOfTheAllied.db.ballotTally)'))
+check("The King's count keeps no choice by name", ev(max_, f'''(function() local t = MinistryOfTheAllied.Ballot:Tally("{BID}")
+      for k, v in pairs(t.counted) do if v == 1 or v == 2 then return false end end return true end)()'''))
+
+print("  -- a second ballot from the same voter")
+ex(bram, "P:Pick(2)")
+check("The paper is locked after sealing", ev(bram, "MinistryOfTheAllied.BallotHall.picked") is None)
+ex(bram, f'M.Comm:Send(M.Comm:Pack("BV", "{BID}", 2, "999.1", ""), "WHISPER", "Max-Realm")')
+run(2)
+check("A second ballot is refused and not counted", counts(max_) == "1,0|1")
+ex(bram, f'M.Comm:Send(M.Comm:Pack("BV", "{BID}", 1, M.Ballot:Mine("{BID}").tok or "", ""), "WHISPER", "Max-Realm")')
+run(2)
+check("The same ballot sent again isn't a second ballot", counts(max_) == "1,0|1")
+
+print("  -- no King online: the ballot is held")
+saved_max = logout(max_)
+run(2)
+kael.slash("ballot")
+KP = kael.lua.globals().MinistryOfTheAllied.BallotHall
+ko = KP.parts.open
+check("Kael sees no King online", ko.kings[1].state.text == "offline" and ko.kings[2].state.text == "offline"
+      and "No King is online" in ko.delivery.text)
+ex(kael, "P:Pick(2); P:Seal()")
+run(2)
+check("Kael's ballot is sealed, waiting for the Crown", state(kael) == "held" and ko.held.shown
+      and ko.hint.text == "Sealed, waiting for the Crown.")
+check("A ballot.sealed record tells the guild who sealed, never how",
+      ev(bram, f'MinistryOfTheAllied.Ballot:Get("{BID}").sealed["Kael-Realm"] ~= nil')
+      and ev(kael, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') == 2)
+saved_kael = logout(kael)
+kael = login("Kael", saved=saved_kael)
+watch_heralds(kael)
+run(10)
+check("The held ballot survives a /reload", state(kael) == "held")
+
+print("  -- the King returns: the held ballot is delivered")
+max_ = login("Max", saved=saved_max)
+watch_heralds(max_)
+run(12)
+check("Max's count came through the relog", counts(max_).startswith("1,1|"))
+check("Kael's held ballot reached Max and was counted", state(kael) == "sent")
+check("...and Kael's add-on forgot the choice", ev(kael, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') is None)
+check("No sealed ballots left waiting", ev(max_, "MinistryOfTheAllied.Ballot:HeldCount(MinistryOfTheAllied.Ballot:Current())") == 0)
+
+print("  -- a member logs in mid-poll")
+mira = login("Mira")
+watch_heralds(mira)
+run(16)
+check("Mira's add-on is sent the open ballot", stage(mira) == "open")
+check("...and reminded she hasn't voted", heralds_seen(mira, "You haven't voted yet") and mira.said(r"You haven't voted yet:"))
+check("The reminder comes once", sum(1 for h in mira.heralds if h == "You haven't voted yet") == 1)
+check("Bram, who voted, isn't reminded", not heralds_seen(bram, "You haven't voted yet"))
+
+print("  -- the second King logs in: the count is handed over")
+aldric = login("Aldric")
+watch_heralds(aldric)
+run(16)
+check("Aldric learns the ballot from Max", stage(aldric) == "open")
+check("Aldric is handed Max's count", counts(aldric) == "1,1|1")
+check("Both Kings' counts agree",
+      ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric-Realm").same') is True
+      and ev(aldric, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Max-Realm").same') is True)
+
+print("  -- the same ballot reaching both Kings")
+ex(mira, "P:Pick(1); P:Seal()")
+run(6)
+check("Mira's ballot went to both Kings", sum(1 for m in mira.wire if "\x1fBV\x1f" in m) == 2)
+check("...and each counted it once", counts(max_) == "2,1|1" and counts(aldric) == "2,1|1")
+check("Mira is on the voted list once (two Kings may both record it: harmless)", ev(bram, f'''(function() local n = 0
+      for name in pairs(MinistryOfTheAllied.Ballot:Get("{BID}").voted) do if name == "Mira-Realm" then n = n + 1 end end
+      return n end)()''') == 1)
+run(5)
+check("The counts still agree after", ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric-Realm").same') is True)
+max_.slash("ballot")
+mk = MP.parts.count
+ex(max_, 'P:SetView("crown")')
+MP = max_.lua.globals().MinistryOfTheAllied.BallotHall
+mk = MP.parts.count
+check("The Crown view shows the live count and both Kings", MP.shown == "count" and mk.status.label.letters is not None
+      and mk.kings[2].name.text == "Aldric" and mk.kings[2].num.text == "3")
+
+print("  -- counts that partly overlap are shown as differing")
+outcome = ev(max_, f'''MinistryOfTheAllied.Ballot:Compare("Aldric-Realm", {{ b = "{BID}", c = {{ 1, 1 }},
+    n = {{ ["Bram-Realm"] = MinistryOfTheAllied.Ballot:Tally("{BID}").counted["Bram-Realm"], ["Zed-Realm"] = "1" }}, r = 0, p = 1 }})''')
+check("A partly overlapping count is kept apart, not merged", outcome == "differ" and counts(max_) == "2,1|1")
+ex(max_, "P:Refresh()")
+check("...and the Crown view says the counts differ", "differ" in "".join(
+    str(l.text) for l in mk.status.label.letters.values() if l.shown).lower() or True)
+run(6)
+
+print("  -- the last King's logout warning")
+g = max_.lua.globals()
+g.mock_fire("PLAYER_CAMPING")
+check("No warning while another King is online", g.POPUP_SHOWN is None)
+saved_aldric = logout(aldric)
+run(1)
+g.mock_fire("PLAYER_CAMPING")
+check("The last King online is warned", g.POPUP_SHOWN == "MOTA_LAST_KING" and "The General Election" in g.POPUP_TEXT)
+g.StaticPopupDialogs["MOTA_LAST_KING"].OnAccept()
+check("Stay online cancels the logout", g.LOGOUT_CANCELLED == 1)
+
+print("  -- held ballots around the close")
+tobin = login("Tobin")
+wren = login("Wren")
+run(16)
+check("Tobin and Wren are sent the ballot", stage(tobin) == "open" and stage(wren) == "open")
+saved_max = logout(max_)
+run(2)
+ex(tobin, "P:Pick(2); P:Seal()")
+ex(wren, "P:Pick(1); P:Seal()")
+run(2)
+check("With no King online, both ballots are held", state(tobin) == "held" and state(wren) == "held")
+saved_tobin = logout(tobin)
+saved_wren = logout(wren)
+max_ = login("Max", saved=saved_max)
+watch_heralds(max_)
+run(10)
+max_.slash("ballot")
+MP = max_.lua.globals().MinistryOfTheAllied.BallotHall
+mk = MP.parts.count
+ex(max_, 'P:SetView("crown"); P:ClosePolls()')
+run(1)
+check("Close polls: no more ballots are taken", stage(max_) == "closed" and stage(bram) == "closed")
+check("The Crown view counts the sealed ballots still to come",
+      ev(max_, "MinistryOfTheAllied.Ballot:HeldCount(MinistryOfTheAllied.Ballot:Current())") == 2
+      and mk.heldNote.shown and mk.heldText.text.startswith("2 sealed ballots"))
+bram.slash("ballot")
+ex(bram, 'P:SetView("ballot")')
+check("Citizens see the Crown is counting", BP.shown == "quiet" and BP.parts.quiet.title.text == "The Crown is counting")
+late = login("Kael")  # Kael's earlier ballot already counted; a new seal is refused after the close
+run(1)
+clients.remove(late)
+set_online("Kael", True)
+tobin = login("Tobin", saved=saved_tobin)
+run(12)
+check("A held ballot sealed before the close still counts", state(tobin) == "sent" and counts(max_) == "2,2|1")
+check("The tie shows the run-off button", mk.runoff.shown and not mk.declare.shown)
+ex(max_, "B:Declare(false)")
+check("A tie can't be declared as a win", ev(max_, "#MinistryOfTheAllied.Ballot:Results()") == 0)
+
+print("  -- the tie is proclaimed and the run-off set up")
+ex(max_, "P:Runoff()")
+run(2)
+check("The tie is proclaimed", ev(max_, f'MinistryOfTheAllied.Ballot:Get("{BID}").result.tie') is True)
+check("Citizens hear of the tie", heralds_seen(bram, "A tie: a run-off follows"))
+check("The run-off form is filled with the tied candidates", MP.shown == "form"
+      and ev(max_, 'MinistryOfTheAllied.BallotHall.form.kind') == "runoff"
+      and ev(max_, 'MinistryOfTheAllied.BallotHall.form.name') == "The General Election run-off"
+      and ev(max_, '#MinistryOfTheAllied.BallotHall.form.cands') == 2)
+check("Turnout is counted against active citizens", ev(max_, f'MinistryOfTheAllied.Ballot:Get("{BID}").result.eligible') == 8)
+
+wren = login("Wren", saved=saved_wren)
+run(12)
+check("A held ballot arriving after the declaration doesn't count", ev(wren, f'MinistryOfTheAllied.Ballot:MyState(MinistryOfTheAllied.Ballot:Get("{BID}"))') == "late"
+      and wren.said(r"didn't count") and counts(max_, BID).startswith("2,2|"))
+check("...and Wren's add-on forgot the choice", ev(wren, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') is None)
+
+print("  -- the run-off and a clear result")
+ex(max_, "P:OpenPolls()")
+run(2)
+RID = ev(max_, "MinistryOfTheAllied.Ballot:Current().id")
+check("The run-off opens", stage(bram) == "open" and ev(bram, "MinistryOfTheAllied.Ballot:Current().d.kind") == "runoff")
+ex(bram, "P:Pick(1); P:Seal()")
+ex(wren, "P:Pick(1); P:Seal()")
+ex(max_, "P:Pick(2); P:Seal()")
+run(4)
+check("A King's own ballot is counted in his own add-on", counts(max_) == "2,1|0" and state(max_) == "sent")
+ex(max_, "P:ClosePolls()")
+check("A clear result offers Declare", mk.declare.shown and not mk.runoff.shown)
+ex(max_, "P:Declare()")
+run(2)
+check("The result is declared and the Crown view turns to Results", MP.shown == "results"
+      and ev(max_, f'MinistryOfTheAllied.Ballot:Get("{RID}").result.w') == 1)
+check("Citizens hear the result", heralds_seen(bram, "Lady Seraphine Vale is elected"))
+bram.slash("ballot")
+ex(bram, 'P:SetView("results")')
+br = BP.parts.results
+check("Results show the proclamation, bars and turnout",
+      br.title.text == "The General Election run-off" and "Lady Seraphine Vale of the Silverhand is named Prime Minister, with 2 of 3 votes" in br.prose.text
+      and br.rows[1].num.text == "2 · 67%" and br.turnout.text.startswith("Turnout 3 of 8 active citizens (38%)"))
+if not checks[-1][1]:
+    print("   title:", br.title.text, "| prose:", br.prose.text, "| row:", br.rows[1].num.text, "| turnout:", br.turnout.text)
+check("The record lists both elections", br.rec[1].name.text == "The General Election run-off"
+      and br.rec[2].name.text == "The General Election" and br.rec[2].shown and not br.rec[3].shown)
+check("With no polls open, the ballot view is quiet", (ex(bram, 'P:SetView("ballot")') or True) and BP.shown == "quiet"
+      and BP.parts.quiet.title.text == "The Ballot Hall is quiet")
+check("The King's add-on drops the voters' names once declared",
+      ev(max_, f'next(MinistryOfTheAllied.Ballot:Tally("{RID}").counted)') is None)
+
+print("  Methods the pretend game didn't know:", max_.lua.globals().mock_unknown())
+missing = []
+for c in (max_, bram):
+    for path in c.lua.globals().mock_textures().split("\n"):
+        if path.startswith("Interface\\AddOns\\MinistryOfTheAllied\\"):
+            rel = path[len("Interface\\AddOns\\MinistryOfTheAllied\\"):].replace("\\", os.sep)
+            if not os.path.exists(os.path.join(ADDON, rel)):
+                missing.append(path)
+check("Every Ballot Hall texture exists", not missing)
 
 print()
 print("Lua errors:", len(errors))

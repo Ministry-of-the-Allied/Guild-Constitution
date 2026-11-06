@@ -56,6 +56,24 @@ local STYLES = {
   constitutionSection = { "cinzel", 12.5 },
   constitutionSmall = { "garamond", 12 },
   constitutionAction = { "cinzel", 11 },
+  -- The Ballot Hall (BallotHall board)
+  bEyebrow = { "cinzel", 10 },              -- .eyebrow at 10px, .fld-lab, .chip (spaced out)
+  bRecHead = { "cinzel", 10.5 },            -- .rec-head (spaced out)
+  bSec = { "cinzel", 13 },                  -- .h-sec (spaced out)
+  bName = { "cinzel", 16 },                 -- .h-name on the ballot paper
+  bName13 = { "cinzel", 13.5 },             -- .h-name in lists
+  bNum = { "cinzel", 16 },                  -- .num
+  bNum22 = { "cinzel", 22 },
+  bTitle = { "decoBold", 24 },              -- .h-page on the papers
+  bTitle21 = { "decoBold", 21 },
+  bProse = { "garamond", 15.5 },            -- .prose and the form's inputs
+  bRow = { "garamond", 14.5 },              -- .rec-row and .ticks
+  bSmall = { "garamond", 14 },              -- .small
+  bSmall13 = { "garamond", 13 },
+  bHint = { "garamondMedium", 14 },         -- .small, font-weight 600
+  bItalic = { "garamondItalic", 14 },       -- .small.italic
+  bItalic13 = { "garamondItalic", 13.5 },
+  bPortrait = { "decoBold", 13, true },     -- .portrait.sm initials
 }
 
 function MOTA:FontSize(name)

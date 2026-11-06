@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Window skins</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/92b4fa14869576666ce050f265fa7623">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&amp;family=Cinzel+Decorative:wght@400;700;900&amp;family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F3D98A}a:hover{color:#FFF3C4}
+
+/* ============ One window, four skins ============
+   The Ministry skin is the shared stylesheet as it is (sk-min adds nothing).
+   Each other skin swaps the leather, the wax on the resting tabs, the knobs, the pale ink and the emblem;
+   Silverhand also swaps the metal from gold to silver. The parchment page never changes. */
+
+/* ---- the corner emblem: crests are shields, party seals are round ---- */
+.crest.seal{left:-48px;top:-52px;width:132px}
+
+/* ---- Silverhand: silver metal on the party blue ---- */
+.ws-sh .win-rim,.ws-sh .page{background:linear-gradient(180deg,#FFFFFF 0%,#E3E8EE 18%,#AEB8C6 42%,#6B7483 58%,#AEB8C6 76%,#EEF2F6 100%)}
+.ws-sh .win-rim{box-shadow:0 0 0 1px #1B1F27,0 30px 80px rgba(0,0,0,.8),0 8px 20px rgba(0,0,0,.6)}
+.ws-sh .page{box-shadow:0 0 0 1px #1B1F27,0 8px 18px rgba(0,0,0,.55)}
+.ws-sh .win-leather{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#3A5DAE 0%,#1F4290 34%,#173470 62%,#0C1C44 100%)}
+.ws-sh .win-leather::before{border-color:rgba(214,222,233,.62)}
+.ws-sh .win-leather::after{border-color:rgba(214,222,233,.26)}
+.ws-sh .corner{filter:grayscale(1) brightness(1.28) contrast(1.05)}
+.ws-sh .title{background:linear-gradient(180deg,#FFFFFF 0%,#F1F4F8 32%,#B3BDCA 56%,#E9EEF3 100%);-webkit-background-clip:text;background-clip:text}
+.ws-sh .subtitle{color:#D5DEF0}
+.ws-sh .subtitle::before,.ws-sh .subtitle::after{background:linear-gradient(90deg,rgba(184,194,207,0),#B8C2CF)}
+.ws-sh .knob{color:#F2F5F9;background:radial-gradient(circle at 35% 30%,#4570C4,#1F4290 60%,#0C1C44);
+  box-shadow:0 0 0 2px #B8C2CF,0 0 0 3px #1B1F27,0 3px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
+.ws-sh .knob.red{color:#1F4290;background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.7),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#FFFFFF 0%,#D3DAE3 45%,#8A95A5 100%)}
+.ws-sh .tab{color:#DCE3EE;border-color:rgba(214,222,233,.5);
+  background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.16),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#6F82A8 0%,#2E3E62 42%,#0F172B 100%);
+  box-shadow:inset 0 1px 0 rgba(200,212,232,.45),inset 0 -2px 0 rgba(5,8,16,.7),inset 0 0 10px rgba(5,8,16,.4),0 2px 5px rgba(0,0,0,.5)}
+.ws-sh .tab small{color:#AEB9CC}
+.ws-sh .tab.on{color:#1F4290;border-color:#FFFFFF;
+  background:linear-gradient(180deg,#FFFFFF 0%,#E3E8EE 18%,#AEB8C6 42%,#6B7483 58%,#AEB8C6 76%,#EEF2F6 100%);
+  box-shadow:0 0 22px rgba(225,233,245,.32),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.8)}
+.ws-sh .tab.on small{color:#2B3445}
+.ws-sh .tab.on::after{filter:grayscale(1) brightness(1.15)}
+.ws-sh .rail-foot{border-top-color:rgba(214,222,233,.35)}
+.ws-sh .rail-foot .who{color:#FFFFFF}
+.ws-sh .rail-foot .who small,.ws-sh .win-foot{color:#C6D2EA}
+.ws-sh .win-foot .pip{background:#FFFFFF;box-shadow:0 0 8px #DDE6F2,0 0 0 1px #4A5361}
+.ws-sh .portrait.sm{box-shadow:0 0 0 1.5px #C9D1DC,0 0 0 2.5px #1B1F27,inset 0 0 8px rgba(0,0,0,.6)}
+
+/* ---- Azeroth Exchange: crimson leather and gold ---- */
+.ws-ex .win-leather{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#B8343C 0%,#8E1A21 34%,#661118 62%,#2E0609 100%)}
+.ws-ex .subtitle{color:#F2CDBE}
+.ws-ex .knob{background:radial-gradient(circle at 35% 30%,#C23A42,#8E1A21 60%,#3A070B)}
+.ws-ex .knob.red{color:#6B1016;background:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
+.ws-ex .tab{color:#F3D98A;
+  background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.16),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#C8434B 0%,#7A151C 42%,#2A0407 100%);
+  box-shadow:inset 0 1px 0 rgba(240,160,150,.45),inset 0 -2px 0 rgba(30,2,4,.7),inset 0 0 10px rgba(30,2,4,.4),0 2px 5px rgba(0,0,0,.5)}
+.ws-ex .tab small{color:#F0C9BC}
+.ws-ex .tab.on{color:#5A0E13;background:var(--gold-grad);box-shadow:0 0 22px rgba(243,217,138,.35),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.7)}
+.ws-ex .tab.on small{color:#3A2A0A}
+.ws-ex .rail-foot .who small,.ws-ex .win-foot{color:#F2CDBE}
+
+/* ---- The Crown: the Exchange's design in royal purple; the lighter purple only as small highlights ---- */
+.ws-cr .win-leather{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#86296A 0%,#58143F 10%,#3D0B2D 26%,#2A0720 52%,#140210 100%)}
+.ws-cr .win-head::before{content:"";position:absolute;left:120px;right:120px;top:-4px;bottom:-4px;z-index:-1;
+  background:radial-gradient(ellipse 50% 58% at 50% 46%,rgba(150,52,120,.55),rgba(150,52,120,0) 100%)}
+.ws-cr .subtitle{color:#EBCBDF}
+.ws-cr .knob{background:radial-gradient(circle at 35% 30%,#8E2E6E,#4E1039 50%,#1C0415)}
+.ws-cr .knob.red{color:#4F0F3B;background:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
+.ws-cr .tab{color:#F3D98A;
+  background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.14),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#9A3A7E 0%,#5A1645 42%,#1E0418 100%);
+  box-shadow:inset 0 1px 0 rgba(222,156,204,.6),inset 0 -2px 0 rgba(20,2,16,.7),inset 0 0 10px rgba(20,2,16,.4),0 2px 5px rgba(0,0,0,.5)}
+.ws-cr .tab small{color:#E8C6DC}
+.ws-cr .tab.on{color:#3E0A2F;background:var(--gold-grad);box-shadow:0 0 22px rgba(243,217,138,.35),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.7)}
+.ws-cr .tab.on small{color:#3A2A0A}
+.ws-cr .rail-foot .who small,.ws-cr .win-foot{color:#EBCBDF}
+
+/* ---- the key under the windows ---- */
+.key{position:absolute}
+.key .parch{padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+.key ul{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:5px}
+.key li{font-size:15px;line-height:1.35;color:#2A1F14}
+.sw-row{display:grid;grid-template-columns:150px repeat(5,minmax(0,1fr));gap:10px;align-items:center}
+.sw-head{font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7A5719}
+.sw{display:flex;align-items:center;gap:8px;font-family:'Cinzel',serif;font-weight:600;font-size:11px;letter-spacing:.04em;color:#5E4B33}
+.sw i{width:26px;height:26px;flex:none;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),0 0 0 1px rgba(255,250,235,.6)}
+.sw-name{font-family:'Cinzel',serif;font-weight:700;font-size:12.5px;letter-spacing:.06em;color:#2A1F14}
+.sw-name small{display:block;font-family:'EB Garamond',serif;font-weight:400;font-size:13px;letter-spacing:0;color:#5E4B33}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.setrow label{display:flex;flex-direction:column;gap:2px;font-family:'Cinzel',serif;font-weight:700;font-size:12.5px;letter-spacing:.08em;color:#2A1F14}
+.setrow label small{font-family:'EB Garamond',serif;font-weight:400;font-size:14px;letter-spacing:0;color:#5E4B33}
+.seg{display:inline-flex;flex:none;padding:3px;gap:3px;background:rgba(110,79,23,.12);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
+.seg button{min-height:30px;padding:0 12px;border:none;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5E4B33;background:transparent}
+.seg button.on{color:#F3D98A;background:linear-gradient(180deg,#2E58AA,#1B3570)}
+</style>
+</helmet>
+<div class="stage" style="width: 2480px; height: 2840px">
+
+  <span class="board-label" style="left: 64px; top: 44px">The add-on window · dressed by party and rank</span>
+  <span class="board-note" style="left: 64px; top: 72px">The same window in the four skins of the world map board. The frame, tabs, knobs and emblem change; the parchment page and everything on it stays the same.</span>
+
+  <div style="position: absolute; left: 40px; top: 130px; width: 2400px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 80px">
+    <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
+      <div style="position: relative; height: 900px">
+        <div class="win {{s.cls}}" style="left: 100px; top: 86px">
+          <div class="win-rim"><div class="win-leather"></div></div>
+          <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <img class="crest {{s.crestCls}}" src="{{s.crest}}" alt="{{s.crestAlt}}">
+          <div class="win-head">
+            <h1 class="title">Ministry of the Allied</h1>
+            <div class="subtitle">The Throne Room</div>
+          </div>
+          <div class="head-btns">
+            <button class="knob" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.34 4.79L10.44 2.12H13.56L13.66 4.79A7.4 7.4 0 0 1 15.92 5.72L17.88 3.91L20.09 6.12L18.28 8.08A7.4 7.4 0 0 1 19.21 10.34L21.88 10.44V13.56L19.21 13.66A7.4 7.4 0 0 1 18.28 15.92L20.09 17.88L17.88 20.09L15.92 18.28A7.4 7.4 0 0 1 13.66 19.21L13.56 21.88H10.44L10.34 19.21A7.4 7.4 0 0 1 8.08 18.28L6.12 20.09L3.91 17.88L5.72 15.92A7.4 7.4 0 0 1 4.79 13.66L2.12 13.56V10.44L4.79 10.34A7.4 7.4 0 0 1 5.72 8.08L3.91 6.12L6.12 3.91L8.08 5.72A7.4 7.4 0 0 1 10.34 4.79ZM15 12A3 3 0 1 0 9 12A3 3 0 1 0 15 12Z"></path></svg></button>
+            <button class="knob red" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+          </div>
+
+          <div class="win-body">
+            <nav class="rail" aria-label="Ministry pages">
+              <a class="tab on" href="ThroneRoom.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg><span>Throne Room<small>State of the realm</small></span></a>
+              <a class="tab" href="BallotHall.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16v9H4zM8 11V4h8v7M10 7.5h4M9 15.5h6"></path></svg><span>Ballot Hall<small>Votes &amp; results</small></span><span class="badge-count">1</span></a>
+              <a class="tab" href="StatuteBook.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zM4 7h3M9.5 9h7M9.5 12.5h7M9.5 16h4.5"></path></svg><span>Statute Book<small>Laws &amp; court</small></span></a>
+              <a class="tab" href="Parties.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V3.5M5 4h8.5l-2 3 2 3H5M13 21V9M13 9.5h7l-2 3 2 3h-7"></path></svg><span>The Parties<small>Public &amp; chamber</small></span></a>
+              <a class="tab" href="Treasury.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"></ellipse><path d="M5 6v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 10v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4M5 14v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4"></path></svg><span>Treasury<small>The ledger</small></span></a>
+              <a class="tab" href="Districts.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path></svg><span>Districts<small>Map &amp; council</small></span></a>
+              <a class="tab" href="GladiatorsRing.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg><span>The Ring<small>Gladiator duels</small></span></a>
+              <div class="rail-foot">
+                <div class="portrait sm" style="--pc: #A8506F">AV</div>
+                <div class="who">Aldric Vane<small>Cathedral Ward</small></div>
+              </div>
+            </nav>
+
+            <main class="page">
+              <div class="parch" style="padding: 22px 26px 22px 34px; display: flex; flex-direction: column; gap: 14px">
+                <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px">
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <p class="eyebrow">The Second Government · Day 92 of 92</p>
+                    <h2 class="h-page">The State of the Realm</h2>
+                  </div>
+                  <div class="plate blue" style="display: flex; align-items: center; gap: 14px; padding: 10px 18px 10px 14px">
+                    <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 50px; height: 50px">
+                    <div style="display: flex; flex-direction: column; gap: 2px">
+                      <span class="eyebrow" style="font-size: 10px">The General Election</span>
+                      <span style="font-family: 'Cinzel', serif; font-weight: 700; font-size: 22px; color: #F3D98A; letter-spacing: .04em">Polling day</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="divider" style="margin: -4px 0 -2px"></div>
+                <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 20px">
+                  <section class="plate" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px">
+                    <h3 class="h-sec">Who holds power</h3>
+                    <div style="display: flex; align-items: center; gap: 12px">
+                      <div style="display: flex">
+                        <div class="portrait sm" style="--pc: #C9A24A">AL</div>
+                        <div class="portrait sm" style="--pc: #C9A24A; margin-left: -8px">CO</div>
+                      </div>
+                      <div style="flex: 1; display: flex; flex-direction: column">
+                        <span class="eyebrow" style="font-size: 10px">The Crown</span>
+                        <span class="h-name" style="font-size: 15px">King Aldmere &amp; King Corwen</span>
+                      </div>
+                      <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Crown seal" style="width: 38px; height: 38px">
+                    </div>
+                    <div class="rule"></div>
+                    <div style="display: flex; align-items: center; gap: 14px">
+                      <div class="portrait lg" style="--pc: #4A74C8">SV</div>
+                      <div style="display: flex; flex-direction: column; gap: 4px">
+                        <span class="eyebrow" style="font-size: 10px">Prime Minister</span>
+                        <span class="h-name" style="font-size: 19px">Lady Seraphine Vale</span>
+                        <span style="display: flex; gap: 8px; align-items: center"><span class="chip" style="--c: #1F4290">Silverhand</span><span class="small muted">In office since 3 Sept</span></span>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: auto">
+                      <div class="portrait sm" style="--pc: #9E1B22">GT</div>
+                      <div style="flex: 1; display: flex; flex-direction: column">
+                        <span class="eyebrow" style="font-size: 10px">Leader of the Opposition</span>
+                        <span class="h-name" style="font-size: 15px">Garrick Thorne</span>
+                      </div>
+                      <span class="chip" style="--c: #9E1B22">Exchange</span>
+                    </div>
+                  </section>
+                  <div style="display: flex; flex-direction: column; gap: 14px; min-height: 0">
+                    <section class="plate blue" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px">
+                      <h3 class="h-sec">Open now</h3>
+                      <div style="display: flex; gap: 12px; align-items: center">
+                        <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 56px; height: 56px; flex: none">
+                        <div style="display: flex; flex-direction: column; gap: 2px">
+                          <span class="h-name" style="font-size: 16px">The General Election</span>
+                          <span class="small muted">Polls close at 9:40 pm · 1 h 12 min left</span>
+                        </div>
+                      </div>
+                      <a class="btn gold sm" href="BallotHall.dc.html" style="align-self: flex-start">Go to the ballot</a>
+                    </section>
+                    <section class="plate" style="display: flex; flex-direction: column; gap: 8px; padding: 14px 18px">
+                      <h3 class="h-sec">Your place</h3>
+                      <div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip" style="--c: #3D86C6">Cathedral Ward</span><span class="chip" style="--c: #1F4290">Silverhand</span></div>
+                      <p class="small" style="margin: 0">Council meets at the <strong>Cathedral of Light</strong> · Sundays, 8 pm</p>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <div class="win-foot">
+            <span><span class="pip"></span>Synced with 34 citizens · moments ago</span>
+            <span>Stormwind Keep · Thursday</span>
+          </div>
+        </div>
+        <span class="board-label" style="left: 100px; top: 806px">{{s.label}}</span>
+        <span class="board-note" style="left: 100px; top: 834px; width: 1000px">{{s.note}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- the key: what changes, what stays -->
+  <span class="board-label" style="left: 64px; top: 2040px">What the skin changes</span>
+  <div class="page key" style="left: 64px; top: 2076px; width: 1420px; height: 520px">
+    <div class="parch plain" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h3 class="h-sec">Changes with every skin</h3>
+        <ul>
+          <li>The leather, with the Crown's soft purple glow behind the title</li>
+          <li>The resting and hover tabs, pressed in the skin's wax</li>
+          <li>The settings knob, and the close knob in the skin's wax or coin</li>
+          <li>The corner emblem: Crown crest, blue hand, coin-scale or lion crest</li>
+          <li>The ink of the lit tab's label</li>
+          <li>The pale ink: page name, the name at the foot of the rail, the status strip</li>
+        </ul>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h3 class="h-sec">Changes with the metal</h3>
+        <ul>
+          <li>The outer rim, the double rule and the stitching</li>
+          <li>The three filigree corners</li>
+          <li>The title, "Ministry of the Allied"</li>
+          <li>The lit tab and its tooled border</li>
+          <li>The metal rim round the parchment page</li>
+        </ul>
+        <p class="small muted" style="margin: 0">Gold for the Crown, the Exchange and the Ministry; silver for Silverhand. So there are two sets, not four.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h3 class="h-sec">Stays the same</h3>
+        <ul>
+          <li>The parchment page and all that's on it: headings, plates, blue buttons, ribbons, seals, the Ballot Hall's pieces</li>
+          <li>The tab icons and labels (drawn once in white, coloured in the game)</li>
+          <li>The window's shape, size and shadow</li>
+          <li>The heralds, the settings page and the minimap seal</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <span class="board-label" style="left: 1540px; top: 2040px">The colours of each skin</span>
+  <div class="page key" style="left: 1540px; top: 2076px; width: 880px; height: 520px">
+    <div class="parch plain" style="gap: 16px">
+      <div class="sw-row">
+        <span></span><span class="sw-head">Leather</span><span class="sw-head">Wax (tabs)</span><span class="sw-head">Metal</span><span class="sw-head">Lit tab ink</span><span class="sw-head">Pale ink</span>
+      </div>
+      <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
+        <div class="sw-row">
+          <span class="sw-name">{{s.short}}<small>{{s.key}}</small></span>
+          <sc-for list="{{s.sw}}" as="w" hint-placeholder-count="5">
+            <span class="sw"><i style="background: {{w.c}}"></i>{{w.c}}</span>
+          </sc-for>
+        </div>
+      </sc-for>
+      <p class="small muted" style="margin: 0">Leather and wax are the mid tone of each gradient; the board's styles hold the full gradients, and the texture build draws from them.</p>
+    </div>
+  </div>
+
+  <span class="board-label" style="left: 64px; top: 2650px">Settings · the add-on's settings page</span>
+  <div class="page" style="position: absolute; left: 64px; top: 2686px; width: 1420px; height: 84px">
+    <div class="parch plain" style="padding: 0 24px; display: flex; align-items: center">
+      <div class="setrow" style="width: 100%">
+        <label>Window skin<small>Party dresses the window for your party, or the Crown for the two Crown ranks. Ministry keeps the blue and gold.</small></label>
+        <div class="seg" role="group" aria-label="Window skin"><button class="on" type="button" aria-pressed="true">Party</button><button type="button" aria-pressed="false">Ministry</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2480,"height":2840}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const skins = [
+      { cls: 'ws-sh', key: 'SILVERHAND', short: 'Silverhand', label: 'Silverhand',
+        note: 'Silver rim, title and lit tab on the party blue; steel-blue wax tabs; argent wax to close; the blue hand.',
+        crest: '/_blob/dd8568019d0ff8be3c87935987cf352a', crestCls: 'seal', crestAlt: 'Silverhand seal',
+        sw: [{ c: '#1F4290' }, { c: '#2E3E62' }, { c: '#AEB8C6' }, { c: '#1F4290' }, { c: '#D5DEF0' }] },
+      { cls: 'ws-ex', key: 'AZEROTH_EXCHANGE', short: 'Exchange', label: 'Azeroth Exchange',
+        note: 'Crimson leather and gold; bright crimson wax tabs; a gold coin to close; the coin-scale.',
+        crest: '/_blob/2548a4e779105c6802c9276a14f27592', crestCls: 'seal', crestAlt: 'Azeroth Exchange seal',
+        sw: [{ c: '#8E1A21' }, { c: '#7A151C' }, { c: '#C9A24A' }, { c: '#5A0E13' }, { c: '#F2CDBE' }] },
+      { cls: 'ws-cr', key: 'CROWN', short: 'The Crown', label: 'The Crown',
+        note: 'Royal purple leather and gold; plum wax tabs with a lighter purple top edge; a soft purple glow behind the title; a gold coin to close; the Crown crest.',
+        crest: '/_blob/95cd0584f50217d5706a3ab342656520', crestCls: '', crestAlt: 'Crown crest',
+        sw: [{ c: '#3D0B2D' }, { c: '#5A1645' }, { c: '#C9A24A' }, { c: '#3E0A2F' }, { c: '#EBCBDF' }] },
+      { cls: 'sk-min', key: 'UNREGISTERED', short: 'Ministry', label: 'Ministry · for citizens in no party',
+        note: 'The window as it is today: royal blue leather, oxblood wax tabs, gold, under the lion crest.',
+        crest: '/_blob/7c545901b08ed0754c9e9eaf3000577b', crestCls: '', crestAlt: 'Lion crest',
+        sw: [{ c: '#1E3B7C' }, { c: '#6E1712' }, { c: '#C9A24A' }, { c: '#0E1F45' }, { c: '#B9C9EE' }] },
+    ];
+    return { skins };
+  }
+}
+</script>
+</body>
+</html>

@@ -7,7 +7,9 @@ local now = 0
 local timers = {}
 
 function GetTime() return now end
-function GetServerTime() return 1793800000 + math.floor(now) end
+-- The realm's clock is shared: CLOCK_START is the pretend world's time when
+-- this client started (set by sim.py), so a client that logs in later agrees.
+function GetServerTime() return 1793800000 + math.floor((CLOCK_START or 0) + now) end
 function time() return GetServerTime() + 3 end
 
 C_Timer = {}
@@ -175,4 +177,28 @@ function mock_load(path, ns)
   if not chunk then py_error("syntax: " .. err); return end
   local ok, e = pcall(chunk, "MinistryOfTheAllied", ns)
   if not ok then py_error("load: " .. tostring(e)) end
+end
+
+-- The Ballot Hall (Milestone 4): last-online times, the realm clock, logging out.
+-- ROSTER entries may carry a fifth field: days since that member was last online.
+function GetGuildRosterLastOnline(i)
+  local m = ROSTER[i]
+  if m[4] then return nil end
+  local days = m[5] or 1
+  return 0, 0, math.floor(days), 0
+end
+-- The realm clock starts at 8:28 pm.
+function GetGameTime()
+  local mins = 20 * 60 + 28 + math.floor((GetServerTime() - 1793800000) / 60)
+  return math.floor(mins / 60) % 24, mins % 60
+end
+LOGOUT_CANCELLED = 0
+function CancelLogout() LOGOUT_CANCELLED = LOGOUT_CANCELLED + 1 end
+StaticPopupDialogs = {}
+POPUP_SHOWN = nil
+function StaticPopup_Show(which, a1)
+  assert(StaticPopupDialogs[which], "no such popup " .. tostring(which))
+  POPUP_SHOWN = which
+  POPUP_TEXT = StaticPopupDialogs[which].text:format(a1 or "")
+  return {}
 end
