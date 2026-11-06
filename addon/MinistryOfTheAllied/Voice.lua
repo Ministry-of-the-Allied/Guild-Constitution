@@ -12,7 +12,7 @@ local PATH = "Interface\\AddOns\\MinistryOfTheAllied\\Media\\Voice\\voice_%02d.o
 local START_DELAY = 6  -- seconds after the guild is known, so the loading screen has gone
 local RETRY_DELAY = 15 -- when a clip comes due during combat or another clip, look again this soon
 
-local playing, handle, endTimer, gapTimer, herald
+local playing, handle, endTimer, gapTimer, herald, watcher
 local begun
 
 local function CONST() return MOTA.CONST end
@@ -44,7 +44,29 @@ end
 -- Playing one clip
 ---------------------------------------------------------------------------
 
+local function stopWatching()
+  if watcher then watcher:Cancel() watcher = nil end
+end
+
+-- The game can drop a clip early, such as on tabbing out, without telling the
+-- add-on. Where the client can report it, a clip heard playing that then falls
+-- silent counts as cut off. A clip never heard playing isn't judged at all.
+local function watch(h)
+  stopWatching()
+  if not (C_Sound and C_Sound.IsPlaying) then return end
+  local heard = false
+  watcher = C_Timer.NewTicker(1, function()
+    if C_Sound.IsPlaying(h) then
+      heard = true
+    elseif heard then
+      stopWatching()
+      Voice:CutOff()
+    end
+  end)
+end
+
 local function silence()
+  stopWatching()
   if handle then StopSound(handle) end
   handle = nil
   if endTimer then endTimer:Cancel() endTimer = nil end
@@ -60,6 +82,7 @@ end
 
 local function onEnded()
   local p = playing
+  stopWatching()
   playing, handle, endTimer = nil, nil, nil
   Voice:State().heard[p.index] = true
   if p.onboarding then clipDone(p.index) end
@@ -71,6 +94,7 @@ local function begin(index, onboarding, locked)
   silence()
   local willPlay, h = PlaySoundFile(PATH:format(index), "Master")
   handle = h
+  if willPlay and h then watch(h) end
   if not willPlay then
     MOTA:Print("The narration couldn't play. Check that the game's sound is on. You can replay it in the Statute Book.")
   end
@@ -199,6 +223,25 @@ function Voice:Stop()
   end
   MOTA:Fire("VOICE_CHANGED")
   return true
+end
+
+-- A clip the game dropped: offer Restart, even for the introduction.
+function Voice:CutOff()
+  if not playing then return end
+  local index = playing.index
+  MOTA:Debug("clip", index, "was cut off by the game")
+  playing.locked = false
+  if herald then
+    herald.closeX = true
+  else
+    present(index)
+  end
+  self:Stop()
+  if herald then
+    herald.text = "The narration was interrupted. Restart to hear it from the beginning."
+    MOTA.Herald:Update(herald)
+    MOTA.Herald:HideLater(herald.stay)
+  end
 end
 
 function Voice:SetEnabled(on)

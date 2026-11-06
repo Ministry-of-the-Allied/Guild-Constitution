@@ -770,7 +770,7 @@ Ten pre-generated ElevenLabs clips narrate the Royal Charter, 12.5 minutes in al
 
 ### 12.4 Sound API
 
-WoW can't pause or seek. A stopped clip can only start again from the beginning. Clips play with `PlaySoundFile(path, "Master")` and stop with `StopSound(handle)`. New sound files only load after the game is fully restarted, not on `/reload`.
+WoW can't pause or seek. A stopped clip can only start again from the beginning. Clips play with `PlaySoundFile(path, "Master")` and stop with `StopSound(handle)`. New sound files only load after the game is fully restarted, not on `/reload`. The game can drop a clip when the player tabs out, without telling the addon: `C_Sound.IsPlaying` spots this (confirmed in game 2026-11-06) and the scroll offers Restart.
 
 ### 12.5 Herald pop-ups
 

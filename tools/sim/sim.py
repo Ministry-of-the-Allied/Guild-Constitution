@@ -496,6 +496,13 @@ run(26)
 check("After the last clip the sequence is complete", state.complete)
 run(200)
 check("...and nothing more plays", V.Playing(V) is None and not vh().shown)
+vc.lua.execute("C_Sound = { IsPlaying = function() return SOUND_ALIVE end }; SOUND_ALIVE = true")
+vns.ConstitutionPage.Press(vns.ConstitutionPage, 5)
+run(2)
+check("A playing clip isn't called cut off", V.Playing(V) is not None)
+VL.SOUND_ALIVE = False
+run(2)
+check("A clip the game drops offers Restart", V.Playing(V) is None and vh().shown and vh().buttons["blue:Restart"].shown)
 clients.remove(vc)
 
 print("  Methods the pretend game didn't know:", HL.mock_unknown())
