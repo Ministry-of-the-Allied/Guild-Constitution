@@ -14,16 +14,24 @@ local ROWS = {
   { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members", later = true },
   { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear", box = "segBox",
     choice = { { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } } },
-  -- Window skins (ADDON_SPEC.md 9.1): Party is the Crown's or your party's skin.
-  { key = "windowSkin", label = "Window skin", small = "Your party's colours, or the Ministry's", box = "segSkinBox",
+  -- Window skins (ADDON_SPEC.md 9.1): Crown ranks only, so this row is hidden
+  -- for everyone else. Party is the Crown's skin for them.
+  { key = "windowSkin", label = "Window skin", small = "The Crown's colours, or the Ministry's", box = "segSkinBox", crownOnly = true,
     choice = { { "party", "seg-party", "segParty" }, { "ministry", "seg-ministry", "segMinistry" } },
     changed = function() MOTA.Skin:Refresh(true) end },
 }
 
 local panel, page
+local parts -- the pictures and controls of the row being built, so it can be hidden
 
 local function piece(name, layer, dx, dy)
-  return UI:Piece(page, name, layer, nil, dx, dy, page)
+  local t = UI:Piece(page, name, layer, nil, dx, dy, page)
+  if parts then parts[#parts + 1] = t end
+  return t
+end
+
+local function isCrown()
+  return MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
 end
 
 local function play(kit)
@@ -73,12 +81,14 @@ local function buildChoice(row)
       self.off:SetShown(not chosen)
     end
     b:SetScript("OnClick", function()
+      if row.crownOnly and not isCrown() then return end
       MOTA.db.settings[row.key] = value
       play("IG_MAINMENU_OPTION_CHECKBOX_ON")
       for _, other in ipairs(buttons) do other:Update() end
       if row.changed then row.changed() end
     end)
     buttons[#buttons + 1] = b
+    if parts then parts[#parts + 1] = b end
   end
   return buttons
 end
@@ -93,16 +103,25 @@ local function build()
   piece("settingsPage", "BACKGROUND")
 
   panel.controls = {}
+  panel.crownRows = {}
   for i, row in ipairs(ROWS) do
-    if i < #ROWS then piece("rowLine", "BORDER", 0, M.slots["row" .. i].y - M.slots.row1.y) end
+    -- The divider above a hidden row is hidden with it.
+    if i < #ROWS then
+      parts = ROWS[i + 1].crownOnly and {} or nil
+      piece("rowLine", "BORDER", 0, M.slots["row" .. i].y - M.slots.row1.y)
+      if parts then panel.crownRows[#panel.crownRows + 1] = parts end
+    end
+    parts = row.crownOnly and {} or nil
     local label = MOTA:Tracked(page, "setLabel", "2A1F14", 0.08)
     UI:AtSlot(label, "slabel" .. i, 0, 0, page)
     label:SetText(row.label:upper())
+    if parts then parts[#parts + 1] = label end
     local small = page:CreateFontString(nil, "OVERLAY")
     small:SetFontObject(MOTA:Font("setSmall"))
     small:SetTextColor(MOTA:RGB("5E4B33"))
     small:SetJustifyH("LEFT")
     UI:AtSlot(small, "ssmall" .. i, 0, 0, page)
+    if parts then parts[#parts + 1] = small end
     small:SetText(row.small .. (row.later and " · later" or ""))
     if row.later then
       label:SetAlpha(0.5)
@@ -112,6 +131,20 @@ local function build()
       for _, b in ipairs(buildChoice(row)) do panel.controls[#panel.controls + 1] = b end
     else
       panel.controls[#panel.controls + 1] = buildSwitch(i, row)
+    end
+    if parts then panel.crownRows[#panel.crownRows + 1] = parts end
+    parts = nil
+  end
+
+  -- Rows only the Crown ranks may use aren't shown to anyone else.
+  function panel:ShowRows()
+    local crown = isCrown()
+    for _, row in ipairs(self.crownRows) do
+      for _, part in ipairs(row) do part:SetShown(crown) end
+    end
+    -- the on and off pictures of a shown choice are set by Update
+    if crown then
+      for _, c in ipairs(self.controls) do c:Update() end
     end
   end
 
@@ -125,6 +158,7 @@ local function build()
   panel:SetScript("OnShow", function()
     fitPage()
     for _, c in ipairs(panel.controls) do c:Update() end
+    panel:ShowRows()
   end)
   panel:SetScript("OnSizeChanged", fitPage)
 
@@ -153,4 +187,9 @@ end
 
 MOTA:On("PLAYER_LOGIN", function()
   if not panel then build() end
+end)
+
+-- The guild rank arrives after login: show or hide the Crown's rows.
+MOTA:Listen("GUILD_READY", function()
+  if panel then panel:ShowRows() end
 end)

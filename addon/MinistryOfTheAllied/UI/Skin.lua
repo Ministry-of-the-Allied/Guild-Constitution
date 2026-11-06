@@ -57,9 +57,12 @@ end
 
 -- Which skin the player should wear (9.1).
 function Skin:Choose()
-  if self.preview then return self.preview end
-  if MOTA.db and MOTA.db.settings.windowSkin == "ministry" then return "UNREGISTERED" end
-  if MOTA.me and MOTA:IsCrown(MOTA.me) then return "CROWN" end
+  local crown = MOTA.me and MOTA:IsCrown(MOTA.me)
+  -- Only the Crown ranks may pick a skin (9.1): a saved choice or a preview
+  -- is ignored for everyone else, so an old setting never beats their rank.
+  if crown and self.preview then return self.preview end
+  if crown and MOTA.db and MOTA.db.settings.windowSkin == "ministry" then return "UNREGISTERED" end
+  if crown then return "CROWN" end
   local party = myParty()
   if party == "SILVERHAND" or party == "AZEROTH_EXCHANGE" then return party end
   return "UNREGISTERED"

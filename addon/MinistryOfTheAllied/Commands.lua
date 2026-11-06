@@ -6,9 +6,11 @@ local _, MOTA = ...
 
 local commands, order = {}, {}
 
-local function add(name, usage, help, fn)
+-- shown (optional): a function that says whether this player is shown the
+-- command in the help list; left out, everyone sees it.
+local function add(name, usage, help, fn, shown)
   commands[name] = fn
-  order[#order + 1] = { name = name, usage = usage, help = help }
+  order[#order + 1] = { name = name, usage = usage, help = help, shown = shown }
 end
 
 local function needGuild()
@@ -24,7 +26,9 @@ end
 
 local function showHelp()
   for _, c in ipairs(order) do
-    MOTA:Print(MOTA:Color("leaf", "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")), "·", c.help)
+    if not c.shown or c.shown() then
+      MOTA:Print(MOTA:Color("leaf", "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")), "·", c.help)
+    end
   end
 end
 
@@ -192,7 +196,16 @@ add("scale", "<size>", "the window's size, such as 0.8 (blank for the default)",
   MOTA:Print(("Window size %.2f%s."):format(used, n and used < n and " (as big as fits your screen)" or ""))
 end)
 
+local function isCrown()
+  return MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
+end
+
+-- Crown ranks only (ADDON_SPEC.md 9.1): everyone else wears the skin of their
+-- guild rank, and the command isn't listed for them.
 add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your own screen until /reload; blank goes back to yours", function(arg)
+  if not isCrown() then
+    return MOTA:Print("Window skins follow your guild rank; only the Crown ranks can change theirs.")
+  end
   local S = MOTA.Skin
   if not S:Preview(arg) then
     return MOTA:Print("There's no skin called \"" .. arg .. "\". Try crown, silverhand, exchange or ministry.")
@@ -204,7 +217,7 @@ add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your o
   else
     MOTA:Print("Back to your own skin: " .. S.titles[MOTA.skin.KEY] .. ".")
   end
-end)
+end, isCrown)
 
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide

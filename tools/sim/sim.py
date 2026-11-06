@@ -339,29 +339,75 @@ tab2 = ns.UI.tabs[2]
 check("A citizen in no party wears the Ministry skin", ns.skin.KEY == "UNREGISTERED"
       and skin_tex(tab2.bgRest) == "skin_ministry.tga" and skin_tex(ns.UI.tabs[1].bgOn) == "frame_gold.tga")
 check("The crest is the lion crest from the Ministry skin", skin_tex(ns.UI.crest) == "skin_ministry.tga")
-ui_client.slash("skin crown")
-check("/mota skin crown puts the Crown skin on at once", ns.skin.KEY == "CROWN"
-      and skin_tex(tab2.bgRest) == "skin_crown.tga" and skin_tex(ns.UI.crest) == "skin_crown.tga")
-check("...and says so", ui_client.said(r"Trying the skin of the Crown"))
-check("The resting tab's label takes the Crown's ink", rgb255(tab2.label) == (0xF3, 0xD9, 0x8A))
-ui_client.slash("skin silverhand")
-check("Silverhand's skin brings the silver metal", skin_tex(ns.UI.tabs[1].bgOn) == "frame_silver.tga"
-      and skin_tex(tab2.bgRest) == "skin_silverhand.tga")
-check("The lit tab's label takes the party blue", rgb255(ns.UI.tabs[ns.UI.page].label) == (0x1F, 0x42, 0x90))
-ui_client.slash("skin exchange")
-check("The Exchange's skin is gold again", ns.skin.KEY == "AZEROTH_EXCHANGE" and skin_tex(ns.UI.tabs[1].bgOn) == "frame_gold.tga")
-ui_client.slash("skin bogus")
-check("An unknown skin is refused", ui_client.said(r'There\'s no skin called "bogus"') and ns.skin.KEY == "AZEROTH_EXCHANGE")
-ui_client.slash("skin")
-check("/mota skin alone goes back to your own", ns.skin.KEY == "UNREGISTERED" and ui_client.said(r"Back to your own skin: the Ministry"))
+# Only the Crown ranks may switch skins (spec 9.1); everyone else wears their rank's skin.
 crown_ns = max3.lua.globals().MinistryOfTheAllied
+crown_tab2 = lambda: crown_ns.UI.tabs[2]
 check("The Crown wears the Crown skin", crown_ns.skin.KEY == "CROWN")
+max3.slash("skin crown")
+check("The Crown can try its own skin", max3.said(r"Trying the skin of the Crown"))
+max3.slash("skin silverhand")
+check("/mota skin silverhand puts Silverhand's skin on the Crown's screen at once", crown_ns.skin.KEY == "SILVERHAND"
+      and skin_tex(crown_tab2().bgRest) == "skin_silverhand.tga" and skin_tex(crown_ns.UI.crest) == "skin_silverhand.tga")
+check("Silverhand's skin brings the silver metal", skin_tex(crown_ns.UI.tabs[1].bgOn) == "frame_silver.tga")
+check("The lit tab's label takes the party blue", rgb255(crown_ns.UI.tabs[crown_ns.UI.page].label) == (0x1F, 0x42, 0x90))
+max3.slash("skin exchange")
+check("The Exchange's skin is gold again", crown_ns.skin.KEY == "AZEROTH_EXCHANGE" and skin_tex(crown_ns.UI.tabs[1].bgOn) == "frame_gold.tga")
+max3.slash("skin bogus")
+check("An unknown skin is refused", max3.said(r"There's no skin called \"bogus\"") and crown_ns.skin.KEY == "AZEROTH_EXCHANGE")
+max3.slash("skin ministry")
+check("The resting tab's label takes the Ministry's ink", crown_ns.skin.KEY == "UNREGISTERED" and skin_tex(crown_tab2().bgRest) == "skin_ministry.tga")
+max3.slash("skin")
+check("/mota skin alone goes back to your own", crown_ns.skin.KEY == "CROWN" and max3.said(r"Back to your own skin: the Crown"))
 crown_ns.db.settings.windowSkin = "ministry"
 crown_ns.Skin.Refresh(crown_ns.Skin, True)
 check("The setting Ministry gives the Crown the blue and gold", crown_ns.skin.KEY == "UNREGISTERED")
 crown_ns.db.settings.windowSkin = "party"
 crown_ns.Skin.Refresh(crown_ns.Skin, True)
 check("The setting Party gives the Crown skin back", crown_ns.skin.KEY == "CROWN")
+mark = len(max3.log)
+max3.slash("help")
+check("/mota skin is listed in the help for the Crown", any(re.search(r"/mota skin", l) for l in max3.log[mark:]))
+
+# A citizen (Bram): refused, not listed, no settings row, rank skin kept.
+ns.PartyOf = lambda self, name: "SILVERHAND"  # pretend Bram's party is Silverhand
+ns.Skin.Refresh(ns.Skin, True)
+check("A non-Crown citizen's skin follows their party", ns.skin.KEY == "SILVERHAND")
+ui_client.slash("skin crown")
+check("A citizen is politely refused by /mota skin", ui_client.said(r"only the Crown ranks can change theirs"))
+check("...and nothing changes", ns.skin.KEY == "SILVERHAND" and ns.Skin.preview is None)
+ui_client.slash("skin ministry")
+check("...for any skin, the Ministry's too", ns.skin.KEY == "SILVERHAND")
+mark = len(ui_client.log)
+ui_client.slash("help")
+check("/mota skin isn't listed for a citizen", not any(re.search(r"/mota skin", l) for l in ui_client.log[mark:])
+      and any(re.search(r"/mota scale", l) for l in ui_client.log[mark:]))
+ns.db.settings.windowSkin = "ministry"  # an old saved choice
+ns.Skin.Refresh(ns.Skin, True)
+check("An old saved Ministry choice can't override a citizen's rank skin", ns.skin.KEY == "SILVERHAND")
+ns.db.settings.windowSkin = "party"
+def skin_parts(panel):
+    return [p for row in panel.crownRows.values() for p in row.values()]
+def open_settings(client):
+    g = client.lua.globals()
+    client.slash("settings")
+    panel = g.SETTINGS_FRAME
+    panel.w, panel.h = 640, 560
+    panel.scripts.OnShow(panel)
+    return panel
+bram_panel = open_settings(ui_client)
+check("A citizen sees no Window skin row", skin_parts(bram_panel) and not any(p.shown for p in skin_parts(bram_panel)))
+skin_btn = bram_panel.controls[8]
+skin_btn.scripts.OnClick(skin_btn)
+check("...and clicking it anyway changes nothing", ns.db.settings.windowSkin == "party" and ns.skin.KEY == "SILVERHAND")
+max_panel = open_settings(max3)
+party_btn = max_panel.controls[7]
+check("The Crown sees the Window skin row, Party chosen", party_btn.on.shown and not party_btn.off.shown
+      and max_panel.controls[8].off.shown and sum(1 for p in skin_parts(max_panel) if p.shown) == len(skin_parts(max_panel)) - 2)
+ministry_btn = max_panel.controls[8]
+ministry_btn.scripts.OnClick(ministry_btn)
+check("...and can use it", crown_ns.db.settings.windowSkin == "ministry" and crown_ns.skin.KEY == "UNREGISTERED")
+crown_ns.db.settings.windowSkin = "party"
+crown_ns.Skin.Refresh(crown_ns.Skin, True)
 ui_client.slash("probe")
 check("Probe reports the fonts", ui_client.said(r"Add-on fonts \(Cinzel, EB Garamond\): loaded"))
 ui_client.slash("help")
