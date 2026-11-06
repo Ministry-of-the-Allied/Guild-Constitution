@@ -1,7 +1,7 @@
 -- Ministry of the Allied: sending and receiving add-on messages.
 -- Messages travel on the hidden guild channel (or by whisper), never in chat.
 -- Everything goes out through one queue that stays under the game's limits,
--- with live news ahead of background traffic (Core/Sync plan, section 3).
+-- with live news ahead of background traffic (ADDON_SPEC.md, section 7.5).
 --
 -- Message format (protocol 1): fields joined by the "unit separator" byte,
 --   <protocol> SEP <kind> SEP <field 1> SEP <field 2> ...

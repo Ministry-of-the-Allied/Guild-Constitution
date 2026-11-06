@@ -1,5 +1,5 @@
 -- Ministry of the Allied: the window.
--- One window with seven pages (ADDON_PLAN.md, section 6), drawn from the
+-- One window with seven pages (ADDON_SPEC.md, section 10), drawn from the
 -- design canvas: every piece comes from Media.lua, which
 -- tools/textures/build.py writes from the canvas's own stylesheet.
 -- Milestone 2: the frame, the tabs and empty pages. Page contents come later.
@@ -28,23 +28,24 @@ local function texturePath(name)
   return M.dir .. M.textures[name]
 end
 
--- Draws a piece from Media.lua. Positions are window units from the window's
--- top-left corner; dx, dy shift a piece that is reused at another tab.
-function UI:Piece(parent, name, layer, sublevel, dx, dy)
+-- Draws a piece from Media.lua. Positions are canvas units from the top-left
+-- corner of the piece's root (the window unless another frame is given as
+-- anchor); dx, dy shift a piece that is reused somewhere else.
+function UI:Piece(parent, name, layer, sublevel, dx, dy, anchor)
   local p = M.pieces[name]
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
   t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
   t:SetTexCoord(p.l, p.r, p.t, p.b)
   t:SetSize(p.w, p.h)
-  t:SetPoint("TOPLEFT", self.window, "TOPLEFT", p.x + (dx or 0), -(p.y + (dy or 0)))
+  t:SetPoint("TOPLEFT", anchor or self.window, "TOPLEFT", p.x + (dx or 0), -(p.y + (dy or 0)))
   return t
 end
 
 -- Places a region at a slot from the layout (where live text or a button goes).
-function UI:AtSlot(region, slot, dx, dy)
+function UI:AtSlot(region, slot, dx, dy, anchor)
   local s = M.slots[slot]
   region:ClearAllPoints()
-  region:SetPoint("TOPLEFT", self.window, "TOPLEFT", s.x + (dx or 0), -(s.y + (dy or 0)))
+  region:SetPoint("TOPLEFT", anchor or self.window, "TOPLEFT", s.x + (dx or 0), -(s.y + (dy or 0)))
   return s
 end
 
@@ -223,9 +224,7 @@ function UI:Build()
     self.subtitles[i] = self:Piece(f, "subtitle" .. i, "ARTWORK")
     self.eyebrows[i] = self:Piece(f, "eyebrow" .. i, "ARTWORK")
   end
-  buildKnob(f, "knobSettings", "knob-settings", "Settings", function()
-    MotA:Print("The settings panel arrives in a later milestone.")
-  end)
+  buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:OpenSettings() end)
   buildKnob(f, "knobClose", "knob-close", "Close", function() f:Hide() end)
 
   -- The tab rail.

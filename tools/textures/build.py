@@ -1,15 +1,20 @@
 """Turns the design canvas into game textures for the add-on.
 
-It renders tools/textures/layout.html (the add-on window, laid out with the
-canvas's own stylesheet, design/canvas-source/ministry.css) in Microsoft Edge,
-one piece at a time, crops each piece, packs them into textures and writes:
+It renders two layouts in Microsoft Edge, one piece at a time, with the
+canvas's own stylesheet (design/canvas-source/ministry.css):
+
+  tools/textures/layout.html   the add-on window (Throne Room board)
+  tools/textures/extras.html   the herald pop-up and the settings page (Extras board)
+
+then crops each piece, packs them into textures and writes:
 
   addon/MinistryOfTheAllied/Media/*.tga   the textures the game loads
-  addon/MinistryOfTheAllied/Media.lua     where each piece sits in the window
+  addon/MinistryOfTheAllied/Media.lua     where each piece sits
 
-Run it again whenever the design changes:   python tools/textures/build.py
-Needs Microsoft Edge and Python 3 with Pillow. Add --preview to also save a
-picture of the assembled window (in the system temp folder) for checking.
+The live design canvas is the source of truth: refresh design/canvas-source/
+from it first, then run   python tools/textures/build.py
+Needs Microsoft Edge and Python 3 with Pillow. Add --preview to also save
+pictures of the assembled window and herald (in the system temp folder).
 """
 import concurrent.futures
 import html
@@ -35,7 +40,6 @@ EDGE_PATHS = [
     Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
 ]
 
-WIN_X, WIN_Y = 140, 140      # the window's top-left corner in layout.html
 WIN_W, WIN_H = 1000, 680
 VIEW_W, VIEW_H = 1400, 960   # the page size Edge renders
 ATLAS_SCALE = 2              # small pieces are drawn at twice their size, for sharpness
@@ -51,6 +55,7 @@ BLOBS = {
     "83dde6b367275cb6d4d9550c6c74c5ac": "textures/tab-frame.svg",
     "e91083b63eec292d284b54d9d2ba82db": "textures/divider-ink.svg",
 }
+SEALS = ["official", "crown", "exchange", "silverhand"]
 
 FONT_FACES = [
     ("Cinzel", 600, "normal", "Cinzel-SemiBold.ttf"),
@@ -73,12 +78,20 @@ ICONS = {
     "ring": '<path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path>',
 }
 
-# Slots: places in the window where the add-on draws live text or buttons.
-SLOTS = [f"tab{i}" for i in range(1, 8)] + [
-    "title", "subtitle", "knob-settings", "knob-close", "page", "parch", "eyebrow", "heading",
-    "divider", "note", "note2", "railfoot", "portrait", "initials", "who", "who-small",
-    "foot", "foot-left", "foot-right", "pip", "crest", "seal", "sheen",
-]
+# Herald buttons drawn ready-made: the label and the style ("blue" is .btn, "quiet" is .btn.quiet).
+HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss"]
+
+# Slots: places where the add-on draws live text or buttons, by root.
+SLOTS = {
+    "win": [f"tab{i}" for i in range(1, 8)] + [
+        "title", "subtitle", "knob-settings", "knob-close", "page", "parch", "eyebrow", "heading",
+        "divider", "note", "note2", "railfoot", "portrait", "initials", "who", "who-small",
+        "foot", "foot-left", "foot-right", "pip", "crest", "seal", "sheen"],
+    "herald": ["herald", "hseal", "htext", "heyebrow", "htitle", "hbody", "hbutton"],
+    "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal"]
+    + [f"row{i}" for i in range(1, 6)] + [f"slabel{i}" for i in range(1, 6)]
+    + [f"ssmall{i}" for i in range(1, 6)] + [f"sw{i}" for i in range(1, 5)],
+}
 
 
 def find_edge():
@@ -88,11 +101,19 @@ def find_edge():
     sys.exit("Microsoft Edge wasn't found.")
 
 
-def stylesheet():
-    css = (DESIGN / "canvas-source" / "ministry.css").read_text(encoding="utf-8")
+def local_css(css):
     for blob, rel in BLOBS.items():
         css = css.replace(f"/_blob/{blob}", (DESIGN / rel).as_uri())
-    css = css.replace(":hover", ".hover")  # so a hover look can be switched on for rendering
+    return css.replace(":hover", ".hover")  # so a hover look can be switched on for rendering
+
+
+def stylesheet(board=None):
+    """The canvas stylesheet, the fonts, and optionally one board's own styles."""
+    css = local_css((DESIGN / "canvas-source" / "ministry.css").read_text(encoding="utf-8"))
+    if board:
+        text = (DESIGN / "canvas-source" / board).read_text(encoding="utf-8")
+        m = re.search(r"<helmet>.*?<style>(.*?)</style>", text, re.S)
+        css += "\n" + local_css(m.group(1))
     faces = "\n".join(
         f"@font-face{{font-family:'{fam}';font-weight:{w};font-style:{st};src:url({(FONTS / f).as_uri()})}}"
         for fam, w, st, f in FONT_FACES)
@@ -102,7 +123,12 @@ def stylesheet():
     return faces + "\n" + css + "\n" + base
 
 
-def page_html(pages, css, *, page=0, hover_tab=None, piece_css=""):
+def fill(template, subs):
+    text = (HERE / template).read_text(encoding="utf-8")
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: subs[m.group(1)], text)
+
+
+def window_html(pages, css, piece_css="", page=0, hover_tab=None):
     tabs = []
     for i, p in enumerate(pages, 1):
         cls = "tab" + (" on" if i == 1 else "") + (" hover" if i == hover_tab else "")
@@ -112,8 +138,7 @@ def page_html(pages, css, *, page=0, hover_tab=None, piece_css=""):
             f'<span id="label{i}">{html.escape(p["label"], quote=False)}'
             f'<small id="small{i}">{html.escape(p["small"], quote=False)}</small></span></a>')
     p = pages[page]
-    text = (HERE / "layout.html").read_text(encoding="utf-8")
-    subs = {
+    return fill("layout.html", {
         "css": css + "\n" + piece_css,
         "tabs": "\n".join(tabs),
         "crest": (DESIGN / "textures" / "alliance-crest.png").as_uri(),
@@ -122,8 +147,19 @@ def page_html(pages, css, *, page=0, hover_tab=None, piece_css=""):
         "eyebrow": html.escape(p["eyebrow"], quote=False),
         "heading": html.escape(p["heading"], quote=False),
         "note": html.escape(p["note"], quote=False),
-    }
-    return re.sub(r"\{\{(\w+)\}\}", lambda m: subs[m.group(1)], text)
+    })
+
+
+def extras_html(css, piece_css="", seal="official", button="Vote now", style="blue", seg="full"):
+    return fill("extras.html", {
+        "css": css + "\n" + piece_css,
+        "seal": (DESIGN / "textures" / f"seal-{seal}.svg").as_uri(),
+        "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "button": html.escape(button, quote=False),
+        "button_class": "btn sm" if style == "blue" else "btn quiet sm",
+        "modest_class": "on" if seg == "small" else "",
+        "royal_class": "on" if seg == "full" else "",
+    })
 
 
 def only(show, hide=(), extra=""):
@@ -135,32 +171,64 @@ def only(show, hide=(), extra=""):
     return css + extra
 
 
+def slug(text):
+    return re.sub(r"\W+", "", text.title())
+
+
 def pieces_to_draw(pages):
-    """name -> (texture, scale, page index, hover tab, css)"""
+    """name -> dict(tex, scale, layout, root, args, css)"""
     white = "{color:#fff!important}"
-    d = {
-        "chrome": ("chrome", CHROME_SCALE, 0, None, only(
-            ["#rim", "#rim *", ".corner", "#title", "#page", "#parch"],
-            extra=".win-rim{box-shadow:0 0 0 1px #2a1d06!important}")),
-        "tabRest": ("atlas", ATLAS_SCALE, 0, None, only(["#tab2"])),
-        "tabHover": ("atlas", ATLAS_SCALE, 0, 2, only(["#tab2"])),
-        "tabOn": ("atlas", ATLAS_SCALE, 0, None, only(["#tab1"])),
-        "divider": ("atlas", 1.6, 0, None, only(["#divider"])),  # 600 wide: 1.6x is what fits
-        "knobSettings": ("atlas", ATLAS_SCALE, 0, None, only(["#knob-settings", "#knob-settings *"])),
-        "knobClose": ("atlas", ATLAS_SCALE, 0, None, only(["#knob-close", "#knob-close *"])),
-        "portrait": ("atlas", ATLAS_SCALE, 0, None, only(["#portrait"], ["#initials"])),
-        "railLine": ("atlas", ATLAS_SCALE, 0, None, only(["#railfoot"])),
-        "pip": ("atlas", ATLAS_SCALE, 0, None, only(["#pip"])),
-        "sheen": ("atlas", ATLAS_SCALE, 0, None, only(["#sheen"])),
-        "crest": ("crest", ATLAS_SCALE, 0, None, only(["#crest"])),
-        "seal": ("seal", ATLAS_SCALE, 0, None, only(["#seal"])),
-    }
+    d = {}
+
+    def win(name, css, tex="atlas", scale=ATLAS_SCALE, **args):
+        d[name] = dict(tex=tex, scale=scale, layout="window", root="win", args=args, css=css)
+
+    def herald(name, css, tex="extras", scale=ATLAS_SCALE, **args):
+        d[name] = dict(tex=tex, scale=scale, layout="extras", root="herald", args=args, css=css)
+
+    def settings(name, css, tex="extras", scale=ATLAS_SCALE, **args):
+        d[name] = dict(tex=tex, scale=scale, layout="extras", root="settings", args=args, css=css)
+
+    # The window (Milestone 2)
+    win("chrome", only(["#rim", "#rim *", ".corner", "#title", "#page", "#parch"],
+                       extra=".win-rim{box-shadow:0 0 0 1px #2a1d06!important}"), tex="chrome", scale=CHROME_SCALE)
+    win("tabRest", only(["#tab2"]))
+    win("tabHover", only(["#tab2"]), hover_tab=2)
+    win("tabOn", only(["#tab1"]))
+    win("divider", only(["#divider"]), scale=1.6)  # 600 wide: 1.6x is what fits
+    win("knobSettings", only(["#knob-settings", "#knob-settings *"]))
+    win("knobClose", only(["#knob-close", "#knob-close *"]))
+    win("portrait", only(["#portrait"], ["#initials"]))
+    win("railLine", only(["#railfoot"]))
+    win("pip", only(["#pip"]))
+    win("sheen", only(["#sheen"]))
+    win("crest", only(["#crest"]), tex="crest")
+    win("seal", only(["#seal"]), tex="seal")
     for i in range(1, len(pages) + 1):
-        d[f"icon{i}"] = ("atlas", ATLAS_SCALE, 0, None, only([f"#icon{i}", f"#icon{i} *"], extra=f"#icon{i}{white}"))
-        d[f"label{i}"] = ("atlas", ATLAS_SCALE, 0, None, only([f"#label{i}"], [f"#small{i}"], f"#label{i}{white}"))
-        d[f"small{i}"] = ("atlas", ATLAS_SCALE, 0, None, only([f"#small{i}"], extra=f"#small{i}{white}"))
-        d[f"subtitle{i}"] = ("atlas", ATLAS_SCALE, i - 1, None, only(["#subtitle"]))
-        d[f"eyebrow{i}"] = ("atlas", ATLAS_SCALE, i - 1, None, only(["#eyebrow"]))
+        win(f"icon{i}", only([f"#icon{i}", f"#icon{i} *"], extra=f"#icon{i}{white}"))
+        win(f"label{i}", only([f"#label{i}"], [f"#small{i}"], f"#label{i}{white}"))
+        win(f"small{i}", only([f"#small{i}"], extra=f"#small{i}{white}"))
+        win(f"subtitle{i}", only(["#subtitle"]), page=i - 1)
+        win(f"eyebrow{i}", only(["#eyebrow"]), page=i - 1)
+
+    # The herald pop-up (Milestone 3)
+    herald("heraldBg", only(["#herald"]), scale=1.15)  # shown at 0.8 (Royal): 1.15x stays sharp
+    for s in SEALS:
+        herald(f"hseal_{s}", only(["#hseal"]), seal=s)
+    for label in HERALD_BUTTONS:
+        for style in ("blue", "quiet"):
+            herald(f"hbtn_{style}_{slug(label)}", only(["#hbutton"]), button=label, style=style)
+
+    # The settings page (Milestone 3)
+    settings("settingsPage", only(["#settings", "#sparch", "#sseal", "#seyebrow", "#stitle"]), scale=1.3)
+    settings("rowLine", only(["#row1"]))
+    settings("swOn", only(["#sw1", "#sw1 *"]))
+    settings("swOff", only(["#sw4", "#sw4 *"]))
+    settings("segBox", only(["#seg"]))
+    settings("segModestOn", only(["#seg-modest"]), seg="small")
+    settings("segModestOff", only(["#seg-modest"]), seg="full")
+    settings("segRoyalOn", only(["#seg-royal"]), seg="full")
+    settings("segRoyalOff", only(["#seg-royal"]), seg="small")
     return d
 
 
@@ -195,18 +263,18 @@ class Edge:
             raise RuntimeError(f"Edge didn't draw {name}")
         return Image.open(png).convert("RGBA")
 
-    def rects(self, text):
-        page = self.workdir / "rects.html"
+    def rects(self, name, text):
+        page = self.workdir / f"{name}-rects.html"
         page.write_text(text, encoding="utf-8")
         out = subprocess.run(self._args(1) + ["--dump-dom", page.as_uri()],
                              capture_output=True, timeout=180, text=True, encoding="utf-8")
         m = re.search(r'<pre id="rects-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
         if not m:
-            raise RuntimeError("Edge didn't report the layout")
+            raise RuntimeError("Edge didn't report the layout (run this from PowerShell, not Git Bash)")
         return json.loads(html.unescape(m.group(1)))
 
 
-def crop(im, scale):
+def crop(im, scale, origin):
     alpha = im.getchannel("A").point(lambda v: 255 if v > 3 else 0)
     box = alpha.getbbox()
     if not box:
@@ -214,8 +282,9 @@ def crop(im, scale):
     l, t, r, b = box
     l, t = max(0, l - 1), max(0, t - 1)
     r, b = min(im.width, r + 1), min(im.height, b + 1)
+    ox, oy = origin
     return im.crop((l, t, r, b)), {
-        "x": l / scale - WIN_X, "y": t / scale - WIN_Y, "w": (r - l) / scale, "h": (b - t) / scale}
+        "x": l / scale - ox, "y": t / scale - oy, "w": (r - l) / scale, "h": (b - t) / scale}
 
 
 def pow2(n):
@@ -226,19 +295,21 @@ def pow2(n):
 
 
 def pack(items):
-    """Shelf-packs (name, image) pairs into one atlas. Returns the image and positions."""
-    items = sorted(items, key=lambda it: (-it[1].height, it[0]))
-    x = y = shelf = 0
+    """Packs (name, image) pairs into one atlas, guillotine style. Returns the image and positions."""
+    items = sorted(items, key=lambda it: (-it[1].height, -it[1].width, it[0]))
+    free = [(0, 0, ATLAS_WIDTH, 4096)]
     spots = {}
     for name, im in items:
-        if im.width + 2 * PAD > ATLAS_WIDTH:
-            raise RuntimeError(f"{name} is too wide for the atlas")
-        if x + im.width + 2 * PAD > ATLAS_WIDTH:
-            x, y, shelf = 0, y + shelf, 0
-        spots[name] = (x + PAD, y + PAD)
-        x += im.width + 2 * PAD
-        shelf = max(shelf, im.height + 2 * PAD)
-    height = pow2(y + shelf)
+        w, h = im.width + 2 * PAD, im.height + 2 * PAD
+        fits = [f for f in free if w <= f[2] and h <= f[3]]
+        if not fits:
+            raise RuntimeError(f"{name} doesn't fit in the atlas")
+        fx, fy, fw, fh = min(fits, key=lambda f: (f[1], f[0]))
+        free.remove((fx, fy, fw, fh))
+        free.append((fx + w, fy, fw - w, h))       # beside it, as tall as it
+        free.append((fx, fy + h, fw, fh - h))      # below it, the full width
+        spots[name] = (fx + PAD, fy + PAD)
+    height = pow2(max(spots[n][1] + im.height + PAD for n, im in items))
     atlas = Image.new("RGBA", (ATLAS_WIDTH, height), (0, 0, 0, 0))
     for name, im in items:
         atlas.paste(im, spots[name])
@@ -285,49 +356,60 @@ def lua_value(v, indent=""):
 
 def main():
     pages = json.loads((HERE / "pages.json").read_text(encoding="utf-8"))
-    css = stylesheet()
+    css = {"window": stylesheet(), "extras": stylesheet("Extras.dc.html")}
+    render = {
+        "window": lambda c, args: window_html(pages, css["window"], c, **args),
+        "extras": lambda c, args: extras_html(css["extras"], c, **args),
+    }
     MEDIA.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="mota-textures-"))
     edge = Edge(work)
-    print("Reading the layout...")
-    rects = edge.rects(page_html(pages, css))
-    slots = {k: rects[k] for k in SLOTS}
+    print("Reading the layouts...")
+    rects = {}
+    rects.update(edge.rects("window", render["window"]("", {})))
+    rects.update(edge.rects("extras", render["extras"]("", {})))
+    origin = {root: (rects[root]["x"], rects[root]["y"]) for root in SLOTS}
+    slots = {}
+    for root, names in SLOTS.items():
+        ox, oy = origin[root]
+        for n in names:
+            r = rects[n]
+            slots[n] = {"x": r["x"] - ox, "y": r["y"] - oy, "w": r["w"], "h": r["h"], "root": root}
 
     todo = pieces_to_draw(pages)
     print(f"Drawing {len(todo)} pieces in Edge...")
     drawn = {}
 
     def draw(name):
-        tex, scale, page, hover, piece_css = todo[name]
-        im = edge.screenshot(name, page_html(pages, css, page=page, hover_tab=hover, piece_css=piece_css), scale)
-        return name, crop(im, scale)
+        p = todo[name]
+        im = edge.screenshot(name, render[p["layout"]](p["css"], p["args"]), p["scale"])
+        return name, crop(im, p["scale"], origin[p["root"]])
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         for name, result in pool.map(draw, todo):
             drawn[name] = result
 
-    pieces = {}
-    textures = {}
+    pieces, textures = {}, {}
 
     def place(name, tex, size, spot):
         im, pos = drawn[name]
         x, y = spot
-        pieces[name] = dict(pos, tex=tex, l=x / size[0], r=(x + im.width) / size[0],
+        pieces[name] = dict(pos, tex=tex, root=todo[name]["root"], l=x / size[0], r=(x + im.width) / size[0],
                             t=y / size[1], b=(y + im.height) / size[1])
 
-    atlas_items = [(n, drawn[n][0]) for n, v in todo.items() if v[0] == "atlas"]
-    atlas, spots = pack(atlas_items)
-    for name, _ in atlas_items:
-        place(name, "atlas", atlas.size, spots[name])
-    textures["atlas"] = atlas
-
+    for tex in ("atlas", "extras"):
+        items = [(n, drawn[n][0]) for n, p in todo.items() if p["tex"] == tex]
+        image, spots = pack(items)
+        for name, _ in items:
+            place(name, tex, image.size, spots[name])
+        textures[tex] = image
     for name, size in (("chrome", (2048, 1024)), ("crest", None), ("seal", None)):
         canvas = on_canvas(drawn[name][0], size)
         place(name, name, canvas.size, (0, 0))
         textures[name] = canvas
     textures["shadow"] = shadow_texture()
 
-    for name, im in textures.items():
+    for name, im in sorted(textures.items()):
         im.save(MEDIA / f"{name}.tga")
         print(f"  Media/{name}.tga  {im.width} x {im.height}")
 
@@ -336,56 +418,72 @@ def main():
         "window": {"w": WIN_W, "h": WIN_H},
         "textures": {name: f"{name}.tga" for name in textures},
         "shadow": {"inset": 96, "corner": 112, "size": 256},
+        "heraldButtons": HERALD_BUTTONS,
         "pieces": pieces,
         "slots": slots,
         "pages": pages,
     }
     lua = ("-- Generated by tools/textures/build.py from the design canvas. Don't edit by hand:\n"
-           "-- change the design or layout.html, then run the script again.\n"
-           "-- Positions are in window units from the window's top-left corner (y goes down);\n"
-           "-- l, r, t, b are the piece's texture coordinates.\n\n"
+           "-- change the design or the layouts, then run the script again.\n"
+           "-- Positions are in canvas units from the top-left corner of the piece's root\n"
+           "-- (win: the window, herald: the herald pop-up, settings: the settings page;\n"
+           "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
            "local _, MotA = ...\n\nMotA.Media = " + lua_value(media) + "\n")
     (ADDON / "Media.lua").write_text(lua, encoding="utf-8", newline="\n")
     print("  Media.lua")
 
     if "--preview" in sys.argv:
-        out = Path(tempfile.gettempdir()) / "mota-window-preview.png"
-        preview(pieces, textures, out)
-        print(f"Preview: {out}")
+        out = Path(tempfile.gettempdir())
+        preview_window(pieces, textures, out / "mota-window-preview.png")
+        preview_extras(pieces, textures, out / "mota-extras-preview.png")
+        print(f"Previews: {out / 'mota-window-preview.png'}, {out / 'mota-extras-preview.png'}")
 
 
-def preview(pieces, textures, out):
+def put(img, pieces, textures, name, ox, oy, dx=0, dy=0, tint=None):
+    p = pieces[name]
+    tex = textures[p["tex"]]
+    W, H = tex.size
+    part = tex.crop((round(p["l"] * W), round(p["t"] * H), round(p["r"] * W), round(p["b"] * H)))
+    part = part.resize((max(1, round(p["w"])), max(1, round(p["h"]))), Image.LANCZOS)
+    if tint:
+        r, g, b = (int(tint[i:i + 2], 16) for i in (0, 2, 4))
+        solid = Image.new("RGBA", part.size, (r, g, b, 255))
+        solid.putalpha(part.getchannel("A"))
+        part = solid
+    img.alpha_composite(part, (round(ox + p["x"] + dx), round(oy + p["y"] + dy)))
+
+
+def preview_window(pieces, textures, out):
     """Assembles the window roughly the way the add-on does, for checking."""
-    s = 1.0
-    ox, oy = 120, 120
     img = Image.new("RGBA", (WIN_W + 240, WIN_H + 240), (17, 19, 27, 255))
-
-    def put(name, dx=0, dy=0, tint=None):
-        p = pieces[name]
-        tex = textures[p["tex"]]
-        W, H = tex.size
-        part = tex.crop((round(p["l"] * W), round(p["t"] * H), round(p["r"] * W), round(p["b"] * H)))
-        part = part.resize((max(1, round(p["w"] * s)), max(1, round(p["h"] * s))), Image.LANCZOS)
-        if tint:
-            r, g, b = (int(tint[i:i + 2], 16) for i in (0, 2, 4))
-            solid = Image.new("RGBA", part.size, (r, g, b, 255))
-            solid.putalpha(part.getchannel("A"))
-            part = solid
-        img.alpha_composite(part, (round(ox + (p["x"] + dx) * s), round(oy + (p["y"] + dy) * s)))
-
-    put("chrome")
-    tab1y = 0
+    P = lambda name, **kw: put(img, pieces, textures, name, 120, 120, **kw)
+    P("chrome")
     for i in range(1, 8):
-        dy = (i - 1) * 57
         if i == 1:
-            put("tabOn")
+            P("tabOn")
         else:
-            put("tabRest", 0, dy - 57)
-        put(f"icon{i}", tint="0E1F45" if i == 1 else "E5CF92")
-        put(f"label{i}", tint="0E1F45" if i == 1 else "E5CF92")
-        put(f"small{i}", tint="3A2A0A" if i == 1 else "EBC3B2")
+            P("tabRest", dy=(i - 2) * 57)
+        P(f"icon{i}", tint="0E1F45" if i == 1 else "E5CF92")
+        P(f"label{i}", tint="0E1F45" if i == 1 else "E5CF92")
+        P(f"small{i}", tint="3A2A0A" if i == 1 else "EBC3B2")
     for name in ("subtitle1", "eyebrow1", "divider", "knobSettings", "knobClose", "portrait", "railLine", "pip", "crest"):
-        put(name)
+        P(name)
+    img.save(out)
+
+
+def preview_extras(pieces, textures, out):
+    img = Image.new("RGBA", (900, 760), (17, 19, 27, 255))
+    H = lambda name, **kw: put(img, pieces, textures, name, 80, 40, **kw)
+    H("heraldBg")
+    H("hseal_official")
+    H("hbtn_blue_VoteNow")
+    S = lambda name, **kw: put(img, pieces, textures, name, 200, 220, **kw)
+    S("settingsPage")
+    for i in range(1, 5):
+        S("rowLine", dy=(i - 1) * 58)
+    S("segBox")
+    S("segModestOff")
+    S("segRoyalOn")
     img.save(out)
 
 

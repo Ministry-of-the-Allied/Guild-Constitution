@@ -1,5 +1,5 @@
 -- Ministry of the Allied: slash commands.
--- /mota (or /ministry) opens the window (Core/Sync plan, section 10);
+-- /mota (or /ministry) opens the window (ADDON_SPEC.md, section 16.3);
 -- /mota followed by one of the commands below does that instead.
 
 local _, MotA = ...
@@ -113,6 +113,30 @@ add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MotA.db.minimap.hide
   MotA.UI:ShowMinimapSeal(show)
   MotA:Print(show and "The seal is back on the minimap." or "The minimap seal is hidden. /mota minimap brings it back.")
+end)
+
+add("settings", "", "open the Ministry's settings in the game's options", function()
+  MotA.UI:OpenSettings()
+end)
+
+add("herald", "[1-3]", "show the sample heralds from the design canvas", function(arg)
+  MotA.Herald:ShowSamples(tonumber(arg))
+end)
+
+add("fanfare", "[number]", "list the game's fanfare sounds, or play and choose one", function(arg)
+  local list = MotA.Herald:Fanfares()
+  if #list == 0 then return MotA:Print("This client has none of the fanfare sounds the add-on knows.") end
+  local n = tonumber(arg)
+  if n and list[n] then
+    MotA.db.settings.fanfareSound = list[n]
+    MotA.Herald:PlayFanfare(list[n])
+    return MotA:Print("Fanfare", n, "(" .. list[n] .. ") chosen for the heralds.")
+  end
+  local chosen = MotA.db.settings.fanfareSound or list[1]
+  for i, name in ipairs(list) do
+    MotA:Print(MotA:Color("leaf", i), name, name == chosen and MotA:Color("leaf", "· chosen") or "")
+  end
+  MotA:Print("/mota fanfare <number> plays one and chooses it.")
 end)
 
 add("crests", "", "show the game's own Alliance crests, to choose one", function()

@@ -1,7 +1,7 @@
 -- Ministry of the Allied: the core.
 -- One shared table (MotA) that every file of the add-on adds to, the event
--- dispatcher, the saved data and the chat helpers. See ADDON_PLAN.md and
--- plan/01-core-sync.md.
+-- dispatcher, the saved data and the chat helpers. See ADDON_SPEC.md and
+-- CODING_BRIEF.md.
 
 local ADDON_NAME, MotA = ...
 _G.MinistryOfTheAllied = MotA -- reachable with /dump MinistryOfTheAllied while testing
@@ -9,8 +9,8 @@ _G.MinistryOfTheAllied = MotA -- reachable with /dump MinistryOfTheAllied while 
 MotA.NAME = ADDON_NAME
 MotA.VERSION = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "0.0.0"
 MotA.PROTOCOL = 1             -- bump whenever the message format changes
-MotA.PREFIX = "MotA"          -- the hidden add-on message prefix (Core/Sync plan, section 3)
-MotA.CROWN_RANK = "The Crown" -- the guild rank that makes a character the Crown (Core/Sync plan, section 5)
+MotA.PREFIX = "MotA"          -- the hidden add-on message prefix (ADDON_SPEC.md, section 7.5)
+MotA.CROWN_RANK = "The Crown" -- the guild rank that makes a character the Crown (ADDON_SPEC.md, section 4)
 
 -- Counters for /mota sync, kept for this session only.
 MotA.stats = { sent = 0, failed = 0, received = 0, ignored = 0, conflicts = 0 }
@@ -143,11 +143,20 @@ end
 
 MotA:On("ADDON_LOADED", function(self, _, name)
   if name ~= ADDON_NAME then return end
-  -- Saved account-wide, so alts on the same account share one book (Core/Sync plan, section 2).
+  -- Saved account-wide, so alts on the same account share one book (ADDON_SPEC.md, section 7.2).
   MinistryOfTheAlliedDB = MinistryOfTheAlliedDB or {}
   self.db = self:Defaults(MinistryOfTheAlliedDB, {
     schema = 1,
-    settings = { debug = false },
+    -- The settings panel's choices (UI/Settings.lua), as the Extras board sets them.
+    settings = {
+      debug = false,
+      herald = true,       -- herald pop-ups
+      fanfare = true,      -- a fanfare with each herald
+      fanfareSound = nil,  -- which one (/mota fanfare); nil means the first the game has
+      glow = true,         -- district glow (comes with the Districts page)
+      cards = false,       -- citizen cards (come later)
+      heraldSize = "full", -- "full" (Royal) or "small" (Modest)
+    },
     guilds = {},  -- one book per guild, see CheckGuild
     window = {},  -- where the window was left, its size and page (UI/Window.lua)
     minimap = { angle = 200, hide = false }, -- the minimap seal (UI/Minimap.lua)

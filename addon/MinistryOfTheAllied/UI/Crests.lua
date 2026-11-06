@@ -1,6 +1,6 @@
 -- Ministry of the Allied: the crest finder.
 -- The plan says to use the game's own Alliance crest if it has one, before
--- shipping our picture (ADDON_PLAN.md, section 3). The game can't list its
+-- shipping our picture (ADDON_SPEC.md, section 9.2). The game can't list its
 -- textures, so this shows a few likely ones to look at:
 --
 --   /mota crests        show the candidates, numbered

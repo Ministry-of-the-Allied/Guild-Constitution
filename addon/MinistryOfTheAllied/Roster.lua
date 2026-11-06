@@ -1,6 +1,6 @@
 -- Ministry of the Allied: the guild roster.
 -- Who is in the guild, their rank and whether they're online. The Crown is
--- whoever holds the guild rank named "The Crown" (Core/Sync plan, section 5),
+-- whoever holds the guild rank named "The Crown" (ADDON_SPEC.md, section 4),
 -- which only the Guild Master can hand out.
 
 local _, MotA = ...

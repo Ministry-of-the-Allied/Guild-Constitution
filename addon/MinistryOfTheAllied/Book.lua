@@ -1,6 +1,6 @@
 -- Ministry of the Allied: the book of records.
 -- Everything that happens is written down as a record, and records are only
--- ever added, never edited or deleted (Core/Sync plan, section 1).
+-- ever added, never edited or deleted (ADDON_SPEC.md, section 7.1).
 --
 -- A record: { a = author "Name-Realm", n = the author's running number,
 --             t = server time, k = type such as "test.note", d = details }

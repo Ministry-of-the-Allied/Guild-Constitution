@@ -1,6 +1,6 @@
 -- Ministry of the Allied: the minimap seal (Extras board).
--- A wax seal on the minimap's edge. Click: open the Ministry. Drag: move it
--- around the minimap. /mota minimap hides or shows it.
+-- A wax seal on the minimap's edge. Click: open the Ministry. Right-click:
+-- settings. Drag: move it around the minimap. /mota minimap hides or shows it.
 
 local _, MotA = ...
 local UI = MotA.UI
@@ -52,7 +52,9 @@ local function build()
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
 
-  button:SetScript("OnClick", function() UI:Toggle() end)
+  button:SetScript("OnClick", function(_, mouse)
+    if mouse == "RightButton" then UI:OpenSettings() else UI:Toggle() end
+  end)
   button:SetScript("OnDragStart", function(self)
     self:SetScript("OnUpdate", followCursor)
     GameTooltip:Hide()
@@ -62,6 +64,7 @@ local function build()
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:SetText("Ministry of the Allied", MotA:RGB("F3D98A"))
     GameTooltip:AddLine("Click: open the Ministry", MotA:RGB("C3CFEC"))
+    GameTooltip:AddLine("Right-click: settings", MotA:RGB("C3CFEC"))
     GameTooltip:AddLine("Drag: move the seal", MotA:RGB("C3CFEC"))
     GameTooltip:Show()
   end)

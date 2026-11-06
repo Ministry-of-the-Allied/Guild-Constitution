@@ -9,6 +9,7 @@
 
 # Milestone 1: skeleton, guild handshake, first records, probe.
 # Milestone 2: the window, the minimap seal and the crest finder.
+# Milestone 3: herald pop-ups and the settings panel.
 # Load order matters: Core first, Commands last.
 Core.lua
 Roster.lua
@@ -21,4 +22,6 @@ Fonts.lua
 UI\Window.lua
 UI\Minimap.lua
 UI\Crests.lua
+UI\Herald.lua
+UI\Settings.lua
 Commands.lua

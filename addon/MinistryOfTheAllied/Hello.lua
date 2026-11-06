@@ -1,7 +1,7 @@
 -- Ministry of the Allied: the guild handshake.
 -- On login each copy of the add-on says hello on the hidden guild channel, and
 -- everyone who hears it answers by whisper. Both carry the add-on version, so
--- an out-of-date copy can be told to update (Core/Sync plan, section 7).
+-- an out-of-date copy can be told to update (ADDON_SPEC.md, section 7.5).
 --
 -- The answer also says the highest record number the answerer holds from the
 -- newcomer. If this computer lost records in a crash, the next record it writes
