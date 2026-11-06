@@ -1136,6 +1136,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
 - **Encrypted ballots (v2.0):** the voter's addon locks the ballot so only the Kings can open it and posts it into the shared book, so it reaches the Kings even if the voter is never online with one. Needs encryption written in Lua and a key handed out by each King. Agreed for later on 2026-11-06; until then held ballots follow 8.2, step 4.
+- **Skins locked to rank (to change before release):** Max asked on 2026-11-06 that nobody outside the Crown can switch window skin; the skin must follow each player's guild rank. As built in Milestone 5, anyone can use `/mota skin <name>` and the "Window skin: Party / Ministry" settings row. To do: limit `/mota skin` to the Crown ranks (others get a short refusal), and remove or lock the settings row for everyone else. Sections 9.1 and 16.3 then need updating to match.
 - **Party leader votes:** how the vote inside the Party Chamber is counted (open among members, or secret like the elections) is still to decide when Parties is planned in detail.
 
 ### 19.2 Old-plan ideas set aside for the brief's simpler version
