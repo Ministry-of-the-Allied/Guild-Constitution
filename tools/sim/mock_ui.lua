@@ -146,6 +146,8 @@ function Methods:GetStringWidth() return #(self.text or "") * 6 end
 function Methods:SetMaxLines() end
 function Methods:SetWordWrap() end
 
+function Methods:Stop() self.playing = false end
+
 -- scroll frames and sliders
 function Methods:SetScrollChild(c) self.scrollChild = c end
 function Methods:SetVerticalScroll(v) self.vscroll = v end

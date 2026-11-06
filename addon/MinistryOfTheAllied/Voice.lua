@@ -10,10 +10,10 @@ MOTA.Voice = Voice
 
 local PATH = "Interface\\AddOns\\MinistryOfTheAllied\\Media\\Voice\\voice_%02d.ogg"
 local START_DELAY = 6  -- seconds after the guild is known, so the loading screen has gone
-local RETRY_DELAY = 15 -- when a clip came due while another was playing
+local RETRY_DELAY = 15 -- when a clip comes due during combat or another clip, look again this soon
 
 local playing, handle, endTimer, gapTimer, herald
-local begun, due
+local begun
 
 local function CONST() return MOTA.CONST end
 function Voice:Clips() return CONST().VOICE_CLIPS end
@@ -65,10 +65,6 @@ local function onEnded()
   if p.onboarding then clipDone(p.index) end
   if herald then MOTA.Herald:Close(herald) end
   MOTA:Fire("VOICE_CHANGED")
-  if due then
-    due = nil
-    Voice:ScheduleNext(RETRY_DELAY)
-  end
 end
 
 local function begin(index, onboarding, locked)
@@ -90,12 +86,16 @@ end
 local PLAYING_TEXT = "Stop it if you wish. It can only restart from the beginning."
 local STOPPED_TEXT = "Stopped. Restarting begins again from the beginning."
 
-local function stopButton(index)
-  return { label = "Stop", style = "quiet", keep = true, onPress = function() Voice:HeraldStop(index) end }
+local function stopButton()
+  return { label = "Stop", style = "quiet", keep = true, onPress = function() Voice:Stop() end }
 end
 
 local function restartButton(index)
-  return { label = "Restart", style = "blue", keep = true, onPress = function() Voice:HeraldRestart(index) end }
+  return { label = "Restart", style = "blue", keep = true, onPress = function() Voice:Replay(index) end }
+end
+
+local function eyebrow(index)
+  return ("The Royal Charter · %d of %d"):format(index, #Voice:Clips())
 end
 
 local function announce(index)
@@ -103,13 +103,13 @@ local function announce(index)
   local isIntro = index == 1
   herald = {
     seal = "official",
-    eyebrow = isIntro and "Hear ye · the Royal Charter" or ("The Royal Charter · %d of %d"):format(index, #Voice:Clips()),
+    eyebrow = isIntro and "Hear ye · the Royal Charter" or eyebrow(index),
     title = clip.title,
     text = isIntro and "Listen well, citizen. You may close this scroll; the narration plays on." or PLAYING_TEXT,
     noFanfare = true,
     stay = isIntro and CONST().VOICE_INTRO_HERALD_SECONDS or false,
     closeX = not isIntro,
-    button = isIntro and { label = "Dismiss", style = "quiet" } or stopButton(index),
+    button = isIntro and { label = "Dismiss", style = "quiet" } or stopButton(),
     onShow = function()
       local state = Voice:State()
       if state.started == 0 then state.started = GetServerTime() end
@@ -120,23 +120,19 @@ local function announce(index)
   MOTA.Herald:Announce(herald, true)
 end
 
-function Voice:HeraldStop(index)
-  if not playing or playing.index ~= index then return end
-  self:Stop()
-  herald.text = STOPPED_TEXT
-  herald.button = restartButton(index)
-  herald.stay = CONST().VOICE_STOPPED_HERALD_SECONDS
-  MOTA.Herald:Update(herald)
-  MOTA.Herald:HideLater(CONST().VOICE_STOPPED_HERALD_SECONDS)
-end
-
--- A restart is a replay: the sequence already moved on when the clip was stopped.
-function Voice:HeraldRestart(index)
-  begin(index, false, false)
-  herald.text = PLAYING_TEXT
-  herald.button = stopButton(index)
-  herald.stay = false
-  MOTA.Herald:Update(herald)
+-- The scroll for a replay. There is only ever one voice scroll: pressing Play
+-- again rewrites it where it is, so quick presses never stack up a queue.
+local function present(index)
+  local h = herald or { seal = "official", noFanfare = true, closeX = true,
+    onGone = function(gone) if herald == gone then herald = nil end end }
+  h.eyebrow, h.title, h.text = eyebrow(index), Voice:Clips()[index].title, PLAYING_TEXT
+  h.button, h.stay, h.closeX, h.onShow = stopButton(), false, true, nil
+  if herald then
+    MOTA.Herald:Update(h)
+  else
+    herald = h
+    MOTA.Herald:Announce(h, true)
+  end
 end
 
 ---------------------------------------------------------------------------
@@ -156,7 +152,7 @@ function Voice:Due()
   local state = self:State()
   if state.complete then return end
   if playing or herald or InCombatLockdown() then
-    due = true
+    self:ScheduleNext(RETRY_DELAY)
     return
   end
   announce(state.nextClip)
@@ -171,12 +167,6 @@ function Voice:Begin()
 end
 
 MOTA:Listen("GUILD_READY", function() Voice:Begin() end)
-MOTA:On("PLAYER_REGEN_ENABLED", function()
-  if due and not playing then
-    due = nil
-    Voice:ScheduleNext(RETRY_DELAY)
-  end
-end)
 
 ---------------------------------------------------------------------------
 -- The Statute Book and /mota voice
@@ -185,10 +175,9 @@ end)
 -- Plays a clip again. Refused only while the introduction is playing.
 function Voice:Replay(index)
   if self:Locked() then return false end
-  if herald then MOTA.Herald:Close(herald) end
-  herald = nil
   if playing and playing.onboarding then clipDone(playing.index) end
   begin(index, false, false)
+  present(index)
   return true
 end
 
@@ -198,6 +187,16 @@ function Voice:Stop()
   silence()
   playing = nil
   if p.onboarding then clipDone(p.index) end
+  if herald then
+    if MOTA.Herald:IsShowing(herald) then
+      herald.text, herald.button = STOPPED_TEXT, restartButton(p.index)
+      herald.stay = CONST().VOICE_STOPPED_HERALD_SECONDS
+      MOTA.Herald:Update(herald)
+      MOTA.Herald:HideLater(herald.stay)
+    else
+      MOTA.Herald:Close(herald)
+    end
+  end
   MOTA:Fire("VOICE_CHANGED")
   return true
 end
@@ -205,7 +204,7 @@ end
 function Voice:SetEnabled(on)
   if not on and self:Locked() then return false end
   MOTA.db.settings.voice = on
-  begun, due = nil, nil
+  begun = nil
   if gapTimer then gapTimer:Cancel() gapTimer = nil end
   if on then self:Begin() end
   return true

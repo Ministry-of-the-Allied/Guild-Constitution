@@ -242,7 +242,13 @@ end
 function Herald:Update(h)
   if h ~= current then return end
   if hideTimer then hideTimer:Cancel() hideTimer = nil end
+  frame.fadeOut:Stop() -- it may have been on its way out
+  frame:SetAlpha(1)
   fit(h)
+end
+
+function Herald:IsShowing(h)
+  return h == current
 end
 
 -- Takes one herald away, whether it's showing or still waiting its turn.

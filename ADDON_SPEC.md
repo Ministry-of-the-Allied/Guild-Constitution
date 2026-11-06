@@ -784,7 +784,7 @@ Clips use the herald scroll (10.2), without the fanfare, even when other heralds
 
 ### 12.6 The Constitution, in the Statute Book
 
-On the Statute Book tab. The whole Charter scrolls on the left, generated from `CHARTER.md` by `tools/voice/build.py charter` (rerun it whenever the Charter changes). On the right, ten rows with title, length, "heard" and Play or Stop. Any clip can be replayed any time, except during the staged introduction, which locks the list. Also opened with `/mota constitution`.
+On the Statute Book tab. The whole Charter scrolls on the left, generated from `CHARTER.md` by `tools/voice/build.py charter` (rerun it whenever the Charter changes). On the right, ten rows with title, length, "heard" and Play or Stop. Any clip can be replayed any time, except during the staged introduction, which locks the list. Play brings up the herald scroll with Stop. There is only one voice scroll and one sound: pressing Play again switches both to the new clip. Also opened with `/mota constitution`.
 
 ---
 
