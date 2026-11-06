@@ -14,41 +14,83 @@
 <style>
 body{margin:0}
 a{color:#1B3570}a:hover{color:#3A63B8}
+.parch p{text-wrap:pretty}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.gem{width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--cc,#5E4B33);box-shadow:0 0 0 1px rgba(42,31,20,.6)}
 .bands{display:flex;gap:6px;flex-wrap:wrap}
-.band{font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.12em;padding:5px 10px;border:1px solid rgba(110,79,23,.55);background:linear-gradient(180deg,#F6ECD2,#E6D3A6);color:#5E4B33;cursor:pointer;border-radius:2px}
-.band.on{background:linear-gradient(180deg,#B9503F,#8E2B22);color:#FBE9C8;border-color:#5A140F;box-shadow:inset 0 1px 0 rgba(255,220,180,.35),0 2px 4px rgba(70,20,10,.35)}
-.bracket{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));column-gap:28px;padding:4px 2px 30px}
-.col-h{position:absolute;top:-22px;font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7A5719}
-.slot{position:relative;display:flex;align-items:center}
-.bout{position:relative;width:100%;display:flex;flex-direction:column;background:linear-gradient(180deg,#FBF4E1,#F0E2BE);box-shadow:0 0 0 1px rgba(110,79,23,.55),0 3px 7px rgba(70,45,10,.22);border-left:3px solid #8E2B22}
-.bout.final{border-left-color:#C9A24A;box-shadow:0 0 0 1px #8A6A22,0 0 0 3px rgba(201,162,74,.35),0 6px 14px rgba(70,45,10,.3)}
+.band{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border:none;border-radius:2px;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#4A3A22;
+  background:linear-gradient(180deg,#EADBB5 0%,#D2BB89 100%);box-shadow:inset 0 0 0 1px rgba(110,79,23,.55),inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(90,63,16,.2)}
+.band:hover{color:#1B3570}
+.band.on{color:#F3D98A;text-shadow:0 1px 0 rgba(0,0,0,.45);background:radial-gradient(ellipse 120% 170% at 30% 22%,#B9503F 0%,#8E2B22 46%,#5A140F 100%);
+  box-shadow:inset 0 0 0 1px #3A0C08,inset 0 1px 0 rgba(255,205,180,.4),0 2px 4px rgba(70,20,10,.3)}
+.band .mine{width:6px;height:6px;flex:none;transform:rotate(45deg);background:linear-gradient(135deg,#FFF3C4,#C9A24A 50%,#8A6420);box-shadow:0 0 0 1px rgba(60,40,10,.65)}
+.rounds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:24px}
+.rh{display:flex;align-items:center;gap:7px;font-size:9.5px;letter-spacing:.24em}
+.rh.now{color:#1B3570}
+.rh.now::before{content:"";width:6px;height:6px;flex:none;transform:rotate(45deg);background:#8E2B22;box-shadow:0 0 6px rgba(142,43,34,.7)}
+.bracket{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));column-gap:24px}
+.slot{position:relative;display:flex;align-items:center;min-width:0}
+.bout{position:relative;width:100%;display:flex;flex-direction:column;background:linear-gradient(180deg,#FBF4E1,#F0E2BE);box-shadow:0 0 0 1px rgba(110,79,23,.6),0 3px 7px rgba(70,45,10,.22)}
+.bout.next{box-shadow:0 0 0 1px #8E2B22,0 0 0 3px rgba(142,43,34,.22),0 3px 7px rgba(70,45,10,.22)}
+.final-frame{position:relative;width:100%;padding:2px;background:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);box-shadow:0 0 0 1px #5A3F10,0 6px 14px rgba(70,45,10,.3)}
+.final-frame.next{box-shadow:0 0 0 1px #5A3F10,0 0 0 4px rgba(142,43,34,.28),0 6px 14px rgba(70,45,10,.3)}
+.final-frame .bout{box-shadow:inset 0 0 0 1px rgba(90,63,16,.5)}
+.next-tag{position:absolute;right:0;bottom:calc(100% + 5px);display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;font-weight:700;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#8E2B22;white-space:nowrap}
+.next-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#B9503F;box-shadow:0 0 6px #B9503F}
 .duelist{display:flex;align-items:center;gap:7px;height:28px;padding:0 8px;font-family:'EB Garamond',serif;font-size:14.5px;color:#2A1F14;white-space:nowrap;overflow:hidden}
-.duelist + .duelist{border-top:1px dotted rgba(110,79,23,.45)}
+.duelist + .duelist{border-top:1px dotted rgba(110,79,23,.5)}
 .duelist .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.duelist .cls{width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--cc,#5E4B33)}
-.duelist.won{font-weight:700}
-.duelist.won::after{content:'';width:14px;height:14px;flex:none;background:radial-gradient(circle at 40% 35%,#E9C46A,#8A6A22 70%);border-radius:50%;box-shadow:0 0 0 1px #5a420f}
-.duelist.lost{color:#9A8566;text-decoration:line-through;text-decoration-color:rgba(142,43,34,.55)}
-.duelist.tbd{color:#9A8566;font-style:italic}
-.wire-out{position:absolute;right:-14px;top:50%;width:14px;border-top:1.5px solid #A8842F}
-.wire-v{position:absolute;left:-14px;top:25%;bottom:25%;border-left:1.5px solid #A8842F}
-.wire-in{position:absolute;left:-14px;top:50%;width:14px;border-top:1.5px solid #A8842F}
-.champ{position:absolute;left:0;right:0;top:calc(50% + 46px);display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
-.next-bout{display:flex;flex-direction:column;gap:6px;padding:12px 14px;background:linear-gradient(180deg,#8E2B22,#5A140F);color:#FBE9C8;box-shadow:0 0 0 1px #3a0c08,inset 0 1px 0 rgba(255,200,170,.25),0 6px 14px rgba(60,15,8,.35);border-radius:2px}
-.next-bout .vs{font-family:'Cinzel Decorative',serif;font-weight:700;font-size:13px;color:#F3D98A;letter-spacing:.1em}
-.split{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;align-items:center}
-.entry-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px dotted rgba(110,79,23,.4)}
-.paid{font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.16em;color:#1F6B4A}
-.unpaid{font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.16em;color:#8E1B1B}
-.gem{width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--cc,#5E4B33)}
-.laurel{font-family:'Cinzel Decorative',serif;font-weight:700;color:#7A5719}
+.duelist.won{font-weight:700;background:linear-gradient(90deg,rgba(201,162,74,.34),rgba(201,162,74,.06))}
+.duelist.lost{color:#5E4B33}
+.duelist.lost .nm{text-decoration:line-through;text-decoration-color:rgba(110,23,18,.6)}
+.duelist.tbd{color:#5E4B33;font-style:italic;font-size:14px}
+.duelist.tbd .gem{background:transparent;box-shadow:inset 0 0 0 1px rgba(94,75,51,.75)}
+.w{position:absolute;pointer-events:none}
+.w.h{top:50%;height:2px;margin-top:-1px;background:repeating-linear-gradient(90deg,rgba(110,79,23,.5) 0 3px,rgba(0,0,0,0) 3px 6px)}
+.w.v{left:-13px;width:2px;background:repeating-linear-gradient(180deg,rgba(110,79,23,.5) 0 3px,rgba(0,0,0,0) 3px 6px)}
+.w.out{left:100%;width:13px}
+.w.in{left:-13px;width:13px}
+.w.top{top:calc(25% - 1px);height:calc(25% + 2px)}
+.w.bot{top:calc(50% - 1px);height:calc(25% + 2px)}
+.w.h.on{background:linear-gradient(180deg,#F6E3A1,#C9A24A 55%,#7A5719)}
+.w.v.on{background:linear-gradient(90deg,#F6E3A1,#C9A24A 55%,#7A5719)}
+.champ{position:absolute;left:0;right:0;top:calc(50% + 44px);display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;text-wrap:balance}
+.laurel{font-family:'Cinzel Decorative','Cinzel',serif;font-weight:700;color:#7A5719}
+.track{position:relative;display:flex;justify-content:space-between;align-items:center;width:128px;height:12px;margin-top:2px}
+.track::before{content:"";position:absolute;left:5px;right:5px;top:50%;height:1px;background:rgba(243,217,138,.45)}
+.step{position:relative;width:9px;height:9px;transform:rotate(45deg);background:#142B5E;box-shadow:0 0 0 1px rgba(243,217,138,.75)}
+.step.done{background:linear-gradient(135deg,#FFF3C4,#C9A24A 50%,#8A6420)}
+.step.now{background:linear-gradient(135deg,#FFFBE6,#F3D98A 50%,#C9A24A);box-shadow:0 0 0 1px #FFF3C4,0 0 9px rgba(243,217,138,.95)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:baseline}
+.split .rule{align-self:center}
+aside > *{flex:none}
+.amt{font-family:'Cinzel',serif;font-weight:700;color:#1B3570;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap;text-align:right}
+.next-bout{display:flex;flex-direction:column;gap:5px;padding:12px 14px 13px;background:linear-gradient(180deg,#8E2B22,#5A140F);color:#FBE9C8;border-radius:2px;
+  box-shadow:0 0 0 1px #3A0C08,inset 0 0 0 3px rgba(90,20,15,.9),inset 0 0 0 4px rgba(243,217,138,.35),inset 0 1px 0 rgba(255,200,170,.25),0 6px 14px rgba(60,15,8,.35)}
+.next-bout .who{display:flex;align-items:center;gap:8px;min-width:0;font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:.03em;color:#FBE9C8}
+.next-bout .who span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.next-bout .gem{box-shadow:0 0 0 1px rgba(0,0,0,.6)}
+.next-bout .vs{padding-left:16px;font-family:'Cinzel Decorative','Cinzel',serif;font-weight:700;font-size:11.5px;letter-spacing:.12em;color:#F3D98A}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:6px;align-items:baseline}
+.kv > :nth-child(2n){justify-self:end;text-align:right}
+.paid{font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#1F6B4A;white-space:nowrap}
+.unpaid{font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#8E1B1B;white-space:nowrap}
+.entry{display:flex;align-items:center;gap:10px;min-height:32px;padding:0 6px;border-bottom:1px dotted rgba(110,79,23,.45);font-size:14.5px}
+.entry .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entry.you{background:linear-gradient(90deg,rgba(201,162,74,.3),rgba(201,162,74,.04))}
+.entry.you .nm{font-weight:700}
+.entry.open{color:#5E4B33;font-style:italic}
+.entry.open .gem{background:transparent;box-shadow:inset 0 0 0 1px rgba(94,75,51,.7)}
+.you-tag{font-family:'Cinzel',serif;font-weight:700;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#1B3570}
+table.ledger.hall td{padding:5px 10px;line-height:1.25}
+.hall .champ-nm{display:flex;align-items:center;gap:9px;font-weight:700;white-space:nowrap}
 </style>
 </helmet>
 <div class="stage" style="width: 1160px; height: 820px">
   <div class="win" style="left: 100px; top: 86px">
     <div class="win-rim"><div class="win-leather"></div></div>
     <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-    <img class="crest" src="/_blob/f5b35b474a9d0add72bbf035c80e74e8" alt="Stormwind Alliance crest">
+    <img class="crest" src="/_blob/7c545901b08ed0754c9e9eaf3000577b" alt="Stormwind Alliance crest">
     <div class="win-head">
       <h1 class="title">Ministry of the Allied</h1>
       <div class="subtitle">The Gladiator's Ring</div>
@@ -66,7 +108,7 @@ a{color:#1B3570}a:hover{color:#3A63B8}
         <a class="tab" href="Parties.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V3.5M5 4h8.5l-2 3 2 3H5M13 21V9M13 9.5h7l-2 3 2 3h-7"></path></svg><span>The Parties<small>Public &amp; chamber</small></span></a>
         <a class="tab" href="Treasury.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"></ellipse><path d="M5 6v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 10v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4M5 14v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4"></path></svg><span>Treasury<small>The ledger</small></span></a>
         <a class="tab" href="Districts.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path></svg><span>Districts<small>Map &amp; council</small></span></a>
-        <a class="tab on" href="GladiatorsRing.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg><span>Gladiator's Ring<small>Monthly duels</small></span></a>
+        <a class="tab on" href="GladiatorsRing.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg><span>The Ring<small>Gladiator duels</small></span></a>
         <div class="rail-foot">
           <div class="portrait sm" style="--pc: #A8506F">AV</div>
           <div class="who">Aldric Vane<small>Cathedral Ward</small></div>
@@ -74,120 +116,168 @@ a{color:#1B3570}a:hover{color:#3A63B8}
       </nav>
 
       <main class="page">
-        <div class="parch" style="padding: 20px 24px 20px 32px; display: grid; grid-template-columns: 214px minmax(0, 1fr); gap: 20px">
+        <div class="parch" style="padding: 20px 26px 22px 34px; display: grid; grid-template-columns: 206px minmax(0, 1fr); gap: 20px">
 
           <aside style="display: flex; flex-direction: column; gap: 12px; min-height: 0">
-            <div class="plate blue" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 14px 14px; text-align: center">
-              <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 54px; height: 54px">
-              <span class="eyebrow" style="font-size: 9.5px">The November Ring</span>
-              <span style="font-family: 'Cinzel', serif; font-weight: 700; font-size: 17px; color: #F3D98A; letter-spacing: .04em">{{ev.stage}}</span>
-              <span class="small" style="color: #C9D5F0; font-size: 13px">{{ev.when}}</span>
-            </div>
-
-            <div class="plate" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px">
-              <h3 class="h-sec" style="font-size: 11px">The purse</h3>
-              <div class="split">
-                <span class="eyebrow" style="font-size: 9px">Pot</span><span class="small muted">{{ev.entrants}} × {{ev.fee}} g</span><span class="num" style="font-size: 16px">{{ev.pot}} <span class="coin g"></span></span>
-                <span class="eyebrow" style="font-size: 9px">90%</span><span class="small muted">to the champion</span><span class="num small">{{ev.winner}} <span class="coin g"></span></span>
-                <span class="eyebrow" style="font-size: 9px">10%</span><span class="small muted">to the guild bank</span><span class="num small">{{ev.bank}} <span class="coin g"></span></span>
+            <div class="plate blue" style="display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 14px 14px 15px; text-align: center">
+              <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 44px; height: 44px">
+              <span class="eyebrow" style="font-size: 9.5px; margin-top: 2px">The November Ring</span>
+              <span style="font-family: 'Cinzel', serif; font-weight: 700; font-size: 17px; line-height: 1.15; color: #F3D98A; letter-spacing: .04em">{{ev.stage}}</span>
+              <span class="small" style="color: #C9D5F0; font-size: 13px">{{ev.label}} · {{ev.when}}</span>
+              <div class="track" aria-hidden="true">
+                <sc-for list="{{track}}" as="t" hint-placeholder-count="5">
+                  <span class="{{t.cls}}"></span>
+                </sc-for>
               </div>
             </div>
 
-            <div class="next-bout">
-              <span class="eyebrow" style="font-size: 9px; color: #F3C9A8">Next bout</span>
-              <span class="h-name" style="font-size: 15px; color: #FBE9C8">{{ev.nextA}}</span>
-              <span class="vs">versus</span>
-              <span class="h-name" style="font-size: 15px; color: #FBE9C8">{{ev.nextB}}</span>
-              <span class="small" style="color: #F3C9A8; font-size: 13px">Old Town · {{ev.nextWhen}}</span>
+            <div class="plate" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 13px">
+              <h3 class="h-sec" style="font-size: 11px">The purse</h3>
+              <div class="split">
+                <span class="small" style="font-size: 14px">{{ev.potLabel}} <span class="muted" style="font-size: 13px">· {{ev.count}} × {{ev.fee}} g</span></span>
+                <span class="amt" style="font-size: 15px"><sc-if value="{{ev.pot.hasG}}" hint-placeholder-val="{{ true }}">{{ev.pot.g}}<span class="coin g"></span></sc-if><sc-if value="{{ev.pot.hasS}}" hint-placeholder-val="{{ false }}">{{ev.pot.s}}<span class="coin s"></span></sc-if></span>
+                <span class="rule" style="grid-column: 1 / 3; margin: 1px 0"></span>
+                <span class="small" style="font-size: 14px">Champion <span class="muted" style="font-size: 13px">· 90%</span></span>
+                <span class="amt" style="font-size: 13px"><sc-if value="{{ev.champ.hasG}}" hint-placeholder-val="{{ true }}">{{ev.champ.g}}<span class="coin g"></span></sc-if><sc-if value="{{ev.champ.hasS}}" hint-placeholder-val="{{ false }}">{{ev.champ.s}}<span class="coin s"></span></sc-if></span>
+                <span class="small" style="font-size: 14px">Guild bank <span class="muted" style="font-size: 13px">· 10%</span></span>
+                <span class="amt" style="font-size: 13px"><sc-if value="{{ev.bank.hasG}}" hint-placeholder-val="{{ true }}">{{ev.bank.g}}<span class="coin g"></span></sc-if><sc-if value="{{ev.bank.hasS}}" hint-placeholder-val="{{ false }}">{{ev.bank.s}}<span class="coin s"></span></sc-if></span>
+              </div>
             </div>
 
-            <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 2px 0; border-top: 1px solid rgba(110,79,23,.35)">
-              <div class="portrait sm" style="--pc: #B0621C">DS</div>
-              <div style="display: flex; flex-direction: column"><span class="eyebrow" style="font-size: 9px">Organised by the Minister of War</span><span class="h-name" style="font-size: 14px">Dagna Stormbrow</span></div>
+            <sc-if value="{{nb.has}}" hint-placeholder-val="{{ true }}">
+              <div class="next-bout">
+                <span class="eyebrow" style="font-size: 9px; color: #F3C9A8">Next bout · {{nb.round}}</span>
+                <span class="who"><span class="gem" style="{{nb.a.cc}}"></span><span>{{nb.a.name}}</span></span>
+                <span class="vs">versus</span>
+                <span class="who"><span class="gem" style="{{nb.b.cc}}"></span><span>{{nb.b.name}}</span></span>
+                <span class="small" style="margin-top: 2px; color: #F3C9A8; font-size: 13px">Old Town · {{nb.when}}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{nb.none}}" hint-placeholder-val="{{ false }}">
+              <div class="plate sunk" style="display: flex; flex-direction: column; gap: 5px; padding: 12px 14px">
+                <span class="eyebrow" style="font-size: 9px">Next bout</span>
+                <span class="h-name" style="font-size: 14px">{{nb.title}}</span>
+                <span class="small muted italic" style="font-size: 13.5px; line-height: 1.3">{{nb.line}}</span>
+              </div>
+            </sc-if>
+
+            <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 2px 0; border-top: 1px solid rgba(110,79,23,.35)">
+              <div class="portrait sm" style="--pc: #C69B6D">DS</div>
+              <div style="display: flex; flex-direction: column; min-width: 0">
+                <span class="eyebrow" style="font-size: 9px">Minister of War</span>
+                <span class="h-name" style="font-size: 14px">Dagna Stormbrow</span>
+                <span class="small muted" style="font-size: 12.5px">Organises the Ring</span>
+              </div>
             </div>
           </aside>
 
-          <section style="display: flex; flex-direction: column; gap: 12px; min-height: 0">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
-              <div class="ribbons" role="tablist" aria-label="Ring views">
-                <button class="{{rb.signup}}" type="button" role="tab" onClick="{{show.signup}}">Sign-up</button>
-                <button class="{{rb.bracket}}" type="button" role="tab" onClick="{{show.bracket}}">Bracket</button>
-                <button class="{{rb.hall}}" type="button" role="tab" onClick="{{show.hall}}">Champions</button>
-              </div>
+          <section style="display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0">
+            <div class="ribbons" role="tablist" aria-label="Ring views">
+              <button class="{{rb.signup}}" type="button" role="tab" aria-selected="{{sel.signup}}" onClick="{{show.signup}}">Sign-up</button>
+              <button class="{{rb.bracket}}" type="button" role="tab" aria-selected="{{sel.bracket}}" onClick="{{show.bracket}}">Bracket</button>
+              <button class="{{rb.hall}}" type="button" role="tab" aria-selected="{{sel.hall}}" onClick="{{show.hall}}">Champions</button>
             </div>
 
             <sc-if value="{{notHall}}" hint-placeholder-val="{{ true }}">
-              <div style="display: flex; align-items: center; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 12px">
                 <span class="eyebrow" style="font-size: 9.5px">Level bracket</span>
-                <div class="bands">
+                <div class="bands" role="group" aria-label="Level bracket">
                   <sc-for list="{{bands}}" as="b" hint-placeholder-count="5">
-                    <button class="{{b.cls}}" type="button" onClick="{{b.pick}}">{{b.label}}</button>
+                    <button class="{{b.cls}}" type="button" aria-pressed="{{b.pressed}}" onClick="{{b.pick}}">{{b.label}}<sc-if value="{{b.mine}}" hint-placeholder-val="{{ false }}"><span class="mine" title="Your bracket"></span><span class="sr">(your bracket)</span></sc-if></button>
                   </sc-for>
                 </div>
               </div>
             </sc-if>
 
-            <sc-if value="{{isBracket}}" hint-placeholder-val="{{ true }}">
-              <div class="bracket" style="margin-top: 22px">
-                <span class="col-h" style="left: 2px">Quarter-finals</span>
-                <span class="col-h" style="left: calc(33.3% + 12px)">Semi-finals</span>
-                <span class="col-h" style="left: calc(66.6% + 22px)">The Final</span>
-
-                <sc-for list="{{qf}}" as="m" hint-placeholder-count="4">
-                  <div class="slot" style="{{m.pos}}">
-                    <div class="bout">
-                      <div class="{{m.a.cls}}"><span class="cls" style="{{m.a.cc}}"></span><span class="nm">{{m.a.name}}</span></div>
-                      <div class="{{m.b.cls}}"><span class="cls" style="{{m.b.cc}}"></span><span class="nm">{{m.b.name}}</span></div>
-                      <span class="wire-out"></span>
+            <sc-if value="{{showBracket}}" hint-placeholder-val="{{ true }}">
+              <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px">
+                <div class="rounds">
+                  <span class="{{rh.qf}}">Quarter-finals</span>
+                  <span class="{{rh.sf}}">Semi-finals</span>
+                  <span class="{{rh.f}}">The Final</span>
+                </div>
+                <div class="bracket">
+                  <sc-for list="{{qf}}" as="m" hint-placeholder-count="4">
+                    <div class="slot" style="{{m.pos}}">
+                      <div class="{{m.card}}">
+                        <sc-if value="{{m.isNext}}" hint-placeholder-val="{{ false }}"><span class="next-tag">Next bout</span></sc-if>
+                        <div class="{{m.a.cls}}" title="{{m.a.tip}}"><span class="gem" style="{{m.a.cc}}"></span><span class="nm">{{m.a.name}}</span></div>
+                        <div class="{{m.b.cls}}" title="{{m.b.tip}}"><span class="gem" style="{{m.b.cc}}"></span><span class="nm">{{m.b.name}}</span></div>
+                      </div>
+                      <span class="{{m.wOut}}"></span>
                     </div>
-                  </div>
-                </sc-for>
+                  </sc-for>
 
-                <sc-for list="{{sf}}" as="m" hint-placeholder-count="2">
-                  <div class="slot" style="{{m.pos}}">
-                    <span class="wire-v"></span><span class="wire-in"></span>
-                    <div class="bout">
-                      <div class="{{m.a.cls}}"><span class="cls" style="{{m.a.cc}}"></span><span class="nm">{{m.a.name}}</span></div>
-                      <div class="{{m.b.cls}}"><span class="cls" style="{{m.b.cc}}"></span><span class="nm">{{m.b.name}}</span></div>
-                      <span class="wire-out"></span>
+                  <sc-for list="{{sf}}" as="m" hint-placeholder-count="2">
+                    <div class="slot" style="{{m.pos}}">
+                      <span class="{{m.wBot}}"></span><span class="{{m.wTop}}"></span><span class="{{m.wIn}}"></span>
+                      <div class="{{m.card}}">
+                        <sc-if value="{{m.isNext}}" hint-placeholder-val="{{ false }}"><span class="next-tag">Next bout</span></sc-if>
+                        <div class="{{m.a.cls}}" title="{{m.a.tip}}"><span class="gem" style="{{m.a.cc}}"></span><span class="nm">{{m.a.name}}</span></div>
+                        <div class="{{m.b.cls}}" title="{{m.b.tip}}"><span class="gem" style="{{m.b.cc}}"></span><span class="nm">{{m.b.name}}</span></div>
+                      </div>
+                      <span class="{{m.wOut}}"></span>
                     </div>
-                  </div>
-                </sc-for>
+                  </sc-for>
 
-                <div class="slot" style="grid-column: 3; grid-row: 1 / 9">
-                  <span class="wire-v"></span><span class="wire-in"></span>
-                  <div class="bout final">
-                    <div class="{{fin.a.cls}}"><span class="cls" style="{{fin.a.cc}}"></span><span class="nm">{{fin.a.name}}</span></div>
-                    <div class="{{fin.b.cls}}"><span class="cls" style="{{fin.b.cc}}"></span><span class="nm">{{fin.b.name}}</span></div>
-                  </div>
-                  <div class="champ">
-                    <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 34px; height: 34px">
-                    <span class="laurel" style="font-size: 11px; letter-spacing: .08em">Gladiator of Stormwind</span>
-                    <span class="small muted italic" style="font-size: 13px">{{fin.crown}}</span>
+                  <div class="slot" style="grid-column: 3; grid-row: 1 / 9">
+                    <span class="{{fin.wBot}}"></span><span class="{{fin.wTop}}"></span><span class="{{fin.wIn}}"></span>
+                    <div class="{{fin.card}}">
+                      <sc-if value="{{fin.isNext}}" hint-placeholder-val="{{ false }}"><span class="next-tag" style="bottom: calc(100% + 7px)">Next bout</span></sc-if>
+                      <div class="bout">
+                        <div class="{{fin.a.cls}}" title="{{fin.a.tip}}"><span class="gem" style="{{fin.a.cc}}"></span><span class="nm">{{fin.a.name}}</span></div>
+                        <div class="{{fin.b.cls}}" title="{{fin.b.tip}}"><span class="gem" style="{{fin.b.cc}}"></span><span class="nm">{{fin.b.name}}</span></div>
+                      </div>
+                    </div>
+                    <div class="champ">
+                      <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 36px; height: 36px">
+                      <span class="laurel" style="font-size: 10.5px; letter-spacing: .08em">Gladiator of Stormwind</span>
+                      <sc-if value="{{fin.crowned}}" hint-placeholder-val="{{ false }}">
+                        <span class="h-name" style="font-size: 14px; color: #1B3570">{{fin.champ}}</span>
+                      </sc-if>
+                      <span class="small muted italic" style="font-size: 13px">{{fin.line}}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </sc-if>
 
+            <sc-if value="{{showUndrawn}}" hint-placeholder-val="{{ false }}">
+              <div class="plate" style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 44px; text-align: center">
+                <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="#7A5719" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg>
+                <p class="eyebrow" style="font-size: 10px">{{ev.label}} · {{ev.places}} places taken</p>
+                <h2 class="h-page" style="font-size: 22px">Awaiting the draw</h2>
+                <p class="small" style="margin: 0; max-width: 330px; line-height: 1.4">Sign-ups close on <strong>{{ev.closes}}</strong>. The Minister of War draws the bracket that evening, and the bouts are fought in Old Town on {{ev.fought}}.</p>
+                <button class="btn quiet sm" type="button" onClick="{{toSheet}}" style="margin-top: 4px">See the sign-up sheet</button>
+              </div>
+            </sc-if>
+
             <sc-if value="{{isSignup}}" hint-placeholder-val="{{ false }}">
-              <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px">
-                <div class="plate" style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px">
+              <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px">
+                <div class="plate" style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px">
                   <h3 class="h-sec" style="font-size: 11.5px">Enter the Ring</h3>
-                  <p class="small" style="margin: 0">Your level places you in the <strong>{{bandName}}</strong> bracket. Pay the entry fee of <strong>{{ev.fee}} gold</strong> into the guild bank; the ledger confirms it for you.</p>
+                  <p class="small" style="margin: 0; line-height: 1.4">Your level places you in the <strong>{{me.label}}</strong> bracket. Pay the entry fee of <strong>{{me.fee}} gold</strong> into the guild bank; the ledger confirms it for you.</p>
                   <div class="rule"></div>
-                  <div style="display: flex; flex-direction: column; gap: 6px">
-                    <div style="display: flex; justify-content: space-between"><span class="small">Bracket</span><strong class="small">{{bandName}}</strong></div>
-                    <div style="display: flex; justify-content: space-between"><span class="small">Entry fee</span><strong class="small">{{ev.fee}} g</strong></div>
-                    <div style="display: flex; justify-content: space-between; align-items: center"><span class="small">Fee seen in the ledger</span><span class="{{me.payCls}}">{{me.pay}}</span></div>
+                  <div class="kv">
+                    <span class="small">Bracket</span><strong class="small">{{me.label}}</strong>
+                    <span class="small">Entry fee</span><span class="amt" style="font-size: 13px">{{me.fee}}<span class="coin g"></span></span>
+                    <span class="small">Places taken</span><strong class="small">{{me.places}}</strong>
+                    <span class="small">Fee in the ledger</span><span class="{{me.payCls}}">{{me.pay}}</span>
                   </div>
                   <button class="{{me.btnCls}}" type="button" onClick="{{me.toggle}}" style="margin-top: auto">{{me.btn}}</button>
-                  <p class="small muted italic" style="margin: 0; font-size: 12.5px; text-align: center">Sign-ups close on {{ev.closes}}. The Minister of War draws the bracket that evening.</p>
+                  <p class="small muted italic" style="margin: 0; font-size: 13px; line-height: 1.35; text-align: center">Sign-ups close on {{me.closes}}. The Minister of War draws the bracket that evening.</p>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 4px; min-height: 0">
-                  <h3 class="h-sec" style="font-size: 11.5px; padding-left: 2px">Entered so far · {{entryCount}}</h3>
-                  <div class="scroll" style="flex: 1; min-height: 0; overflow: auto; padding-right: 6px">
-                    <sc-for list="{{entries}}" as="e" hint-placeholder-count="8">
-                      <div class="entry-row"><span class="gem" style="{{e.cc}}"></span><span class="small" style="flex: 1">{{e.name}}</span><span class="{{e.payCls}}">{{e.pay}}</span></div>
+                <div style="display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0">
+                  <h3 class="h-sec" style="font-size: 11.5px; padding: 0 2px">{{sheet.title}} · {{sheet.count}}</h3>
+                  <p class="small muted italic" style="margin: 0 0 2px; padding: 0 2px; font-size: 13.5px">{{sheet.status}}</p>
+                  <div class="scroll" style="flex: 1; min-height: 0; overflow: auto; padding-right: 4px; border-top: 1px solid rgba(110,79,23,.55)">
+                    <sc-for list="{{sheet.rows}}" as="e" hint-placeholder-count="8">
+                      <div class="{{e.cls}}" title="{{e.tip}}">
+                        <span class="gem" style="{{e.cc}}"></span>
+                        <span class="nm">{{e.name}}</span>
+                        <sc-if value="{{e.isYou}}" hint-placeholder-val="{{ false }}"><span class="you-tag">You</span></sc-if>
+                        <span class="{{e.payCls}}">{{e.pay}}</span>
+                      </div>
                     </sc-for>
                   </div>
                 </div>
@@ -195,16 +285,27 @@ a{color:#1B3570}a:hover{color:#3A63B8}
             </sc-if>
 
             <sc-if value="{{isHall}}" hint-placeholder-val="{{ false }}">
-              <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px">
-                <p class="small muted italic" style="margin: 0">Each month's champions hold the title <span class="laurel">Gladiator of Stormwind</span> until the next Ring is fought.</p>
-                <table class="ledger">
-                  <thead><tr><th>Month</th><th>Bracket</th><th>Champion</th><th>Runner-up</th><th style="text-align: right">Purse</th></tr></thead>
-                  <tbody>
-                    <sc-for list="{{hall}}" as="h" hint-placeholder-count="6">
-                      <tr><td><strong>{{h.month}}</strong></td><td>{{h.band}}</td><td><span class="laurel" style="font-size: 12px">{{h.champ}}</span></td><td class="muted">{{h.runner}}</td><td class="num" style="text-align: right">{{h.purse}} <span class="coin g"></span></td></tr>
-                    </sc-for>
-                  </tbody>
-                </table>
+              <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 2px">
+                  <h3 class="h-sec" style="font-size: 11.5px">The Hall of Champions</h3>
+                  <span class="eyebrow" style="font-size: 9px; letter-spacing: .2em">Since August</span>
+                </div>
+                <p class="small muted italic" style="margin: 0 0 2px; padding: 0 2px; font-size: 14px">Each month's champions hold the title <span class="laurel" style="font-style: normal; font-size: 12.5px">Gladiator of Stormwind</span> until the next Ring is fought.</p>
+                <div class="plate sunk" style="flex: 1; min-height: 0; padding: 2px 8px">
+                  <table class="ledger hall" style="font-size: 14.5px">
+                    <thead><tr><th>The Ring</th><th>Champion</th><th>Runner-up</th><th class="r">Purse</th></tr></thead>
+                    <tbody>
+                      <sc-for list="{{hall}}" as="h" hint-placeholder-count="7">
+                        <tr>
+                          <td><strong>{{h.month}}</strong><br><span class="muted" style="font-size: 13px">{{h.band}}</span></td>
+                          <td><span class="champ-nm" title="{{h.champ.tip}}"><span class="gem" style="{{h.champ.cc}}"></span>{{h.champ.name}}</span></td>
+                          <td class="muted">{{h.runner}}</td>
+                          <td class="r"><span class="amt" style="font-size: 13.5px"><sc-if value="{{h.purse.hasG}}" hint-placeholder-val="{{ true }}">{{h.purse.g}}<span class="coin g"></span></sc-if><sc-if value="{{h.purse.hasS}}" hint-placeholder-val="{{ false }}">{{h.purse.s}}<span class="coin s"></span></sc-if></span></td>
+                        </tr>
+                      </sc-for>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </sc-if>
           </section>
@@ -214,7 +315,7 @@ a{color:#1B3570}a:hover{color:#3A63B8}
 
     <div class="win-foot">
       <span><span class="pip"></span>Synced with 34 citizens · moments ago</span>
-      <span>Bouts held in Old Town · results read from the duel announcements</span>
+      <span>Winners read from the duel announcements</span>
     </div>
   </div>
 </div>
@@ -224,81 +325,167 @@ class Component extends DCLogic {
   renderVals() {
     const st = this.state || {};
     const view = st.view || 'bracket';
-    const band = st.band || '60';
+    const band = st.band || '60';          // the bracket shown on Bracket and Champions
+    const signBand = st.signBand || '20';  // Sign-up opens on your own bracket's sheet
     const entered = st.entered !== false;
     const set = (patch) => () => this.setState(patch);
+    const MINE = '20';                      // sample: Aldric Vane is a level 26 priest
 
-    // Class colours (sample): warrior, mage, priest, rogue, paladin, hunter, warlock, druid
-    const C = { war: '#C69B6D', mag: '#3FC7EB', pri: '#B8B8B8', rog: '#E8D35A', pal: '#F48CBA', hun: '#AAD372', wlk: '#8788EE', dru: '#FF7C0A' };
-    const brackets = {
-      '60': { stage: 'Semi-finals', when: 'Saturday 22 Nov', entrants: 8, fee: 10, nextA: 'Garrick Thorne', nextB: 'Kessa Thornwood', nextWhen: 'Sat, 8 pm',
-        qf: [['Aldric Vane', 'war', 'Rook Daventry', 'rog', 0], ['Elowen Marsh', 'pri', 'Haldor Ironhand', 'pal', 1], ['Garrick Thorne', 'war', 'Wynn Carrow', 'hun', 0], ['Sabine Roe', 'mag', 'Kessa Thornwood', 'wlk', 1]],
-        sf: [['Aldric Vane', 'war', 'Haldor Ironhand', 'pal', 0], ['Garrick Thorne', 'war', 'Kessa Thornwood', 'wlk', null]],
-        fin: ['Aldric Vane', 'war', null, null, null] },
-      '50': { stage: 'Quarter-finals', when: 'Saturday 22 Nov', entrants: 8, fee: 6, nextA: 'Corin Blackmere', nextB: 'Tamsin Holt', nextWhen: 'Sat, 7 pm',
-        qf: [['Corin Blackmere', 'dru', 'Tamsin Holt', 'mag', null], ['Pell Ashworth', 'rog', 'Ysolde Grey', 'pri', null], ['Bryn Calder', 'hun', 'Lucan Ferro', 'war', null], ['Isolde Wren', 'wlk', 'Merrick Dunn', 'pal', null]],
-        sf: [[null, null, null, null, null], [null, null, null, null, null]], fin: [null, null, null, null, null] },
-      '40': { stage: 'Final', when: 'Saturday 22 Nov', entrants: 8, fee: 4, nextA: 'Nell Ashgrove', nextB: 'Oswin Pike', nextWhen: 'Sat, 6 pm',
-        qf: [['Nell Ashgrove', 'mag', 'Fenna Lark', 'hun', 0], ['Tobias Venn', 'war', 'Hester Crane', 'pri', 1], ['Oswin Pike', 'rog', 'Maud Ellery', 'dru', 0], ['Ralf Underhill', 'pal', 'Gwen Sallow', 'wlk', 0]],
-        sf: [['Nell Ashgrove', 'mag', 'Hester Crane', 'pri', 0], ['Oswin Pike', 'rog', 'Ralf Underhill', 'pal', 0]], fin: ['Nell Ashgrove', 'mag', 'Oswin Pike', 'rog', null] },
-      '30': { stage: 'Champion crowned', when: 'Fought Saturday 15 Nov', entrants: 8, fee: 2, nextA: 'No bouts left', nextB: 'in this bracket', nextWhen: 'next Ring in December',
+    // Sample data. WoW class colours, as on the Districts citizen roll.
+    const C = { war: ['#C69B6D', 'Warrior'], mag: ['#3FC7EB', 'Mage'], pri: ['#FFFFFF', 'Priest'], rog: ['#FFF468', 'Rogue'],
+      pal: ['#F48CBA', 'Paladin'], hun: ['#AAD372', 'Hunter'], wlk: ['#8788EE', 'Warlock'], dru: ['#FF7C0A', 'Druid'] };
+    const OPEN = [null, null, null, null, null];
+    const B = {
+      '20': { label: '20–29', fee: 1, round: 0, stage: 'Sign-ups open', when: 'closes Fri 20 Nov', open: true,
+        closes: 'Friday 20 Nov', fought: 'Saturday 28 Nov',
+        entrants: [['Wren Ashdown', 'hun', 1], ['Cob Fennimore', 'war', 1], ['Linnet Marchbank', 'mag', 0], ['Tobin Greaves', 'rog', 1], ['Edwin Coldwater', 'pri', 1]],
+        none: ['No bouts yet', 'The bracket is drawn when sign-ups close on Friday 20 Nov.'] },
+      '30': { label: '30–39', fee: 2, round: 4, stage: 'Champion crowned', when: 'crowned Sat 14 Nov', drawn: 'Friday 6 Nov', crowned: 'Sat 14 Nov',
         qf: [['Ada Brightwater', 'pal', 'Cole Marrow', 'war', 0], ['Jory Tanner', 'hun', 'Lise Varrow', 'mag', 1], ['Pip Hollis', 'rog', 'Una Carr', 'pri', 0], ['Edda Stone', 'dru', 'Wat Bellamy', 'wlk', 1]],
-        sf: [['Ada Brightwater', 'pal', 'Lise Varrow', 'mag', 0], ['Pip Hollis', 'rog', 'Wat Bellamy', 'wlk', 1]], fin: ['Ada Brightwater', 'pal', 'Wat Bellamy', 'wlk', 0] },
-      '20': { stage: 'Sign-ups open', when: 'Closes Friday 21 Nov', entrants: 5, fee: 1, nextA: 'Bracket not drawn', nextB: 'until sign-ups close', nextWhen: 'draw on Friday',
-        qf: [[null, null, null, null, null], [null, null, null, null, null], [null, null, null, null, null], [null, null, null, null, null]],
-        sf: [[null, null, null, null, null], [null, null, null, null, null]], fin: [null, null, null, null, null] }
+        sf: [['Ada Brightwater', 'pal', 'Lise Varrow', 'mag', 0], ['Pip Hollis', 'rog', 'Wat Bellamy', 'wlk', 1]],
+        fin: ['Ada Brightwater', 'pal', 'Wat Bellamy', 'wlk', 0],
+        none: ['Bracket decided', 'Ada Brightwater holds the title until the December Ring.'] },
+      '40': { label: '40–49', fee: 4, round: 3, stage: 'The Final', when: 'final Sat 21 Nov', drawn: 'Friday 13 Nov', finalOn: 'Sat 21 Nov',
+        qf: [['Nell Ashgrove', 'mag', 'Fenna Lark', 'hun', 0], ['Tobias Venn', 'war', 'Hester Crane', 'pri', 1], ['Oswin Pike', 'rog', 'Maud Ellery', 'dru', 0], ['Ralf Underhill', 'pal', 'Gwen Sallow', 'wlk', 0]],
+        sf: [['Nell Ashgrove', 'mag', 'Hester Crane', 'pri', 0], ['Oswin Pike', 'rog', 'Ralf Underhill', 'pal', 0]],
+        fin: ['Nell Ashgrove', 'mag', 'Oswin Pike', 'rog', null],
+        next: { at: 'f', round: 'The Final', when: 'Saturday, 8 pm' } },
+      '50': { label: '50–59', fee: 6, round: 1, stage: 'Quarter-finals', when: 'final Sat 21 Nov', drawn: 'Friday 13 Nov', finalOn: 'Sat 21 Nov',
+        qf: [['Corin Blackmere', 'dru', 'Tamsin Holt', 'mag', null], ['Pell Ashworth', 'rog', 'Agatha Grey', 'pri', null], ['Bryn Calder', 'hun', 'Lucan Ferro', 'war', null], ['Isolde Wren', 'wlk', 'Bartholomew Dunmore', 'pal', null]],
+        sf: [OPEN, OPEN], fin: OPEN,
+        next: { at: 'qf0', round: 'QF 1', when: 'tonight, 9 pm' } },
+      '60': { label: 'Level 60', fee: 10, round: 2, stage: 'Semi-finals', when: 'final Sat 21 Nov', drawn: 'Friday 13 Nov', finalOn: 'Sat 21 Nov',
+        qf: [['Hilda Deepforge', 'war', 'Rook Daventry', 'wlk', 0], ['Elowen Marsh', 'rog', 'Haldor Ironhand', 'pal', 1], ['Garrick Thorne', 'war', 'Wynn Carrow', 'hun', 0], ['Sabine Roe', 'mag', 'Kessa Thornwood', 'wlk', 1]],
+        sf: [['Hilda Deepforge', 'war', 'Haldor Ironhand', 'pal', 0], ['Garrick Thorne', 'war', 'Kessa Thornwood', 'wlk', null]],
+        fin: ['Hilda Deepforge', 'war', null, null, null],
+        next: { at: 'sf1', round: 'SF 2', when: 'Thursday, 8 pm' } }
     };
-    const bandNames = { '20': '20–29', '30': '30–39', '40': '40–49', '50': '50–59', '60': 'Level 60' };
-    const bk = brackets[band];
+    const KEYS = ['20', '30', '40', '50', '60'];
+    const decided = (m) => m[4] === 0 || m[4] === 1;
 
-    const side = (name, cls, idx, win) => {
-      if (!name) return { name: 'To be decided', cls: 'duelist tbd', cc: { '--cc': '#C2AE86' } };
-      const state = win === null || win === undefined ? '' : (win === idx ? ' won' : ' lost');
-      return { name, cls: 'duelist' + state, cc: { '--cc': C[cls] } };
+    const money = (x) => {
+      let g = Math.floor(x + 1e-9);
+      let s = Math.round((x - g) * 100);
+      if (s === 100) { g += 1; s = 0; }
+      return { g, s, hasG: g > 0, hasS: s > 0 };
     };
-    const bout = (m, pos) => ({ a: side(m[0], m[1], 0, m[4]), b: side(m[2], m[3], 1, m[4]), pos });
+    const side = (name, cls, idx, win, tbd) => {
+      if (!name) return { name: tbd, cls: 'duelist tbd', cc: {}, tip: tbd };
+      const res = win === 0 || win === 1 ? (win === idx ? ' won' : ' lost') : '';
+      return { name, cls: 'duelist' + res, cc: { '--cc': C[cls][0] }, tip: name + ' · ' + C[cls][1] + (res === ' won' ? ' · won' : res === ' lost' ? ' · lost' : '') };
+    };
+
+    // ---- the bracket on show (Bracket and Champions views)
+    const bk = B[band];
+    const drawn = bk.round >= 1;
+    const nextAt = bk.next ? bk.next.at : '';
+    const wire = (kind, lit) => 'w ' + kind + (lit ? ' on' : '');
     const qfRows = ['1 / 3', '3 / 5', '5 / 7', '7 / 9'];
     const sfRows = ['1 / 5', '5 / 9'];
-    const qf = bk.qf.map((m, i) => bout(m, { 'grid-column': '1', 'grid-row': qfRows[i] }));
-    const sf = bk.sf.map((m, i) => bout(m, { 'grid-column': '2', 'grid-row': sfRows[i] }));
-    const f = bk.fin;
-    const champName = f[4] === null || f[4] === undefined ? 'To be crowned on the night' : (f[4] === 0 ? f[0] : f[2]) + ', crowned 15 Nov';
-    const fin = { a: side(f[0], f[1], 0, f[4]), b: side(f[2], f[3], 1, f[4]), crown: champName };
+    const qfData = bk.qf || [OPEN, OPEN, OPEN, OPEN];
+    const sfData = bk.sf || [OPEN, OPEN];
+    const finData = bk.fin || OPEN;
+    const qf = qfData.map((m, i) => ({
+      a: side(m[0], m[1], 0, m[4], 'Place open'), b: side(m[2], m[3], 1, m[4], 'Place open'),
+      pos: { 'grid-column': '1', 'grid-row': qfRows[i] },
+      card: nextAt === 'qf' + i ? 'bout next' : 'bout', isNext: nextAt === 'qf' + i,
+      wOut: wire('h out', decided(m))
+    }));
+    const sf = sfData.map((m, j) => ({
+      a: side(m[0], m[1], 0, m[4], 'Winner of QF ' + (2 * j + 1)), b: side(m[2], m[3], 1, m[4], 'Winner of QF ' + (2 * j + 2)),
+      pos: { 'grid-column': '2', 'grid-row': sfRows[j] },
+      card: nextAt === 'sf' + j ? 'bout next' : 'bout', isNext: nextAt === 'sf' + j,
+      wTop: wire('v top', decided(qfData[2 * j])), wBot: wire('v bot', decided(qfData[2 * j + 1])),
+      wIn: wire('h in', decided(qfData[2 * j]) && decided(qfData[2 * j + 1])),
+      wOut: wire('h out', decided(m))
+    }));
+    const crowned = decided(finData);
+    const fin = {
+      a: side(finData[0], finData[1], 0, finData[4], 'Winner of SF 1'), b: side(finData[2], finData[3], 1, finData[4], 'Winner of SF 2'),
+      card: nextAt === 'f' ? 'final-frame next' : 'final-frame', isNext: nextAt === 'f',
+      wTop: wire('v top', decided(sfData[0])), wBot: wire('v bot', decided(sfData[1])),
+      wIn: wire('h in', decided(sfData[0]) && decided(sfData[1])),
+      crowned, champ: crowned ? (finData[4] === 0 ? finData[0] : finData[2]) : '',
+      line: crowned ? 'Crowned ' + bk.crowned : 'To be crowned ' + bk.finalOn
+    };
+    const rh = (r) => 'eyebrow rh' + (bk.round === r ? ' now' : '');
 
-    const pot = bk.entrants * bk.fee;
-    const ev = { stage: bk.stage, when: bk.when, entrants: bk.entrants, fee: bk.fee, pot, winner: Math.round(pot * 0.9 * 10) / 10, bank: Math.round(pot * 0.1 * 10) / 10,
-      nextA: bk.nextA, nextB: bk.nextB, nextWhen: bk.nextWhen, closes: 'Friday 21 Nov' };
-
-    const names = [];
-    bk.qf.forEach(m => { if (m[0]) { names.push([m[0], m[1]]); names.push([m[2], m[3]]); } });
-    if (!names.length) names.push(['Ada Brightwater', 'pal'], ['Jory Tanner', 'hun'], ['Pip Hollis', 'rog'], ['Una Carr', 'pri'], ['Edda Stone', 'dru']);
-    const entries = names.map(([name, cls], i) => ({ name, cc: { '--cc': C[cls] }, pay: i === 3 ? 'Not yet paid' : 'Paid', payCls: i === 3 ? 'unpaid' : 'paid' }));
-    if (band === '60' || band === '20') {
-      if (entered && !names.some(n => n[0] === 'Aldric Vane')) entries.unshift({ name: 'Aldric Vane (you)', cc: { '--cc': C.war }, pay: 'Paid', payCls: 'paid' });
+    // ---- the side panel follows the bracket chosen in the current view
+    const sb = B[view === 'signup' ? signBand : band];
+    const youIn = (k) => k === MINE && entered;
+    const countOf = (k) => (B[k].open ? B[k].entrants.length + (youIn(k) ? 1 : 0) : 8);
+    const count = countOf(view === 'signup' ? signBand : band);
+    const pot = count * sb.fee;
+    const ev = {
+      label: sb.label, stage: sb.stage, when: sb.when, fee: sb.fee, count,
+      potLabel: sb.open ? 'Pot so far' : 'Pot', places: count + ' of 8',
+      closes: sb.closes || '', fought: sb.fought || '',
+      pot: money(pot), champ: money(pot * 0.9), bank: money(pot * 0.1)
+    };
+    const track = [0, 1, 2, 3, 4].map((r) => ({ cls: r < sb.round ? 'step done' : r === sb.round ? 'step now' : 'step' }));
+    let nb;
+    if (sb.next) {
+      const n = sb.next;
+      const m = n.at === 'f' ? sb.fin : n.at.indexOf('sf') === 0 ? sb.sf[+n.at.slice(2)] : sb.qf[+n.at.slice(2)];
+      nb = { has: true, none: false, round: n.round, when: n.when, a: side(m[0], m[1], 0, null, ''), b: side(m[2], m[3], 1, null, '') };
+    } else {
+      nb = { has: false, none: true, title: sb.none[0], line: sb.none[1] };
     }
 
-    const hall = [
-      { month: 'October', band: 'Level 60', champ: 'Garrick Thorne', runner: 'Elowen Marsh', purse: 72 },
-      { month: 'October', band: '40–49', champ: 'Hester Crane', runner: 'Tobias Venn', purse: 28.8 },
-      { month: 'September', band: 'Level 60', champ: 'Haldor Ironhand', runner: 'Aldric Vane', purse: 57.6 },
-      { month: 'September', band: '30–39', champ: 'Lise Varrow', runner: 'Pip Hollis', purse: 10.8 },
-      { month: 'August', band: 'Level 60', champ: 'Sabine Roe', runner: 'Rook Daventry', purse: 43.2 },
-      { month: 'August', band: '20–29', champ: 'Wat Bellamy', runner: 'Una Carr', purse: 5.4 }
-    ];
+    // ---- sign-up: your entry (always your own bracket) and the sheet of the chosen bracket
+    const mine = B[MINE];
+    const me = {
+      label: mine.label, fee: mine.fee, closes: mine.closes, places: countOf(MINE) + ' of 8',
+      pay: entered ? 'Paid · ' + mine.fee + ' g' : 'Not entered', payCls: entered ? 'paid' : 'unpaid',
+      btn: entered ? 'Withdraw entry' : 'Enter the Ring', btnCls: entered ? 'btn quiet sm' : 'btn gold sm',
+      toggle: set({ entered: !entered })
+    };
+    const sk = B[signBand];
+    const row = (name, cls, paid, you) => ({
+      name, cc: { '--cc': C[cls][0] }, tip: name + ' · ' + C[cls][1], isYou: !!you,
+      cls: you ? 'entry you' : 'entry', pay: paid ? 'Paid' : 'Unpaid', payCls: paid ? 'paid' : 'unpaid'
+    });
+    let rows;
+    if (sk.open) {
+      rows = sk.entrants.map((e) => row(e[0], e[1], e[2]));
+      if (youIn(signBand)) rows.unshift(row('Aldric Vane', 'pri', 1, true));
+      while (rows.length < 8) rows.push({ name: 'Place open', cc: {}, tip: 'Place open', isYou: false, cls: 'entry open', pay: '', payCls: 'paid' });
+    } else {
+      rows = [];
+      sk.qf.forEach((m) => { rows.push(row(m[0], m[1], 1)); rows.push(row(m[2], m[3], 1)); });
+    }
+    const sheet = {
+      title: sk.open ? 'Entered' : 'Duellists', count: countOf(signBand) + ' of 8',
+      status: sk.open ? 'Sign-ups open until ' + sk.closes + '.' : 'Closed · drawn on ' + sk.drawn + '.',
+      rows
+    };
 
+    // ---- the Hall of Champions (sample)
+    const H = [
+      ['November', '30–39', 'Ada Brightwater', 'pal', 'Wat Bellamy', 14.4],
+      ['October', 'Level 60', 'Garrick Thorne', 'war', 'Elowen Marsh', 72],
+      ['October', '40–49', 'Hester Crane', 'pri', 'Tobias Venn', 28.8],
+      ['September', 'Level 60', 'Haldor Ironhand', 'pal', 'Hilda Deepforge', 57.6],
+      ['September', '30–39', 'Lise Varrow', 'mag', 'Pip Hollis', 10.8],
+      ['August', 'Level 60', 'Sabine Roe', 'mag', 'Rook Daventry', 43.2],
+      ['August', '20–29', 'Wat Bellamy', 'wlk', 'Una Carr', 5.4]
+    ];
+    const hall = H.map((h) => ({ month: h[0], band: h[1], champ: { name: h[2], cc: { '--cc': C[h[3]][0] }, tip: h[2] + ' · ' + C[h[3]][1] }, runner: h[4], purse: money(h[5]) }));
+
+    const curBand = view === 'signup' ? signBand : band;
     return {
-      isBracket: view === 'bracket', isSignup: view === 'signup', isHall: view === 'hall', notHall: view !== 'hall',
+      isSignup: view === 'signup', isHall: view === 'hall', notHall: view !== 'hall',
+      showBracket: view === 'bracket' && drawn, showUndrawn: view === 'bracket' && !drawn,
       rb: { signup: view === 'signup' ? 'ribbon on' : 'ribbon', bracket: view === 'bracket' ? 'ribbon on' : 'ribbon', hall: view === 'hall' ? 'ribbon on' : 'ribbon' },
+      sel: { signup: view === 'signup' ? 'true' : 'false', bracket: view === 'bracket' ? 'true' : 'false', hall: view === 'hall' ? 'true' : 'false' },
       show: { signup: set({ view: 'signup' }), bracket: set({ view: 'bracket' }), hall: set({ view: 'hall' }) },
-      bands: ['20', '30', '40', '50', '60'].map(k => ({ label: bandNames[k], cls: k === band ? 'band on' : 'band', pick: set({ band: k }) })),
-      bandName: bandNames[band],
-      qf, sf, fin, ev, hall,
-      entries, entryCount: entries.length,
-      me: {
-        pay: entered ? 'Paid · ' + bk.fee + ' g' : 'Not entered', payCls: entered ? 'paid' : 'unpaid',
-        btn: entered ? 'Withdraw from the Ring' : 'Enter the Ring', btnCls: entered ? 'btn quiet sm' : 'btn gold sm',
-        toggle: set({ entered: !entered })
-      }
+      toSheet: set({ view: 'signup', signBand: band }),
+      bands: KEYS.map((k) => ({
+        label: B[k].label, mine: k === MINE, cls: k === curBand ? 'band on' : 'band', pressed: k === curBand ? 'true' : 'false',
+        pick: set(view === 'signup' ? { signBand: k } : { band: k })
+      })),
+      rh: { qf: rh(1), sf: rh(2), f: rh(3) },
+      qf, sf, fin, ev, track, nb, me, sheet, hall
     };
   }
 }

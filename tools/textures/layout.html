@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  The add-on window laid out with the design canvas's own stylesheet
+  (design/canvas-source/ministry.css), markup taken from the Throne Room board.
+  build.py renders it in Edge one piece at a time and turns the pieces into
+  game textures. Every element with an id is a piece or a slot for in-game text.
+  The window's top-left corner sits at (140, 140) on this page, leaving room
+  for the crest and its glow above and to the left.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{{css}}
+</style>
+</head>
+<body>
+<div class="win" id="win" style="left: 140px; top: 140px">
+  <div class="win-rim" id="rim"><div class="win-leather" id="leather"></div></div>
+  <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+  <img class="crest" id="crest" src="{{crest}}" alt="">
+  <div class="win-head">
+    <h1 class="title" id="title">Ministry of the Allied</h1>
+    <div class="subtitle" id="subtitle">{{subtitle}}</div>
+  </div>
+  <div class="head-btns">
+    <button class="knob" id="knob-settings" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.34 4.79L10.44 2.12H13.56L13.66 4.79A7.4 7.4 0 0 1 15.92 5.72L17.88 3.91L20.09 6.12L18.28 8.08A7.4 7.4 0 0 1 19.21 10.34L21.88 10.44V13.56L19.21 13.66A7.4 7.4 0 0 1 18.28 15.92L20.09 17.88L17.88 20.09L15.92 18.28A7.4 7.4 0 0 1 13.66 19.21L13.56 21.88H10.44L10.34 19.21A7.4 7.4 0 0 1 8.08 18.28L6.12 20.09L3.91 17.88L5.72 15.92A7.4 7.4 0 0 1 4.79 13.66L2.12 13.56V10.44L4.79 10.34A7.4 7.4 0 0 1 5.72 8.08L3.91 6.12L6.12 3.91L8.08 5.72A7.4 7.4 0 0 1 10.34 4.79ZM15 12A3 3 0 1 0 9 12A3 3 0 1 0 15 12Z"></path></svg></button>
+    <button class="knob red" id="knob-close" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+  </div>
+
+  <div class="win-body">
+    <nav class="rail">
+{{tabs}}
+      <div class="rail-foot" id="railfoot">
+        <div class="portrait sm" id="portrait" style="--pc: #3A63B8"><span id="initials">AV</span></div>
+        <div class="who" id="who">Aldric Vane<small id="who-small">Cathedral Ward</small></div>
+      </div>
+    </nav>
+
+    <main class="page" id="page">
+      <div class="parch" id="parch" style="padding: 22px 26px 22px 34px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <p class="eyebrow" id="eyebrow">{{eyebrow}}</p>
+          <h2 class="h-page" id="heading">{{heading}}</h2>
+        </div>
+        <div class="divider" id="divider" style="margin: -4px 0 -2px"></div>
+        <p class="prose" id="note">{{note}}</p>
+        <p class="prose italic muted small" id="note2">This page is built in a later milestone.</p>
+      </div>
+    </main>
+  </div>
+
+  <div class="win-foot" id="foot">
+    <span id="foot-left"><span class="pip" id="pip"></span>Synced with 34 citizens · moments ago</span>
+    <span id="foot-right">Stormwind Keep · Wednesday</span>
+  </div>
+</div>
+
+<!-- the moving shine on the active tab (.tab.on::before), drawn on its own -->
+<div id="sheen" style="position: absolute; left: 1220px; top: 100px; width: 40px; height: 50px; transform: skewX(-20deg);
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.65), rgba(255,255,255,0))"></div>
+
+<!-- the minimap seal (Extras board) -->
+<img id="seal" src="{{seal}}" alt="" style="position: absolute; left: 1220px; top: 300px; width: 72px; height: 72px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6))">
+
+<script>
+  // Records where every piece and slot sits, relative to the window's top-left corner.
+  const win = document.getElementById('win').getBoundingClientRect();
+  const out = {};
+  document.querySelectorAll('[id]').forEach(el => {
+    const r = el.getBoundingClientRect();
+    out[el.id] = { x: r.left - win.left, y: r.top - win.top, w: r.width, h: r.height };
+  });
+  const pre = document.createElement('pre');
+  pre.id = 'rects-json';
+  pre.style.display = 'none';
+  pre.textContent = JSON.stringify(out);
+  document.body.appendChild(pre);
+</script>
+</body>
+</html>
