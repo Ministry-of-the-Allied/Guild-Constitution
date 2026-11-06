@@ -37,5 +37,6 @@ UI\Settings.lua
 UI\Kit.lua
 UI\Constitution.lua
 UI\Ring.lua
+UI\Parties.lua
 UI\BallotHall.lua
 Commands.lua

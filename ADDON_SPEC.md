@@ -1109,6 +1109,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 
 ### 19.1 Open items
 
+- **Party Chamber, when party data is built:** remove the As member / As outsider preview switch in `UI/Parties.lua` and the example text. Members of a party see their own party's chamber; everyone else, including members of the other party, sees that chamber sealed. The Chamber tab opens on the player's own party. Requested by Duncan, 2026-11-06.
 - **Throne Room, for Duncan and Max to agree before anyone builds it (Duncan, 2026-11-06):** Duncan has held off so the two lines of work don't clash. To settle: who builds it; the "Vote now" link to the Ballot Hall; Cabinet posts (guild ranks like `Minister of War`, or appointments); how window skins affect it. Page parts already exist in `UI/Kit.lua` (plates, ribbons, buttons, gems, coins), so reuse them rather than rebuilding them.
 - **The real map:** district shapes need tracing against the live Stormwind map after launch.
 - **Herald voice lines:** a town crier calling "Hear ye! The polls are open!" with heralds. Fixed lines only (lines with names or numbers stay as text). Same voice rules as section 12. The game's own text-to-speech is a possible flat-voiced fallback.
