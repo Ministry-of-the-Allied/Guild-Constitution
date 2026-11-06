@@ -244,7 +244,7 @@ function UI:Build()
   self.whoSmall:SetPoint("TOPLEFT", self.who, "BOTTOMLEFT", 0, -2)
 
   -- The page: heading, divider and a note about what the page will hold.
-  self:Piece(f, "divider", "ARTWORK")
+  self.divider = self:Piece(f, "divider", "ARTWORK")
   local note = M.slots.note
   self.heading = text(f, "heading", "1B3570")
   self:AtSlot(self.heading, "heading")
@@ -309,9 +309,13 @@ function UI:SelectPage(i)
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
   -- A page with its own contents replaces the note about what it will hold.
-  local built = page.id == "statute"
+  local built = page.id == "statute" or page.id == "ring"
   self.note:SetShown(not built)
   self.note2:SetShown(not built)
+  -- The built pages run from the parchment's top, as their boards do.
+  self.heading:SetShown(not built)
+  self.divider:SetShown(not built)
+  self.eyebrows[i]:SetShown(not built)
   MOTA:Fire("PAGE_SHOWN", page.id)
 end
 

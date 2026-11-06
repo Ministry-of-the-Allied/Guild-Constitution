@@ -26,10 +26,13 @@ Media.lua
 Fonts.lua
 Charter.lua
 Voice.lua
+Ring.lua
 UI\MainWindow.lua
 UI\Minimap.lua
 UI\Crests.lua
 UI\Herald.lua
 UI\Settings.lua
+UI\Kit.lua
 UI\Constitution.lua
+UI\Ring.lua
 Commands.lua

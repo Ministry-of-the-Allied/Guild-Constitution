@@ -8,16 +8,25 @@ local Page = {}
 MOTA.ConstitutionPage = Page
 
 local PAGE_ID = "statute"
-local TOP, HEIGHT = 196, 438 -- under the heading, down to the page's foot
-local TEXT_W, ROW_W = 410, 250
-local ROW_H, ROW_GAP = 34, 3
+local Kit = MOTA.Kit
+-- The Statute Book board: ribbons along the top, then an open book of two pages.
+local PARCH = M.slots.parch
+local LEFT, TOP = PARCH.x + 34, PARCH.y + 20
+local WIDTH, HEIGHT = PARCH.w - 60, PARCH.h - 44
+local BOOK_TOP = 36 + 16
+local BOOK_H = HEIGHT - BOOK_TOP
+local TEXT_W, ROW_W = 370, 270
+local TEXT_X, ROWS_X = 22, WIDTH - 270 - 18
+local TEXT_H = BOOK_H - 40
+local ROW_H, ROW_GAP = 37, 0
 local WHEEL_STEP = 60
+local ROMAN = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X" }
 
 local STYLE = {
-  part = { font = "constitutionPart", color = "1B3570", before = 18 },
-  section = { font = "constitutionSection", color = "7A5719", before = 12 },
-  body = { font = "tool", color = "2A1F14", before = 6 },
-  note = { font = "bodyItalic", color = "5E4B33", before = 6 },
+  part = { font = "kitName", color = "1B3570", before = 18 },
+  section = { font = "kitSection", color = "7A5719", before = 12 },
+  body = { font = "kitProse", color = "2A1F14", before = 6 },
+  note = { font = "kitItalic", color = "5E4B33", before = 6 },
 }
 
 local root, scroll, child, slider, blocks, rows, hint
@@ -36,15 +45,15 @@ local function layoutText()
   local total = 12
   for _, b in ipairs(blocks) do total = total + b.before + b.fs:GetStringHeight() end
   child:SetHeight(total)
-  local range = math.max(total - HEIGHT, 0)
+  local range = math.max(total - TEXT_H, 0)
   slider:SetMinMaxValues(0, range)
   slider:SetShown(range > 0)
 end
 
 local function buildText()
   scroll = CreateFrame("ScrollFrame", nil, root)
-  scroll:SetSize(TEXT_W, HEIGHT)
-  scroll:SetPoint("TOPLEFT", root, "TOPLEFT", 0, 0)
+  scroll:SetSize(TEXT_W, TEXT_H)
+  scroll:SetPoint("TOPLEFT", root, "TOPLEFT", TEXT_X, -(BOOK_TOP + 20))
   child = CreateFrame("Frame", nil, scroll)
   child:SetSize(TEXT_W, 1)
   scroll:SetScrollChild(child)
@@ -68,7 +77,7 @@ local function buildText()
 
   slider = CreateFrame("Slider", nil, root)
   slider:SetOrientation("VERTICAL")
-  slider:SetSize(8, HEIGHT)
+  slider:SetSize(8, TEXT_H)
   slider:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, 0)
   local track = slider:CreateTexture(nil, "BACKGROUND")
   local r, g, b = MOTA:RGB("C9B58A")
@@ -92,36 +101,45 @@ local function buildText()
 end
 
 local function buildRows()
-  local x = TEXT_W + 28
-  local head = fontString(root, "constitutionSection", "7A5719")
-  head:SetPoint("TOPLEFT", root, "TOPLEFT", x, 0)
-  head:SetText("Hear the Charter")
-  hint = fontString(root, "bodyItalic", "5E4B33")
-  hint:SetPoint("TOPLEFT", root, "TOPLEFT", x, -(22 + 10 * (ROW_H + ROW_GAP) + 2))
-  hint:SetWidth(ROW_W)
+  local x = ROWS_X
+  local head = Kit:Label(root, "kitTiny", "7A5719", 0.3, "Hear the Charter")
+  head:SetPoint("TOPLEFT", root, "TOPLEFT", x + 2, -(BOOK_TOP + 16))
+  local top = BOOK_TOP + 32
 
   rows = {}
   for i, clip in ipairs(MOTA.Voice:Clips()) do
     local b = CreateFrame("Button", nil, root)
     b:SetSize(ROW_W, ROW_H)
-    b:SetPoint("TOPLEFT", root, "TOPLEFT", x, -(22 + (i - 1) * (ROW_H + ROW_GAP)))
-    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b:SetPoint("TOPLEFT", root, "TOPLEFT", x, -(top + (i - 1) * (ROW_H + ROW_GAP)))
+    b.bg = b:CreateTexture(nil, "BACKGROUND", nil, 1)
     b.bg:SetAllPoints()
+    local dots = b:CreateTexture(nil, "BORDER")
+    Kit:Solid(dots, "6E4F17", 0.3)
+    dots:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+    dots:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+    dots:SetHeight(1)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetColorTexture(1, 0.9, 0.6, 0.18)
+    glow:SetColorTexture(0.79, 0.64, 0.29, 0.12)
     glow:SetAllPoints()
-    b.title = fontString(b, "tool", "2A1F14")
-    b.title:SetPoint("TOPLEFT", b, "TOPLEFT", 8, -2)
-    b.title:SetWidth(ROW_W - 66)
+    b.roman = Kit:Text(b, "kitRoman", "7A5719", "CENTER")
+    b.roman:SetPoint("LEFT", b, "LEFT", 0, 0)
+    b.roman:SetWidth(32)
+    b.roman:SetText(ROMAN[i] or tostring(i))
+    b.title = Kit:Text(b, "kitAmount", "2A1F14")
+    b.title:SetPoint("TOPLEFT", b, "TOPLEFT", 36, -4)
+    b.title:SetWidth(ROW_W - 90)
     b.title:SetMaxLines(1)
     b.title:SetText(clip.title)
-    b.small = fontString(b, "constitutionSmall", "5E4B33")
+    b.small = Kit:Text(b, "kitItalic", "5E4B33")
     b.small:SetPoint("TOPLEFT", b.title, "BOTTOMLEFT", 0, 0)
-    b.action = fontString(b, "constitutionAction", "1B3570", "RIGHT")
-    b.action:SetPoint("TOPRIGHT", b, "TOPRIGHT", -8, -11)
+    b.action = Kit:Label(b, "kitTiny", "1B3570", 0.16)
+    b.action:SetPoint("RIGHT", b, "RIGHT", -6, 0)
     b:SetScript("OnClick", function() Page:Press(i) end)
     rows[i] = b
   end
+  hint = Kit:Text(root, "kitItalic", "5E4B33")
+  hint:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", x + 2, 8)
+  hint:SetWidth(ROW_W - 4)
 end
 
 function Page:Press(i)
@@ -142,8 +160,8 @@ function Page:Refresh()
   for i, b in ipairs(rows) do
     local clip = MOTA.Voice:Clips()[i]
     local on = p and p.index == i
-    local r, g, bl = MOTA:RGB(on and "E6CF8F" or "EADDBB")
-    b.bg:SetColorTexture(r, g, bl, 0.75)
+    Kit:Gradient(b.bg, "1B3570", "1B3570", on and 0.13 or 0, 0, true)
+    b.roman:SetTextColor(MOTA:RGB(on and "1B3570" or "7A5719"))
     b.small:SetText(MOTA.Voice:Length(clip.length) .. (heard[i] and " · heard" or ""))
     b.action:SetText(on and (locked and "Playing" or "Stop") or (locked and "" or "Play"))
     b:SetEnabled(not locked)
@@ -155,8 +173,23 @@ end
 function Page:Show(show)
   if show and not root then
     root = CreateFrame("Frame", nil, UI.window)
-    root:SetSize(M.slots.note.w, HEIGHT)
-    root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", M.slots.note.x, -TOP)
+    root:SetSize(WIDTH, HEIGHT)
+    root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
+    local ribbon = Kit:Ribbon(root, 4)
+    ribbon:SetPoint("TOPLEFT", root, "TOPLEFT", 0, 0)
+    ribbon:SetOn(true)
+    local count = Kit:Label(root, "kitTiny", "7A5719", 0.3, "Ten readings")
+    count:SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, -13)
+    -- The open book: two pages and the gutter between them.
+    local book = CreateFrame("Frame", nil, root)
+    book:SetSize(WIDTH, BOOK_H)
+    book:SetPoint("TOPLEFT", root, "TOPLEFT", 0, -BOOK_TOP)
+    Kit:Fill(book, "F6ECD2", "F6ECD2")
+    Kit:Outline(book, "6E4F17", 0.6)
+    local gutter = book:CreateTexture(nil, "BORDER")
+    Kit:Solid(gutter, "6E4F17", 0.3)
+    gutter:SetSize(2, BOOK_H)
+    gutter:SetPoint("TOPLEFT", book, "TOPLEFT", ROWS_X - 16, 0)
     buildText()
     buildRows()
   end

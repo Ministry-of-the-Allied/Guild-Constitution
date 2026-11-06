@@ -148,6 +148,11 @@ function Methods:SetWordWrap() end
 
 function Methods:Stop() self.playing = false end
 
+-- edit boxes
+function Methods:ClearFocus() end
+function Methods:SetAutoFocus() end
+function Methods:SetTextInsets() end
+
 -- scroll frames and sliders
 function Methods:SetScrollChild(c) self.scrollChild = c end
 function Methods:SetVerticalScroll(v) self.vscroll = v end

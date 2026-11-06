@@ -129,6 +129,12 @@ add("voice", "[on|off|stop|next|reset]", "the Charter narration: how far it's go
   end
 end)
 
+add("ring", "", "who holds the Minister of War rank", function()
+  if not needGuild() then return end
+  local m = MOTA.Ring:Minister()
+  MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
+end)
+
 add("probe", "[limits]", "client facts for the add-on plan; 'limits' measures message limits", function(arg)
   if arg == "limits" then
     MOTA.Probe:Limits()

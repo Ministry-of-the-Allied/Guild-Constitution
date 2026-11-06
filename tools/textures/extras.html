@@ -41,6 +41,27 @@
   </div>
 </div>
 
+<!-- Parts for page contents: the Gladiator's Ring and Statute Book boards. -->
+<div id="kit" style="position: absolute; left: 640px; top: 400px; width: 600px; height: 400px">
+  <div class="plate blue" id="kitBlue" style="position: absolute; left: 0; top: 0; width: 206px; height: 158px; box-sizing: border-box"></div>
+  <button class="ribbon on" id="kitRibbonOn1" style="position: absolute; left: 220px; top: 0" type="button">Sign-up</button>
+  <button class="ribbon on" id="kitRibbonOn2" style="position: absolute; left: 220px; top: 40px" type="button">Bracket</button>
+  <button class="ribbon on" id="kitRibbonOn3" style="position: absolute; left: 220px; top: 80px" type="button">Champions</button>
+  <button class="ribbon on" id="kitRibbonOn4" style="position: absolute; left: 220px; top: 120px" type="button">The Charter</button>
+  <button class="ribbon" id="kitRibbonOff1" style="position: absolute; left: 400px; top: 0" type="button">Sign-up</button>
+  <button class="ribbon" id="kitRibbonOff2" style="position: absolute; left: 400px; top: 40px" type="button">Bracket</button>
+  <button class="ribbon" id="kitRibbonOff3" style="position: absolute; left: 400px; top: 80px" type="button">Champions</button>
+  <span class="gem" id="kitGem" style="--cc: #fff; position: absolute; left: 10px; top: 200px; box-shadow: none"></span>
+  <span class="gem" id="kitGemHollow" style="position: absolute; left: 40px; top: 200px; background: transparent; box-shadow: inset 0 0 0 1px #fff"></span>
+  <span class="coin g" id="kitCoinG" style="position: absolute; left: 70px; top: 200px; margin: 0"></span>
+  <span class="coin s" id="kitCoinS" style="position: absolute; left: 100px; top: 200px; margin: 0"></span>
+  <button class="band on" id="kitBand" style="position: absolute; left: 130px; top: 195px; width: 88px" type="button"></button>
+  <div class="track" id="kitTrack" style="position: absolute; left: 10px; top: 240px"><span class="step"></span></div>
+  <span class="step" id="kitStepTodo" style="position: absolute; left: 170px; top: 240px"></span>
+  <span class="step done" id="kitStepDone" style="position: absolute; left: 200px; top: 240px"></span>
+  <span class="step now" id="kitStepNow" style="position: absolute; left: 230px; top: 240px"></span>
+</div>
+
 <script>
   // Where every element with an id sits on the page.
   const out = {};

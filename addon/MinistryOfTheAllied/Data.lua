@@ -12,6 +12,7 @@ MOTA.CONST = {
   -- The two Crown ranks, one per King (ADDON_SPEC.md, section 4). Must match
   -- the in-game rank names exactly, capitals included.
   CROWN_RANK_NAMES        = { ["The King"] = true, ["The Crown"] = true },
+  MINISTER_OF_WAR_RANK    = "Minister of War", -- must match the in-game rank name exactly
   SNAP_ELECTION_MIN_DAYS  = 7,        -- minimum campaign period
   SYNC_STALE_SECONDS      = 300,      -- catch-up summary every 5 min
   SYNC_AMBER_SECONDS      = 1800,     -- footer sync indicator turns amber after 30 min

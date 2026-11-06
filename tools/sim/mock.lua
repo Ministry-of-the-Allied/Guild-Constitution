@@ -114,6 +114,7 @@ for _, m in ipairs(ROSTER) do
   if m[1] == PLAYER .. "-" .. REALM then myRank, myRankIndex = m[2], m[3] end
 end
 function GetGuildInfo() if not GUILD or not ROSTER_READY then return nil end return GUILD, myRank, myRankIndex, nil end
+function mock_set_rank(r) myRank = r end
 C_GuildInfo = { GuildRoster = function() py_roster_request() end }
 function GetNumGuildMembers() return ROSTER_READY and #ROSTER or 0, 0, 0 end
 function GetGuildRosterInfo(i)

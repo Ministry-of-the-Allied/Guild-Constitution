@@ -87,6 +87,7 @@ SLOTS = {
         "title", "subtitle", "knob-settings", "knob-close", "page", "parch", "eyebrow", "heading",
         "divider", "note", "note2", "railfoot", "portrait", "initials", "who", "who-small",
         "foot", "foot-left", "foot-right", "pip", "crest", "seal", "sheen"],
+    "kit": ["kit"],
     "herald": ["herald", "hseal", "htext", "heyebrow", "htitle", "hbody", "hbutton"],
     "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal"]
     + [f"row{i}" for i in range(1, 6)] + [f"slabel{i}" for i in range(1, 6)]
@@ -121,6 +122,12 @@ def stylesheet(board=None):
             "*{animation:none!important;transition:none!important}"
             ".tab.on::before{display:none!important}")
     return faces + "\n" + css + "\n" + base
+
+
+def board_styles(board):
+    """One more board's own styles, for parts drawn alongside another board's."""
+    text = (DESIGN / "canvas-source" / board).read_text(encoding="utf-8")
+    return "\n" + local_css(re.search(r"<helmet>.*?<style>(.*?)</style>", text, re.S).group(1))
 
 
 def fill(template, subs):
@@ -188,6 +195,14 @@ def pieces_to_draw(pages):
 
     def settings(name, css, tex="extras", scale=ATLAS_SCALE, **args):
         d[name] = dict(tex=tex, scale=scale, layout="extras", root="settings", args=args, css=css)
+
+    # Parts for page contents (UI/Kit.lua)
+    for name in ("kitBlue", "kitRibbonOn1", "kitRibbonOn2", "kitRibbonOn3", "kitRibbonOn4", "kitRibbonOff1",
+                 "kitRibbonOff2", "kitRibbonOff3", "kitGem", "kitGemHollow", "kitCoinG", "kitCoinS", "kitBand",
+                 "kitStepTodo", "kitStepDone", "kitStepNow"):
+        d[name] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={},
+                       css=only(["#" + name, "#" + name + " *"]))
+    d["kitTrack"] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={}, css=only(["#kitTrack"], ["#kitTrack *"]))
 
     # The window (Milestone 2)
     win("chrome", only(["#rim", "#rim *", ".corner", "#title", "#page", "#parch"],
@@ -356,7 +371,7 @@ def lua_value(v, indent=""):
 
 def main():
     pages = json.loads((HERE / "pages.json").read_text(encoding="utf-8"))
-    css = {"window": stylesheet(), "extras": stylesheet("Extras.dc.html")}
+    css = {"window": stylesheet(), "extras": stylesheet("Extras.dc.html") + board_styles("GladiatorsRing.dc.html")}
     render = {
         "window": lambda c, args: window_html(pages, css["window"], c, **args),
         "extras": lambda c, args: extras_html(css["extras"], c, **args),

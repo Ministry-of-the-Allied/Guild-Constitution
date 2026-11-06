@@ -77,7 +77,8 @@ The Crown is held by two co-monarchs. **Each King has their own guild rank: "The
 | **Crown** | The two Kings (ranks "The King" and "The Crown") | Read all, write all, open/close ballot sessions, receive and count ballots, grant Royal Assent, register laws, decide court appeals, sign off exile, manage citizen registry and party membership |
 | **Citizen** | All other guild members | Read all, cast votes during open sessions |
 
-- The Crown may delegate The Ring to the Minister of War (section 11.4).
+- **The Crown (both "The King" and "The Crown" ranks) holds every permission the government does.**
+- The Minister of War is whoever holds that guild rank, and runs The Ring (section 11).
 - No citizen can write to canonical state. Every record says who wrote it, and each addon checks that the writer was allowed to write that type of record at that time (section 7.4). Records from anyone else are ignored.
 - Office holders (PM, Cabinet, Justices, Representatives) see their duties (section 10.9), but in v1.x the Crown makes most writes. The exceptions:
   - **Treasury (10.7):** every member's addon may write guild bank readings; the Minister of the Treasury may add reasons to ledger entries.
@@ -674,6 +675,10 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
 ## 11. The Ring (Gladiator System)
 
 The Ring is the guild's formal PvP tournament system: a monthly 1v1 duelling tournament, for fun and for raising gold. It is managed by the Crown or the delegated Minister of War, with entry fees, a bracket structure, and a Hall of Champions. Entry fees flow into the guild ledger.
+
+*First build 2026-11-06, to test in game: `Ring.lua`, `UI/Ring.lua`. One bracket, at most 8 entrants (first come, first served), byes when fewer. For now the Crown ticks entrants paid by hand (the ledger is not built),  without catch-up (7.3) a member offline when a Ring record is sent does not get it.*
+
+**Who decides (2026-11-06):** whoever holds the `Minister of War` guild rank, and the Crown, can open a tournament, set its entry fee, bracket and sign-up days, make the draw, record results and mark entries paid. Until someone holds the rank, the form shows greyed out for everyone, including the Crown. Once open, the terms can't be changed.
 
 ### 11.1 Tournament Structure
 
