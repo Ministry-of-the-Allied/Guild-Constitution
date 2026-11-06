@@ -79,6 +79,13 @@
       "w": 1800,
       "x": 0,
       "y": 2900
+    },
+    "WindowSkins.dc.html": {
+      "h": 2840,
+      "title": "Window skins — the add-on window in the four skins",
+      "w": 2480,
+      "x": 1880,
+      "y": 2900
     }
   },
   "createdOnFiles": {
@@ -128,7 +135,8 @@
     "Districts.dc.html",
     "GladiatorsRing.dc.html",
     "Extras.dc.html",
-    "WorldMapSkins.dc.html"
+    "WorldMapSkins.dc.html",
+    "WindowSkins.dc.html"
   ],
   "pages": [],
   "title": "Ministry of the Allied — Add-on UI"
