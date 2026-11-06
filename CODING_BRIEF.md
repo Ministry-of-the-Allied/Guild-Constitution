@@ -10,7 +10,7 @@ The Ministry of the Allied addon (MOTA) — a WoW: Forever addon (Interface 1600
 
 Single codebase. Crown features are hidden unless the player holds one of the two Crown guild ranks, "The King" or "The Crown". No separate Crown vs Citizen distribution.
 
-The code lives in `addon/MinistryOfTheAllied/` in this repo. Milestones 1–3 are built (ADDON_SPEC.md section 16).
+The code lives in `addon/MinistryOfTheAllied/` in this repo. Milestones 1–3 and the spec renames are built (ADDON_SPEC.md section 16). Test every change in the pretend game client first: `python tools/sim/sim.py`.
 
 ---
 
@@ -41,12 +41,11 @@ MOTA.CONST = {
 
 | Phase | Files | Notes |
 |---|---|---|
-| **Built** | Core.lua, Roster.lua, Comm.lua, Book.lua, Hello.lua, Probe.lua, Media.lua, Fonts.lua, UI/Window.lua, UI/Minimap.lua, UI/Crests.lua, UI/Herald.lua, UI/Settings.lua, Commands.lua | Milestones 1–3: sync skeleton, window, minimap seal, heralds, settings |
-| **Next** | Data.lua, Libs/AceComm-3.0, renames | Bring the code in line with the spec (ADDON_SPEC.md 16.4) |
-| **v1.0** | UI/Skin.lua, UI/MainWindow.lua, UI/ThroneRoom.lua, UI/BallotHall.lua, UI/VoicePlayer.lua | Skins, voting, onboarding |
+| **Built** | Libs/ (AceComm-3.0), Core.lua, Data.lua, Roster.lua, Comm.lua, Book.lua, Hello.lua, Probe.lua, Media.lua, Fonts.lua, UI/MainWindow.lua, UI/Minimap.lua, UI/Crests.lua, UI/Herald.lua, UI/Settings.lua, Commands.lua | Milestones 1–3 and the spec renames (ADDON_SPEC.md 16.4): sync skeleton on AceComm, window, minimap seal, heralds, settings |
+| **v1.0** | UI/Skin.lua, UI/ThroneRoom.lua, UI/BallotHall.lua, UI/VoicePlayer.lua | Skins, voting, onboarding |
 | **v1.1** | UI/StatuteBook.lua, UI/Treasury.lua | Law registry + ledger |
 | **v1.2** | UI/Districts.lua | Citizen roll + regional map |
-| **v1.3** | UI/Parties.lua, UI/Court.lua | Party records + case registry |
+| **v1.3** | UI/Parties.lua, UI/Court.lua | Parties with the Party Chamber + the Court |
 | **v1.4** | UI/Ring.lua, UI/WorldMap.lua | The Ring + world map skins |
 | **v2.0** | External persistence layer | Async voting, offline support |
 

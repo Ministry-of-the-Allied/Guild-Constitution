@@ -42,7 +42,7 @@ Every member's addon keeps its own full copy of the guild's records and shares t
 | Interface version | 16001 (WoW: Forever) |
 | Author | The Crown |
 
-*The code built so far still uses the prefix `MotA`, the saved data `MinistryOfTheAlliedDB`, version 0.1.0 and the author "Ministry of the Allied". Renaming them is the first job in section 16.4.*
+*The code was renamed to these on 2026-11-06 (section 16.4). Test saves under the old name `MinistryOfTheAlliedDB` are not carried over. The version is still 0.1.0.*
 
 **Testing setup:** a folder link (a Windows junction) puts `addon/MinistryOfTheAllied/` inside Forever's `Interface/AddOns`, so a change shows in the game after `/reload`, with no copying.
 
@@ -74,12 +74,15 @@ The Crown is held by two co-monarchs. **Each King has their own guild rank: "The
 
 | Tier | Who | Permissions |
 |---|---|---|
-| **Crown** | The two Kings (ranks "The King" and "The Crown") | Read all, write all, open/close ballot sessions, receive and count ballots, grant Royal Assent, record treasury entries, register laws, record court rulings, manage citizen registry |
+| **Crown** | The two Kings (ranks "The King" and "The Crown") | Read all, write all, open/close ballot sessions, receive and count ballots, grant Royal Assent, register laws, decide court appeals, sign off exile, manage citizen registry and party membership |
 | **Citizen** | All other guild members | Read all, cast votes during open sessions |
 
 - The Crown may delegate The Ring to the Minister of War (section 11.4).
 - No citizen can write to canonical state. Every record says who wrote it, and each addon checks that the writer was allowed to write that type of record at that time (section 7.4). Records from anyone else are ignored.
-- Office holders (PM, Cabinet, Justices, Representatives) see their duties (section 10.9), but in v1.x the Crown makes the writes.
+- Office holders (PM, Cabinet, Justices, Representatives) see their duties (section 10.9), but in v1.x the Crown makes most writes. The exceptions:
+  - **Treasury (10.7):** every member's addon may write guild bank readings; the Minister of the Treasury may add reasons to ledger entries.
+  - **Court (10.10):** any citizen may file an accusation; the accused may write a statement and appeal; the Justices seal rulings.
+  - **Parties (10.16):** party members may write Chamber business and vote for their leader; a citizen may leave their own party.
 
 ---
 
@@ -196,16 +199,19 @@ state = {
     },
 
     treasury = {
-        balance = { gold = 0, silver = 0, copper = 0 },
+        balance = { gold = 0, silver = 0, copper = 0 },  -- last balance read from the guild bank
+        balanceCheck = true,    -- false when money in minus out doesn't match the balance change (10.7)
         ledger = {
             -- [id] = {
-            --     date        = 0,    -- Unix timestamp
-            --     description = "",
+            --     date        = 0,    -- Unix timestamp (approximate: the log only gives "3 hours ago")
+            --     member      = "",   -- who moved the money, from the money log
+            --     description = "",   -- the reason, added by the Minister of the Treasury
             --     direction   = "IN", -- "IN" | "OUT"
             --     gold        = 0,
             --     silver      = 0,
             --     copper      = 0,
-            --     recordedBy  = "",
+            --     recordedBy  = "",   -- the members whose addons read it from the log
+            --     status      = "AWAITING", -- "AWAITING" | "CONFIRMED"
             -- }
         },
     },
@@ -213,12 +219,15 @@ state = {
     court = {
         -- [id] = {
         --     date      = 0,
+        --     accuser   = "",       -- shown only to the Justices and the accused
         --     accused   = "",
-        --     charge    = "",
+        --     charge    = "",       -- which law was broken and what happened
+        --     statement = "",       -- the accused's defence
         --     verdict   = "GUILTY", -- "GUILTY" | "NOT_GUILTY"
         --     punishment= "",       -- Free text
         --     sanction  = nil,      -- "CENSURE" | "FINE" | "EMBARGO" | "SUSPENSION" | "EXILE" (10.10)
         --     justices  = {},       -- Array of player names
+        --     ruledAt   = 0,        -- the 48-hour appeal window runs from here
         --     status    = "OPEN",   -- "OPEN" | "RULED" | "APPEALED" | "CLOSED"
         -- }
     },
@@ -234,6 +243,19 @@ state = {
         --     votes     = {},     -- {option_id = count}
         --     turnout   = 0,
         -- }
+    },
+
+    parties = {
+        -- ["SILVERHAND"] = {
+        --     leader      = "",   -- elected in the Party Chamber (10.16)
+        --     donations   = 0,    -- published total, in copper
+        -- }
+        -- Chamber contents are never in shared state: they arrive by whisper
+        -- to the party's own members only.
+    },
+
+    leftParty = {
+        -- ["PlayerName"] = { party = "SILVERHAND", at = 0 },  -- 14-day cooling-off (10.16)
     },
 
     noConfidence = {
@@ -308,11 +330,12 @@ All messages go through **AceComm-3.0** on the prefix `MOTA`.
 | Ballot | WHISPER, to each online King | The sealed vote (8.2) |
 | Ballot receipt | WHISPER, King back to the voter | "Your ballot is sealed" |
 | Tally hand-over | WHISPER, King to King | The running count, when the second King logs in during a session |
+| Chamber business | WHISPER, to each member on that party's roster | Party Chamber notes, whip notices and leadership votes (10.16) |
 | Probe | GUILD | Test traffic for `/mota probe limits` (only the sender reads it) |
 
 The brief's other message types are now record types: `BALLOT_OPEN` → `ballot.open`, `BALLOT_CLOSE` → `ballot.close`, `CITIZEN_UPDATE` → `citizen.update`, `STATE_DELTA` → whichever record changed. `PETITION_SIGN` is dropped: no-confidence goes by in-game mail (8.6).
 
-- **Format:** a record is packed with `C_EncodingUtil.SerializeCBOR` and turned into channel-safe text with `EncodeBase64`; big batches are compressed with `CompressString` first. (Whether Forever accepts raw binary in addon messages, which would save the Base64 step, is untested.) *(Built so far: short text fields joined by byte 31, protocol 1. Moves to CBOR when AceComm is added.)*
+- **Format:** a record is packed with `C_EncodingUtil.SerializeCBOR` and turned into channel-safe text with `EncodeBase64`; big batches are compressed with `CompressString` first. (Whether Forever accepts raw binary in addon messages, which would save the Base64 step, is untested.) *(Built 2026-11-06 as protocol 2: the envelope is short text fields joined by byte 31 — protocol, kind, then fields — and a record is one field of packed Base64.)*
 - **Versions:** every message carries a protocol version. Hello and hello reply always keep the version first, so an old copy can tell it's out of date. A copy that hears a newer protocol stops writing records and tells the player to update, but keeps reading.
 - **Whispers** are only accepted from guild members. A copy ignores its own guild messages echoed back.
 - **Throttling:** never raw `C_ChatInfo.SendAddonMessage`; AceComm splits and paces. Minimum `BROADCAST_MIN_INTERVAL` (3 seconds) between routine GUILD broadcasts; records that trigger a herald go ahead of catch-up.
@@ -324,7 +347,7 @@ Every record uses the realm's server time, so a poll that closes "at 8pm" closes
 
 ### 7.7 Privacy of personal records
 
-Records meant for one person (letters, a court summons) still travel on the guild channel, so they reach the person after being offline; the addon only **shows** them to that person. Ballots are the exception: they never touch the guild channel (8.2).
+Records meant for one person (letters, a court summons, an accusation) still travel on the guild channel, so they reach the person after being offline; the addon only **shows** them to the people they're for. Someone running their own script could read these; Max judged that unlikely. Two exceptions never touch the guild channel: ballots (8.2) and Party Chamber business (10.16), which go only by whisper.
 
 ---
 
@@ -511,15 +534,15 @@ One window with **seven tabs** matching the canvas. Tab availability is the same
 |---|---|---|
 | **Throne Room** (home) | Who holds power (Crown, PM and Cabinet, Leader of the Opposition); countdown to the next election; any open ballot with a button to vote; your district and party; your duties (10.9) and letters (10.12); a feed of recent decrees opening into the Chronicle (10.3) | Edit government state, trigger dissolution |
 | **Ballot Hall** | **Ballot** (default while polls are open): the parchment ballot paper, sealed with the wax-seal "Seal My Ballot" button. **Results** (default otherwise): the Crown's proclamation of the last result and past elections. The no-confidence status and cooling period (8.6) | Open/close elections, see live tally, record result, record no-confidence outcome |
-| **Statute Book** | **In force**, each law with its expiry countdown; **Awaiting Royal Assent / up for renewal / Council consultation** (10.8); **Rulings** — the court registry (10.10); **Treaties** (10.14) | Add law, grant Royal Assent, expire law early, record court rulings |
-| **The Parties** | Two fixed parties — The Silverhand and The Azeroth Exchange. Banner, ideology pillars, leader, member count, manifesto and join button | Edit party records, member counts |
-| **Treasury** | The ledger in an old accounts-book style: the Minister of the Treasury, the balance, gold in and out, taxes. Fully public: every line shows the member's name, withdrawals included | Record a payment, edit balance |
+| **Statute Book** | **In force**, each law with its expiry countdown; **Awaiting Royal Assent / up for renewal / Council consultation** (10.8); **Rulings** of the High Judiciary (10.10); **Treaties** (10.14) | Add law, grant Royal Assent, expire law early, decide appeals (Justices seal rulings) |
+| **The Parties** | Two fixed parties — The Silverhand and The Azeroth Exchange. **Public face:** banner, ideology pillars, leader, members, manifesto, donation total and join button. **Party Chamber:** the private side, only for that party's members (10.16) | Edit party records, record membership |
+| **Treasury** | The ledger in an old accounts-book style: the Minister of the Treasury, the balance, gold in and out, taxes. Filled in automatically from the guild bank's money log (10.7). Fully public: every line shows the member's name, withdrawals included | None: the ledger fills itself. The Minister of the Treasury adds reasons |
 | **Districts** | **Map:** the Stormwind map with your district glowing in its colour and a pin on your council meeting spot. **Regional Council:** the five Representatives and their districts. **Citizen Roll:** every citizen with district, party and office. **Assignments & transfers** (10.11) | Edit citizen district/party assignments, Citizen Roll |
 | **The Ring** | Sign-up, Bracket, Champions (section 11) | Create tournament, record bout results, manage sign-ups |
 
 **Ballot Hall scope:** Elections only (General, Snap, run-off, district). No law votes. No-confidence is tracked manually by the Crown via in-game mail.
 
-**The Parties scope:** No internal chamber mechanics in v1.x. Party membership is public. Joining costs at least 5g paid to the party's designated officer (Charter 3.2); the join button sends the request, and the Crown records membership in the citizen registry once paid. At the close of each campaign period the Parties page shows each party's published donation total.
+**The Parties scope:** each party page has a public face and a private Party Chamber (10.16). Joining follows the brief: the join button sends the request, and the Crown records membership in the citizen registry once the 5g has been paid to the party's designated officer (Charter 3.2). At the close of each campaign period the Parties page shows each party's published donation total.
 
 **Small extras:**
 - **Minimap seal:** a wax-seal button that opens the addon (right-click opens settings).
@@ -559,11 +582,19 @@ In guild chat, each name gets a small tag for their office and party (e.g. [PM] 
 
 On login: any ballot you haven't cast, with the time left. Shortly before your district's council meeting, a Discord debate, or your Ring bout. Same rules as heralds: wait until out of combat, can be toned down.
 
-### 10.7 Treasury
+### 10.7 Treasury: the automatic ledger
 
-- The Crown records each payment (date, description, in or out, amount, recorded by) and can edit the balance. Ring entry fees are added automatically (11.5).
+*Decided 2026-11-06: the old plan's automatic ledger, in place of the brief's hand-typed one.* The game keeps a money log of every guild bank deposit, withdrawal and repair.
+
+- **Everyone's addon reads the log.** Whenever any member opens the guild bank, their addon reads the money log and shares any entries the guild doesn't have yet.
+- **Entries are confirmed, not just trusted.** An entry counts as confirmed once two different members' addons have reported it, or once it matches the change in the bank's balance. Until then it shows as "awaiting confirmation". This stops one member's addon inventing entries.
+- **No double counting.** The log only gives rough times ("3 hours ago"), so two readings of the same entry won't match exactly. Readings are lined up by their order in the log, so each deposit is counted once.
+- **Balance check.** Every reader also reports the bank's gold. Money in minus money out must equal the change in the balance. If it doesn't, an entry is missing and the Treasury page says so.
+- **Missed entries.** The log is short, so entries drop off if nobody opens the bank during a busy spell. More readers make this rarer, and the balance check flags any gap.
+- **Rank permissions.** Some ranks may not be able to see the money log at all, so they can't help read it (to test, section 18).
+- **The Minister of the Treasury adds the reasons.** The log shows who moved how much, never why. Only the Minister can add a note such as "raid repairs".
 - The Minister of the Treasury is appointed by the PM (Charter 2.2), not elected.
-- Fully public, names included. *(Decided 2026-11-04.)*
+- **Fully public:** every line shows the member's name, withdrawals included. *(Decided 2026-11-04.)*
 
 ### 10.8 Laws
 
@@ -583,17 +614,23 @@ Anyone holding an office sees their own to-do list on the Throne Room:
 - **Regional Representatives:** consultations and transfer requests.
 - **Justices:** open cases.
 
-### 10.10 The court registry and punishments
+### 10.10 The Court
 
-- The Crown records each case and ruling (`court`, section 6.3). Rulings show in the Statute Book and the Chronicle. A separate `UI/Court.lua` file builds the registry, shown inside the Statute Book's Rulings view.
+*Decided 2026-11-06: the old plan's court, run inside the addon (agreed with Max 2026-11-04), in place of the brief's Crown-recorded registry.* It follows Charter 6 and 7. `UI/Court.lua` builds it; rulings show in the Statute Book's Rulings view.
+
+1. **Accusation.** Any citizen files an accusation privately to the three Justices: who, which law was broken, and what happened. Only the Justices and the accused see it.
+2. **Summons.** The accused gets a sealed letter of summons (10.12) and can write a statement in their defence.
+3. **Deliberation.** The case appears on the Justices' duties panel (10.9). They discuss it and seal a ruling, choosing a sanction from the punishment ladder below.
+4. **Ruling.** The ruling is published in the Statute Book (Rulings) and written into the Chronicle. The punishment is applied as far as the addon can.
+5. **Appeal.** The accused has 48 hours to appeal to the Crown (Charter 7.2). The appeal appears on the Crown's duties panel, and the Crown's decision is final.
+
 - Justices are three, appointed by the Crown, and can't hold any other office (Charter 6.1); the addon refuses an appointment that breaks this.
-- The 48-hour appeal window to the Crown (Charter 7.2) shows on each ruling; the Crown's decision is final.
-- **Punishment ladder (Charter 7.1)** and what the addon shows:
-  - **Public censure:** in the Chronicle and Rulings permanently.
-  - **Treasury fine:** on the citizen card as unpaid until the Crown records the payment.
+- **Punishment ladder (Charter 7.1)** and what the addon does:
+  - **Public censure:** written into the Chronicle and Rulings permanently.
+  - **Treasury fine:** on the citizen card as unpaid until the payment shows up in the guild bank ledger (10.7).
   - **Trade embargo:** on the citizen card and tooltip, with a warning if anyone opens a trade window with that citizen. Guild bank access is removed by an officer through guild ranks.
-  - **Suspension from office:** the office is removed.
-  - **Exile:** needs the Crown's sign-off; an officer removes the character from the guild.
+  - **Suspension from office:** the addon removes the office straight away.
+  - **Exile:** needs the Crown's sign-off; the addon records it, and an officer removes the character from the guild.
 
 ### 10.11 District assignment and transfers
 
@@ -619,6 +656,19 @@ The guild's relations with other guilds (allied, friendly, neutral, rival) and t
 
 Results, laws, rulings, the Law Registry and Ring champions can be turned into ready-formatted text in a copy box, to paste into Discord or GitHub. Addons can't post to Discord themselves.
 
+### 10.16 Party privacy and the Party Chamber
+
+*Decided 2026-11-06: joining follows the brief; everything else follows the old plan (agreed with Max 2026-11-04, matched to Charter 3.2).* The goal is that neither party can see the other's private chamber, and joining a party to spy and quickly switching back isn't possible.
+
+- **Party membership is public, party business is private.** Who belongs to which party is visible to all. The Party Chamber is not.
+- **Joining:** the citizen clicks join; the Crown records them as a member once the 5g is paid (the brief's way).
+- **The Party Chamber** holds the party's plans, notes and whip notices. Only that party's members can see it.
+- **Chamber data never goes on the guild channel.** It's sent only by private addon whisper to characters on that party's roster, so members of the other party never receive it at all.
+- **The party leader is elected by its members,** in a vote inside the Party Chamber, so only that party's members see it. The winner is the party's candidate for PM (Charter 3.2) and is registered with the Crown.
+- **Crossing the floor is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a **14-day** cooling-off period before the other party can accept that person; the Crown's addon refuses to record the new membership until it's over. A citizen can leave their own party themselves, or the Crown records it.
+- **Roster changes** are only accepted from the Crown. WoW tells the receiver the real sender of every addon message, so every client can check who issued each change.
+- **Honest limits.** A real defector keeps whatever they already read, which is a spy, and good roleplay. Someone skilled enough to rewrite the addon could still cause trouble, so this is strong guild-level security, not bank-level.
+
 ---
 
 ## 11. The Ring (Gladiator System)
@@ -630,7 +680,7 @@ The Ring is the guild's formal PvP tournament system: a monthly 1v1 duelling tou
 - **Season name** — set by Crown (e.g. "The November Ring")
 - **Level bracket** — Crown sets the bracket on creation (e.g. "Open" or a level range) to prevent mismatches
 - **Format** — single-elimination: Quarter-finals → Semi-finals → The Final
-- **Entry fee** — set per tournament; automatically logged to the Treasury ledger as income
+- **Entry fee** — set per tournament; paid into the guild bank, where the automatic ledger records it as income (11.5)
 - **Guild cut** — defined by law or Crown decree (default 10%); the champion gets the prize pool minus the cut
 - **Venue** — Old Town, home of the Old Quarter, the warriors' and PvP district
 
@@ -681,25 +731,19 @@ Crown (or delegated Minister of War) can:
 - Close sign-ups and generate the bracket draw
 - Record bout results (winner per matchup)
 - Declare the Final champion
-- Entry fees are automatically added to the Treasury ledger on sign-up registration
+- See who has paid: a participant is marked paid once their entry fee deposit appears in the ledger (11.5)
 
 **Duel results:** the game prints "X has defeated Y in a duel" to everyone nearby. The organiser's addon reads it and moves the winner on; the organiser can also click the winner by hand.
 
 ### 11.5 Treasury Integration
 
-When a citizen registers for The Ring, the entry fee is logged as a Treasury entry:
+Citizens pay the entry fee into the guild bank. The automatic ledger (10.7) picks up the deposit from the money log, so the fee is never typed in or logged at sign-up (that would count it twice). When a deposit from a signed-up citizen matches the entry fee during the sign-up window, the addon marks them paid (`participants[name].paid = true`) and gives the ledger entry its reason automatically:
+
 ```lua
-{
-    date        = timestamp,
-    description = "Ring entry fee — " .. playerName .. " (" .. ring.season .. ")",
-    direction   = "IN",
-    gold        = ring.entryFee.gold,
-    -- silver/copper as set
-    recordedBy  = "RING_SYSTEM",
-}
+description = "Ring entry fee — " .. playerName .. " (" .. ring.season .. ")"
 ```
 
-Prize pool = total entry fees collected. Guild cut is deducted and retained in Treasury. Remainder paid to champion by the Minister of the Treasury in-game. The champion also gets a Chronicle entry.
+Prize pool = total entry fees collected. Guild cut is deducted and retained in Treasury. Remainder paid to champion by the Minister of the Treasury in-game, out of the guild bank, so the ledger records the payout too. The champion also gets a Chronicle entry.
 
 ---
 
@@ -839,13 +883,13 @@ MinistryOfTheAllied/
 ├── Comm.lua            (built) AceComm send/receive, packing
 ├── Book.lua            (built) The book of records: numbering, adding, sending, who may write which type
 ├── Hello.lua           (built) Guild handshake and version check
-├── Data.lua                    Constants (MOTA.CONST), state built from records, validators
+├── Data.lua            (built) Constants (MOTA.CONST); later the state built from records, validators
 ├── Probe.lua           (built) /mota probe and /mota probe limits
 ├── Media.lua           (built) Texture piece positions (written by tools/textures/build.py)
 ├── Fonts.lua           (built) The canvas fonts
 ├── UI/
 │   ├── Skin.lua                Token definitions and ApplySkin() — loaded first of the UI
-│   ├── MainWindow.lua  (rename: Window.lua) Frame, tab rail, header, footer
+│   ├── MainWindow.lua  (built) Frame, tab rail, header, footer
 │   ├── Minimap.lua     (built) Minimap seal
 │   ├── Crests.lua      (built) Crest finder
 │   ├── Herald.lua      (built) Herald pop-ups
@@ -853,7 +897,7 @@ MinistryOfTheAllied/
 │   ├── ThroneRoom.lua          Tab 1
 │   ├── BallotHall.lua          Tab 2
 │   ├── StatuteBook.lua         Tab 3
-│   ├── Court.lua               Court registry (Statute Book, Rulings)
+│   ├── Court.lua               The Court: accusations, summons, rulings, appeals (Statute Book, Rulings)
 │   ├── Parties.lua             Tab 4
 │   ├── Treasury.lua            Tab 5
 │   ├── Districts.lua           Tab 6
@@ -861,10 +905,11 @@ MinistryOfTheAllied/
 │   ├── WorldMap.lua            World map skins
 │   └── VoicePlayer.lua         Notification frame + Charter Library
 ├── Commands.lua        (built) Slash commands — loaded last
-├── Libs/
+├── Libs/               (built)
 │   ├── LibStub/
 │   ├── CallbackHandler-1.0/
-│   └── AceComm-3.0/            (includes ChatThrottleLib)
+│   ├── AceComm-3.0/            (includes ChatThrottleLib)
+│   └── Ace3-LICENSE.txt
 └── Media/
     ├── chrome.tga, atlas.tga, extras.tga, shadow.tga, seal.tga, crest.tga  (built)
     ├── crest_crown.tga, crest_silverhand.tga, crest_exchange.tga, crest_neutral.tga
@@ -950,7 +995,7 @@ Commands.lua
 | **v1.0** | Core framework, sync, window, heralds, settings, Throne Room, Ballot Hall (secret ballot by whisper), VoicePlayer |
 | **v1.1** | Statute Book, Treasury Ledger |
 | **v1.2** | Districts tab with map, Citizen Roll |
-| **v1.3** | Parties tab, Court Registry |
+| **v1.3** | Parties tab with the Party Chamber, the Court |
 | **v1.4** | The Ring, world map skins |
 | **v2.0** | External persistence layer, async voting |
 
@@ -987,15 +1032,20 @@ Each phase is built in small milestones that each load in the game and can be te
 
 `/mota` (open the window), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`, `/mota scale [n]`, `/mota minimap`, `/mota crests`, `/mota crest <n|ours>`, `/mota settings`, `/mota herald [1|2|3]`, `/mota fanfare [n]`. `/ministry` works the same.
 
-### 16.4 Next: bring the code in line with this spec
+### 16.4 The code brought in line with this spec *(built 2026-11-06, to test in game)*
 
-1. Rename the prefix to `MOTA`, the saved data to `MOTADB` (test saves reset; only Max has it installed), the TOC author and notes.
-2. Recognise both Crown ranks, "The King" and "The Crown" (`CROWN_RANK_NAMES`).
-3. Add AceComm-3.0 (with LibStub, CallbackHandler, ChatThrottleLib); move `Comm.lua` onto it and the record format onto `C_EncodingUtil`.
-4. Add `Data.lua` with `MOTA.CONST`.
-5. Rename `UI/Window.lua` to `UI/MainWindow.lua`.
+1. The add-on's shared table is now `MOTA`, the message prefix `MOTA`, the saved data `MOTADB` (test saves under the old name aren't carried over), and the TOC author and notes follow section 14.
+2. Both Crown ranks, "The King" and "The Crown", are recognised (`MOTA.CONST.CROWN_RANK_NAMES`); `/mota probe` lists everyone on either.
+3. AceComm-3.0 (Release-r1403, with LibStub, CallbackHandler-1.0 and ChatThrottleLib) is in `Libs/`, with Ace3's licence (`Libs/Ace3-LICENSE.txt`: shipping it inside an add-on is allowed; handing it out on its own isn't). `Comm.lua` sends everything through it; messages wait in our own queue while the game has add-on messages locked or the limits test runs, because ChatThrottleLib would drop them. Live news goes as ChatThrottleLib's ALERT priority, background traffic as BULK. The limits test still sends straight to the game, since it measures the game's own limits.
+4. Records are packed with `C_EncodingUtil` and Base64 (message protocol 2). Copies on protocol 1 are told to update.
+5. `Data.lua` holds `MOTA.CONST`. `UI/Window.lua` is now `UI/MainWindow.lua`.
+6. **The pretend game client** is now kept in the repo, `tools/sim/` (its README says how to run it). It loads the libraries from the TOC and checks that AceComm splits a long record into pieces and joins it back together, and that records travel packed. **66 checks passed, no Lua errors.**
 
-After that, Milestone 4 is to agree with Max. Candidates: the secret ballot and Ballot Hall; window skins (needs the canvas drawn first); catch-up and the trust rules (needs the guild).
+7. **First in-game test with the guild (Max, 2026-11-06):** `/mota who` listed Max himself and no one else. Fixed: the add-on now recognises its own messages in every name form the game uses, and works out its own name again if the realm wasn't known at login. `/mota who` now also lists guild members online without the add-on (or with a copy too old to hear this one). **70 checks passed.**
+
+**To test in game:** `/reload`; `/mota` and `/mota probe` work as before (the probe now says "On the Crown ranks"). With a second guild member online: `/mota who` and `/mota test Hear ye!` both ways.
+
+Milestone 4 is to agree with Max. Candidates: the secret ballot and Ballot Hall; window skins (needs the canvas drawn first); catch-up and the trust rules (needs the guild).
 
 ### 16.5 How to test
 
@@ -1038,6 +1088,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Chat tags:** that the addon can still change how guild chat lines display.
 - **Duel results:** that "X has defeated Y in a duel" arrives as an ordinary system message.
 - **Trade window warning** for embargoed citizens.
+- **Guild bank money log:** which guild ranks can see it, and how many entries the game keeps before old ones drop off (10.7).
 - **World map window:** that the skin stays on when the map is enlarged or shrunk, no errors opening the map in combat, and whether the "Player / Cursor" coordinates strip in the reference screenshot is Forever's or another addon's.
 - **Game text-to-speech** still works for addons (a possible voice fallback for herald lines).
 
@@ -1051,6 +1102,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Herald voice lines:** a town crier calling "Hear ye! The polls are open!" with heralds. Fixed lines only (lines with names or numbers stay as text). Same voice rules as section 12. The game's own text-to-speech is a possible flat-voiced fallback.
 - **`CHARTER_VOICESCRIPT.md`** needs writing before the clips can be generated.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
+- **Party leader votes:** how the vote inside the Party Chamber is counted (open among members, or secret like the elections) is still to decide when Parties is planned in detail.
 
 ### 19.2 Old-plan ideas set aside for the brief's simpler version
 
@@ -1059,11 +1111,9 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
 - **Independent count check:** every member's addon counted ballots on the guild channel ("Count agreed by 31 of 31"). Replaced by the secret ballot (8.2).
 - **Self-running elections:** the addon followed the Charter timeline without anyone driving it, called run-offs automatically, with nominations and a **candidacy check** (good standing, two weeks as a citizen, later level 60, raids led, treasury contributions; stage set by the Crown).
 - **No-confidence petition signed in the addon,** with progress towards 40% and the days left.
-- **Automatic treasury ledger** read from the guild bank money log by every member's addon, with entries confirmed by two readers or by the balance change, lined up by their order in the log, a balance check that flags missing entries, and the Minister of the Treasury adding reasons.
-- **Party Chamber and party privacy:** a private side of each party (plans, notes, whip notices) sent only by whisper to that party's verified roster; joining through the party's designated officer, who records the 5g automatically from trade or mail; leaders elected inside the Chamber; roster changes accepted only from the officer or leader; crossing the floor announced by herald, with a 14-day cooling-off before the other party can accept.
-- **The Justices' court flow:** accusation filed privately to the Justices, sealed summons with a defence statement, Justices seal the ruling, punishments applied automatically.
-- **Office-based writing:** PM, ministers, Justices and Representatives writing their own records (appointments, renewals, assignments, transfers, Ring results) rather than the Crown doing all writes.
-- **Several Ring level brackets** at once (20–29, 30–39 … 60), each with its own champion; entry fees counted from the guild bank log rather than at sign-up.
+- **Joining a party through its officer:** the party's designated officer's addon records the 5g automatically from trade or mail, and the officer (or leader) accepts the citizen; roster changes accepted from them rather than the Crown.
+- **Office-based writing:** PM, ministers and Representatives writing their own records (appointments, renewals, assignments, transfers, Ring results) rather than the Crown doing those writes.
+- **Several Ring level brackets** at once (20–29, 30–39 … 60), each with its own champion.
 - **Universal crest:** the lion crest on every window regardless of party.
 - **World map skin following membership instantly** rather than on `/reload`.
 
@@ -1082,6 +1132,8 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
   - Polls open 2 hours; the Charter is amended to match.
   - The window is skinned per party, reusing the four world map skin designs.
   - Everything else follows the brief (19.2 lists what that set aside).
+- **2026-11-06** The treasury goes back to the old plan's automatic ledger, read from the guild bank money log by every member's addon (10.7). Ring entry fees are counted from the bank log, not at sign-up (11.5).
+- **2026-11-06** Parties: joining follows the brief (join button, the Crown records membership); the Party Chamber, leader elections inside it, Chamber privacy by whisper and the 14-day crossing-the-floor rule follow the old plan (10.16). The Court follows the old plan: accusation, summons, Justices' ruling, punishment applied, appeal to the Crown (10.10).
 
 ---
 
