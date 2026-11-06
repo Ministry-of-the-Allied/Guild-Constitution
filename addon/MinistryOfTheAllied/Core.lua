@@ -1,25 +1,24 @@
 -- Ministry of the Allied: the core.
--- One shared table (MotA) that every file of the add-on adds to, the event
--- dispatcher, the saved data and the chat helpers. See ADDON_PLAN.md and
--- plan/01-core-sync.md.
+-- One shared table (MOTA) that every file of the add-on adds to, the event
+-- dispatcher, the saved data and the chat helpers. See ADDON_SPEC.md and
+-- CODING_BRIEF.md.
 
-local ADDON_NAME, MotA = ...
-_G.MinistryOfTheAllied = MotA -- reachable with /dump MinistryOfTheAllied while testing
+local ADDON_NAME, MOTA = ...
+_G.MinistryOfTheAllied = MOTA -- reachable with /dump MinistryOfTheAllied while testing
 
-MotA.NAME = ADDON_NAME
-MotA.VERSION = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "0.0.0"
-MotA.PROTOCOL = 1             -- bump whenever the message format changes
-MotA.PREFIX = "MotA"          -- the hidden add-on message prefix (Core/Sync plan, section 3)
-MotA.CROWN_RANK = "The Crown" -- the guild rank that makes a character the Crown (Core/Sync plan, section 5)
+MOTA.NAME = ADDON_NAME
+MOTA.VERSION = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version") or "0.0.0"
+MOTA.PROTOCOL = 2             -- bump whenever the message format changes (2: AceComm, packed records)
+MOTA.PREFIX = "MOTA"          -- the hidden add-on message prefix (ADDON_SPEC.md, section 7.5)
 
 -- Counters for /mota sync, kept for this session only.
-MotA.stats = { sent = 0, failed = 0, received = 0, ignored = 0, conflicts = 0 }
+MOTA.stats = { sent = 0, failed = 0, received = 0, ignored = 0, conflicts = 0 }
 
 ---------------------------------------------------------------------------
 -- Chat output, in the canvas colours (design/canvas-source/ministry.css)
 ---------------------------------------------------------------------------
 
-MotA.colors = {
+MOTA.colors = {
   gold = "C9A24A",
   leaf = "F3D98A",
   sky = "B9C9EE",
@@ -27,23 +26,23 @@ MotA.colors = {
   grey = "9A9A9A",
 }
 
-function MotA:Color(key, text)
+function MOTA:Color(key, text)
   return "|cff" .. (self.colors[key] or key) .. tostring(text) .. "|r"
 end
 
-function MotA:Print(...)
+function MOTA:Print(...)
   local msg = strjoin(" ", tostringall(...))
   DEFAULT_CHAT_FRAME:AddMessage(self:Color("gold", "Ministry") .. self:Color("sky", " · ") .. msg)
 end
 
-function MotA:Debug(...)
+function MOTA:Debug(...)
   if self.db and self.db.settings.debug then
     self:Print(self:Color("grey", "[debug] " .. strjoin(" ", tostringall(...))))
   end
 end
 
 ---------------------------------------------------------------------------
--- Events: any file can listen with MotA:On("EVENT", function(self, event, ...) end)
+-- Events: any file can listen with MOTA:On("EVENT", function(self, event, ...) end)
 ---------------------------------------------------------------------------
 
 local eventFrame = CreateFrame("Frame")
@@ -56,7 +55,7 @@ local function safeCall(fn, ...)
   if not ok then geterrorhandler()(err) end
 end
 
-function MotA:On(event, fn)
+function MOTA:On(event, fn)
   if not eventHandlers[event] then
     eventHandlers[event] = {}
     eventFrame:RegisterEvent(event)
@@ -66,19 +65,19 @@ end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)
   for _, fn in ipairs(eventHandlers[event]) do
-    safeCall(fn, MotA, event, ...)
+    safeCall(fn, MOTA, event, ...)
   end
 end)
 
 -- The add-on's own signals between files, such as "RECORD_ADDED".
 local listeners = {}
 
-function MotA:Listen(name, fn)
+function MOTA:Listen(name, fn)
   listeners[name] = listeners[name] or {}
   table.insert(listeners[name], fn)
 end
 
-function MotA:Fire(name, ...)
+function MOTA:Fire(name, ...)
   for _, fn in ipairs(listeners[name] or {}) do
     safeCall(fn, self, ...)
   end
@@ -88,24 +87,69 @@ end
 -- Names, times and versions
 ---------------------------------------------------------------------------
 
+-- This character's realm, with spaces and dashes taken out. The game can
+-- report no realm for a moment around login, so it falls back to the realm's
+-- display name, and returns "" if neither is known yet.
+-- Once the guild roster has loaded, the realm is taken from this character's
+-- own roster entry (LearnMe), because Forever writes it there and in add-on
+-- message senders in a form of its own (e.g. "CAMWOWEU5Realm7PvE").
+function MOTA:MyRealm()
+  if self.homeRealm then return self.homeRealm end
+  local realm = GetNormalizedRealmName and GetNormalizedRealmName()
+  if (not realm or realm == "") and GetRealmName then
+    realm = (GetRealmName() or ""):gsub("[%s%-]", "")
+  end
+  return realm or ""
+end
+
 -- Always "Name-Realm", the form the game uses for add-on message senders.
-function MotA:FullName(name, realm)
+function MOTA:FullName(name, realm)
   if not name or name == "" then return nil end
   if name:find("-", 1, true) then return name end
   if realm and realm ~= "" then
     realm = realm:gsub("[%s%-]", "")
   else
-    realm = GetNormalizedRealmName() or ""
+    realm = self:MyRealm()
   end
   return name .. "-" .. realm
 end
 
--- A name for display: the realm is dropped when it isn't needed.
-function MotA:Short(fullName)
-  return fullName and Ambiguate(fullName, "guild") or "?"
+-- Works out this character's own full name once the realm is known.
+function MOTA:SetMe()
+  local name = UnitName("player")
+  local realm = self:MyRealm()
+  if name and realm ~= "" then self.me = name .. "-" .. realm end
 end
 
-function MotA:Ago(t)
+-- Called by Roster.lua with this character's own name exactly as the guild
+-- roster writes it (found by the character's unique ID), which is the form
+-- add-on messages arrive in.
+function MOTA:LearnMe(fullName)
+  if not fullName or fullName == self.me then return end
+  self:Debug("own name from the roster:", fullName, "(was", tostring(self.me) .. ")")
+  self.me = fullName
+  self.homeRealm = fullName:match("%-(.+)$")
+end
+
+-- True if a sender's name is this character's own, in any of the forms the
+-- game uses: "Name" for the player's own realm, or "Name-Realm".
+function MOTA:IsMe(name)
+  if not name then return false end
+  local mine = UnitName("player")
+  return name == self.me or name == mine or Ambiguate(name, "none") == mine
+end
+
+-- A name for display: the realm is dropped when it's the guild's own.
+function MOTA:Short(fullName)
+  if not fullName then return "?" end
+  local realm = self:MyRealm()
+  if realm ~= "" and fullName:sub(-(#realm + 1)) == "-" .. realm then
+    return fullName:sub(1, -(#realm + 2))
+  end
+  return Ambiguate(fullName, "guild")
+end
+
+function MOTA:Ago(t)
   if not t then return "never" end
   local s = GetServerTime() - t
   if s < 60 then return "moments ago" end
@@ -116,7 +160,7 @@ function MotA:Ago(t)
 end
 
 -- Returns -1, 0 or 1 for "1.2.3"-style version strings.
-function MotA:CompareVersions(a, b)
+function MOTA:CompareVersions(a, b)
   local pa, pb = { strsplit(".", a or "0") }, { strsplit(".", b or "0") }
   for i = 1, math.max(#pa, #pb) do
     local x, y = tonumber(pa[i]) or 0, tonumber(pb[i]) or 0
@@ -130,7 +174,7 @@ end
 ---------------------------------------------------------------------------
 
 -- Fills in any missing keys of t from d, without touching what is there.
-function MotA:Defaults(t, d)
+function MOTA:Defaults(t, d)
   for k, v in pairs(d) do
     if t[k] == nil then
       t[k] = type(v) == "table" and CopyTable(v) or v
@@ -141,22 +185,31 @@ function MotA:Defaults(t, d)
   return t
 end
 
-MotA:On("ADDON_LOADED", function(self, _, name)
+MOTA:On("ADDON_LOADED", function(self, _, name)
   if name ~= ADDON_NAME then return end
-  -- Saved account-wide, so alts on the same account share one book (Core/Sync plan, section 2).
-  MinistryOfTheAlliedDB = MinistryOfTheAlliedDB or {}
-  self.db = self:Defaults(MinistryOfTheAlliedDB, {
+  -- Saved account-wide, so alts on the same account share one book (ADDON_SPEC.md, section 7.2).
+  MOTADB = MOTADB or {}
+  self.db = self:Defaults(MOTADB, {
     schema = 1,
-    settings = { debug = false },
+    -- The settings panel's choices (UI/Settings.lua), as the Extras board sets them.
+    settings = {
+      debug = false,
+      herald = true,       -- herald pop-ups
+      fanfare = true,      -- a fanfare with each herald
+      fanfareSound = nil,  -- which one (/mota fanfare); nil means the first the game has
+      glow = true,         -- district glow (comes with the Districts page)
+      cards = false,       -- citizen cards (come later)
+      heraldSize = "full", -- "full" (Royal) or "small" (Modest)
+    },
     guilds = {},  -- one book per guild, see CheckGuild
-    window = {},  -- where the window was left, its size and page (UI/Window.lua)
+    window = {},  -- where the window was left, its size and page (UI/MainWindow.lua)
     minimap = { angle = 200, hide = false }, -- the minimap seal (UI/Minimap.lua)
   })
 end)
 
 -- Each guild gets its own book, keyed by guild name and realm, so a character
 -- in another guild never mixes records with the Ministry's.
-function MotA:GuildKey()
+function MOTA:GuildKey()
   if not IsInGuild() then return nil end
   local guildName, _, _, guildRealm = GetGuildInfo("player")
   if not guildName then return nil end -- not known yet straight after login
@@ -170,7 +223,16 @@ end
 
 -- Called whenever the guild might have changed. Fires GUILD_READY once the
 -- guild is known, and GUILD_LOST if the character leaves it.
-function MotA:CheckGuild()
+function MOTA:CheckGuild()
+  if not self.me then self:SetMe() end
+  if not self.me and not self.meRetry then
+    -- The realm isn't known yet: try again in a second.
+    self.meRetry = true
+    C_Timer.After(1, function()
+      self.meRetry = nil
+      self:CheckGuild()
+    end)
+  end
   if not self.db or not self.me then return end
   local key = self:GuildKey()
   if key == self.guildKey then return end
@@ -190,12 +252,16 @@ function MotA:CheckGuild()
   end
 end
 
-MotA:On("PLAYER_LOGIN", function(self)
-  self.me = self:FullName(UnitName("player"))
+MOTA:On("PLAYER_LOGIN", function(self)
+  self:SetMe() -- if the realm isn't known yet, CheckGuild tries again later
   if IsInGuild() then C_GuildInfo.GuildRoster() end -- ask the server for the roster
   self:CheckGuild()
 end)
 
-MotA:On("PLAYER_GUILD_UPDATE", function(self)
+MOTA:On("PLAYER_ENTERING_WORLD", function(self)
+  self:CheckGuild()
+end)
+
+MOTA:On("PLAYER_GUILD_UPDATE", function(self)
   self:CheckGuild()
 end)

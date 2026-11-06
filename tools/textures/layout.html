@@ -64,12 +64,11 @@
 <img id="seal" src="{{seal}}" alt="" style="position: absolute; left: 1220px; top: 300px; width: 72px; height: 72px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6))">
 
 <script>
-  // Records where every piece and slot sits, relative to the window's top-left corner.
-  const win = document.getElementById('win').getBoundingClientRect();
+  // Where every element with an id sits on the page (build.py makes it relative to the window).
   const out = {};
   document.querySelectorAll('[id]').forEach(el => {
     const r = el.getBoundingClientRect();
-    out[el.id] = { x: r.left - win.left, y: r.top - win.top, w: r.width, h: r.height };
+    out[el.id] = { x: r.left, y: r.top, w: r.width, h: r.height };
   });
   const pre = document.createElement('pre');
   pre.id = 'rects-json';

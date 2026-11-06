@@ -1,19 +1,23 @@
 -- Ministry of the Allied: the guild roster.
 -- Who is in the guild, their rank and whether they're online. The Crown is
--- whoever holds the guild rank named "The Crown" (Core/Sync plan, section 5),
--- which only the Guild Master can hand out.
+-- whoever holds either Crown rank, "The King" or "The Crown"
+-- (MOTA.CONST.CROWN_RANK_NAMES, ADDON_SPEC.md section 4), which only the Guild
+-- Master can hand out.
 
-local _, MotA = ...
+local _, MOTA = ...
 
 local roster = {} -- [Name-Realm] = { rank, rankIndex, level, class, online }
-MotA.roster = roster
+MOTA.roster = roster
 
 local function scan()
   wipe(roster)
   local total = GetNumGuildMembers()
+  local myGUID = UnitGUID("player")
   for i = 1, total do
     local name, rankName, rankIndex, level, _, _, _, _, isOnline, _, class = GetGuildRosterInfo(i)
-    local full = MotA:FullName(name)
+    local guid = select(17, GetGuildRosterInfo(i))
+    if guid and guid == myGUID and name and name:find("-", 1, true) then MOTA:LearnMe(name) end
+    local full = MOTA:FullName(name)
     if full then
       roster[full] = {
         rank = rankName,
@@ -26,26 +30,26 @@ local function scan()
   end
 end
 
-MotA:On("GUILD_ROSTER_UPDATE", function(self)
+MOTA:On("GUILD_ROSTER_UPDATE", function(self)
   scan()
   self:CheckGuild()
   self:Fire("ROSTER_UPDATED")
 end)
 
-function MotA:RequestRoster()
+function MOTA:RequestRoster()
   if IsInGuild() then C_GuildInfo.GuildRoster() end
 end
 
-function MotA:IsGuildMember(fullName)
+function MOTA:IsGuildMember(fullName)
   return roster[fullName] ~= nil
 end
 
-function MotA:IsOnline(fullName)
+function MOTA:IsOnline(fullName)
   local r = roster[fullName]
   return r and r.online or false
 end
 
-function MotA:RankOf(fullName)
+function MOTA:RankOf(fullName)
   if fullName == self.me then
     local _, rankName = GetGuildInfo("player")
     return rankName
@@ -54,15 +58,16 @@ function MotA:RankOf(fullName)
   return r and r.rank
 end
 
-function MotA:IsCrown(fullName)
-  return self:RankOf(fullName) == self.CROWN_RANK
+function MOTA:IsCrown(fullName)
+  local rank = self:RankOf(fullName)
+  return rank ~= nil and self.CONST.CROWN_RANK_NAMES[rank] == true
 end
 
--- Everyone on the Crown rank that the roster shows.
-function MotA:CrownMembers()
+-- Everyone on either Crown rank that the roster shows.
+function MOTA:CrownMembers()
   local list = {}
   for name, r in pairs(roster) do
-    if r.rank == self.CROWN_RANK then list[#list + 1] = name end
+    if r.rank and self.CONST.CROWN_RANK_NAMES[r.rank] then list[#list + 1] = name end
   end
   table.sort(list)
   return list

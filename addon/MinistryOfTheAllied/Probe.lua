@@ -10,16 +10,16 @@
 -- or /reload), so they can be read straight from
 -- WTF\Account\<account>\SavedVariables\MinistryOfTheAllied.lua.
 
-local _, MotA = ...
+local _, MOTA = ...
 local Probe = {}
-MotA.Probe = Probe
+MOTA.Probe = Probe
 
 local function yesno(v)
-  return v and MotA:Color("leaf", "yes") or MotA:Color("crimson", "no")
+  return v and MOTA:Color("leaf", "yes") or MOTA:Color("crimson", "no")
 end
 
 local function P(...)
-  MotA:Print(...)
+  MOTA:Print(...)
 end
 
 function Probe:Report()
@@ -27,8 +27,8 @@ function Probe:Report()
 
   local version, build, date, toc = GetBuildInfo()
   out.client = { version = version, build = build, date = date, interface = toc, project = WOW_PROJECT_ID }
-  P(MotA:Color("leaf", "Probe") .. ": client " .. tostring(version) .. ", build " .. tostring(build) .. " (" .. tostring(date) .. ")")
-  P("Interface number:", MotA:Color("leaf", toc), "(the TOC's Interface line should list it) · project ID", tostring(WOW_PROJECT_ID))
+  P(MOTA:Color("leaf", "Probe") .. ": client " .. tostring(version) .. ", build " .. tostring(build) .. " (" .. tostring(date) .. ")")
+  P("Interface number:", MOTA:Color("leaf", toc), "(the TOC's Interface line should list it) · project ID", tostring(WOW_PROJECT_ID))
 
   -- The game's own packer could stand in for LibSerialize and LibDeflate.
   local E = C_EncodingUtil
@@ -59,7 +59,7 @@ function Probe:Report()
   local lockdown = C_ChatInfo.InChatMessagingLockdown
   local inInstance, instanceType = IsInInstance()
   out.messages = {
-    prefix = MotA.Comm:EnumName(Enum.RegisterAddonMessagePrefixResult, MotA.Comm.prefixResult),
+    prefix = MOTA.Comm:EnumName(Enum.RegisterAddonMessagePrefixResult, MOTA.Comm.prefixResult),
     resultCodes = Enum.SendAddonMessageResult ~= nil,
     lockdownCheck = lockdown ~= nil,
     lockedNow = lockdown and lockdown() or false,
@@ -71,23 +71,23 @@ function Probe:Report()
     "· in combat:", yesno(out.messages.inCombat), "· instance:", out.messages.instance)
 
   -- The fonts shipped inside the add-on (Fonts.lua)
-  for _, name in ipairs({ "heading", "body", "bodyItalic", "who", "whoSmall", "foot" }) do MotA:Font(name) end
-  out.fonts = #MotA.fontsFailed == 0 and "loaded" or ("fell back to the game's font: " .. table.concat(MotA.fontsFailed, ", "))
-  P("Add-on fonts (Cinzel, EB Garamond):", #MotA.fontsFailed == 0 and MotA:Color("leaf", "loaded") or MotA:Color("crimson", out.fonts))
+  for _, name in ipairs({ "heading", "body", "bodyItalic", "who", "whoSmall", "foot" }) do MOTA:Font(name) end
+  out.fonts = #MOTA.fontsFailed == 0 and "loaded" or ("fell back to the game's font: " .. table.concat(MOTA.fontsFailed, ", "))
+  P("Add-on fonts (Cinzel, EB Garamond):", #MOTA.fontsFailed == 0 and MOTA:Color("leaf", "loaded") or MOTA:Color("crimson", out.fonts))
 
   -- Guild and the Crown
   local guildName, rankName, rankIndex = GetGuildInfo("player")
   if guildName then
-    local crowns = MotA:CrownMembers()
-    out.guild = { name = guildName, rank = rankName, rankIndex = rankIndex, crown = rankName == MotA.CROWN_RANK, crownMembers = crowns }
+    local crowns = MOTA:CrownMembers()
+    out.guild = { name = guildName, rank = rankName, rankIndex = rankIndex, crown = rankName ~= nil and MOTA.CONST.CROWN_RANK_NAMES[rankName] == true, crownMembers = crowns }
     P("Guild:", guildName, "· your rank:", tostring(rankName), "(" .. tostring(rankIndex) .. ")", "· counts as the Crown:", yesno(out.guild.crown))
     local names = {}
-    for i, n in ipairs(crowns) do names[i] = MotA:Short(n) end
-    P("On the rank \"" .. MotA.CROWN_RANK .. "\":", #names > 0 and table.concat(names, ", ") or "nobody the roster shows")
+    for i, n in ipairs(crowns) do names[i] = MOTA:Short(n) end
+    P("On the Crown ranks (\"The King\", \"The Crown\"):", #names > 0 and table.concat(names, ", ") or "nobody the roster shows")
   elseif IsInGuild() then
     out.guild = { inGuild = true, nameKnown = false }
     P("Guild: the game says you're in a guild, but hasn't told the add-on its name yet. Wait a few seconds and try again.")
-    MotA:RequestRoster()
+    MOTA:RequestRoster()
   else
     out.guild = { inGuild = false }
     P("Guild: this character isn't in a guild.")
@@ -96,8 +96,8 @@ function Probe:Report()
   out.clockOffset = GetServerTime() - time()
   P("Realm time minus your computer's clock:", out.clockOffset, "seconds")
 
-  MotA.db.probe = MotA.db.probe or {}
-  MotA.db.probe.report = out
+  MOTA.db.probe = MOTA.db.probe or {}
+  MOTA.db.probe.report = out
 end
 
 ---------------------------------------------------------------------------
@@ -111,16 +111,16 @@ local TRICKLE_GAP = 0.5
 local run -- the test in progress
 
 local function message(len, seq)
-  local head = MotA.Comm:Pack("PB", run.id, seq) .. MotA.Comm.SEP
+  local head = MOTA.Comm:Pack("PB", run.id, seq) .. MOTA.Comm.SEP
   return head .. string.rep("x", len - #head)
 end
 
 -- Sends without the queue and catches errors, since a too-long message may
 -- raise one instead of returning a code.
 local function try(len, seq)
-  local ok, sent, r = pcall(MotA.Comm.RawSend, MotA.Comm, message(len, seq), "GUILD")
+  local ok, sent, r = pcall(MOTA.Comm.RawSend, MOTA.Comm, message(len, seq), "GUILD")
   if not ok then return false, "error: " .. tostring(sent) end
-  return sent, MotA.Comm:ResultName(r)
+  return sent, MOTA.Comm:ResultName(r)
 end
 
 local function tally(t, sent, why)
@@ -139,18 +139,18 @@ local function reasons(t)
 end
 
 local function finish()
-  MotA.Comm.paused = false
-  MotA.Comm:Kick()
+  MOTA.Comm.paused = false
+  MOTA.Comm:Kick()
   local b, t, e = run.burst, run.trickle, run.echo
-  P(MotA:Color("leaf", "Limits test") .. ":")
+  P(MOTA:Color("leaf", "Limits test") .. ":")
   P("  Burst:", BURST, "at once, the game took", b.accepted, "and refused", b.refused .. reasons(b))
   P(("  Then one every %.1f s for %d s: took %d of %d, about %.1f a second%s"):format(
     TRICKLE_GAP, TRICKLE * TRICKLE_GAP, t.accepted, TRICKLE, t.accepted / (TRICKLE * TRICKLE_GAP), reasons(t)))
   P("  255-byte message:", run.size[255], "· 256-byte message:", run.size[256])
   P("  Came back from the server: burst", e.b, "· trickle", e.t, "· size test", e.s,
     "(fewer than were taken means the server dropped some quietly)")
-  MotA.db.probe = MotA.db.probe or {}
-  MotA.db.probe.limits = {
+  MOTA.db.probe = MOTA.db.probe or {}
+  MOTA.db.probe.limits = {
     at = GetServerTime(), burst = BURST, trickle = TRICKLE, gap = TRICKLE_GAP,
     burstAccepted = b.accepted, burstRefused = b.refused, burstWhy = b.why,
     trickleAccepted = t.accepted, trickleRefused = t.refused, trickleWhy = t.why,
@@ -161,7 +161,7 @@ end
 
 function Probe:Limits()
   if run then return P("The limits test is already running.") end
-  if not MotA.guild then
+  if not MOTA.guild then
     return P(IsInGuild() and "The guild roster hasn't loaded yet. Try again in a moment."
       or "The limits test needs a character in a guild, because it measures the guild channel.")
   end
@@ -173,7 +173,7 @@ function Probe:Limits()
     size = {},
     echo = { b = 0, t = 0, s = 0 },
   }
-  MotA.Comm.paused = true -- the add-on's own traffic waits until the test is over
+  MOTA.Comm.paused = true -- the add-on's own traffic waits until the test is over
   P("Limits test started: about 45 hidden guild messages over 20 seconds. Results follow.")
 
   -- 1. A burst, all in the same instant.
@@ -201,7 +201,7 @@ function Probe:Limits()
 end
 
 -- Our own guild messages come back to us; count them to see what really went out.
-MotA.Comm:Handle("PB", function(self, sender, channel, f)
+MOTA.Comm:Handle("PB", function(self, sender, channel, f)
   if not run or sender ~= self.me or f[1] ~= run.id then return end
   local phase = (f[2] or ""):sub(1, 1)
   if run.echo[phase] then run.echo[phase] = run.echo[phase] + 1 end

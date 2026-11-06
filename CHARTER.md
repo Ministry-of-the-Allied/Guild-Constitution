@@ -97,7 +97,7 @@ A General Election is held at the end of every three-month term, or earlier in t
 
 - **Weeks 1–2 of election period:** Campaign period. Candidates may make their case publicly.
 - **Week 2:** Formal debate. A moderated debate is held between the two candidates, open to all citizens to observe and submit questions.
-- **End of Week 2:** Voting opens for 48 hours. All citizens cast their vote by direct ballot.
+- **End of Week 2:** Voting opens for 2 hours, at a time declared by the Crown. All citizens cast their vote by direct, secret ballot.
 - **Vote close:** Results announced by the Crown. Incoming Prime Minister takes office within 24 hours.
 
 ### 3.4 Candidacy Requirements
@@ -238,3 +238,4 @@ This Charter may be amended by the Crown at any time. Proposed amendments brough
 
 *The Ministry of the Allied — Stormwind, Azeroth*
 *Version 1.1 — November 2026 — Added Part III §3.2 Party Membership*
+*Version 1.2 — 6 November 2026 — Part III §3.3: voting window shortened to 2 hours, by secret ballot*

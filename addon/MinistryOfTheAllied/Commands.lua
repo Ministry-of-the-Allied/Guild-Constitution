@@ -1,8 +1,8 @@
 -- Ministry of the Allied: slash commands.
--- /mota (or /ministry) opens the window (Core/Sync plan, section 10);
+-- /mota (or /ministry) opens the window (ADDON_SPEC.md, section 16.3);
 -- /mota followed by one of the commands below does that instead.
 
-local _, MotA = ...
+local _, MOTA = ...
 
 local commands, order = {}, {}
 
@@ -12,60 +12,72 @@ local function add(name, usage, help, fn)
 end
 
 local function needGuild()
-  if MotA.guild then return true end
+  if MOTA.guild then return true end
   if IsInGuild() then
-    MotA:Print("The guild roster hasn't loaded yet. Try again in a moment.")
-    MotA:RequestRoster()
+    MOTA:Print("The guild roster hasn't loaded yet. Try again in a moment.")
+    MOTA:RequestRoster()
   else
-    MotA:Print("This character isn't in a guild. Most of the Ministry needs one.")
+    MOTA:Print("This character isn't in a guild. Most of the Ministry needs one.")
   end
   return false
 end
 
 local function showHelp()
   for _, c in ipairs(order) do
-    MotA:Print(MotA:Color("leaf", "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")), "·", c.help)
+    MOTA:Print(MOTA:Color("leaf", "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")), "·", c.help)
   end
 end
 
 local function statusLine()
-  local total = MotA.Book:Count()
-  local online = MotA.Hello:OnlineCount()
-  local guild = MotA.guild and (GetGuildInfo("player") or "?") or "no guild yet"
-  MotA:Print(MotA:Color("leaf", "Ministry of the Allied") .. " v" .. MotA.VERSION, "·", guild, "·",
+  local total = MOTA.Book:Count()
+  local online = MOTA.Hello:OnlineCount()
+  local guild = MOTA.guild and (GetGuildInfo("player") or "?") or "no guild yet"
+  MOTA:Print(MOTA:Color("leaf", "Ministry of the Allied") .. " v" .. MOTA.VERSION, "·", guild, "·",
     total, (total == 1 and "record" or "records") .. " ·", online,
     (online == 1 and "other citizen" or "other citizens") .. " online with the add-on")
 end
 
 add("sync", "", "records held, who you've heard from, messages sent", function()
   if not needGuild() then return end
-  local total, authors, mine = MotA.Book:Count()
-  local s = MotA.stats
+  local total, authors, mine = MOTA.Book:Count()
+  local s = MOTA.stats
   local heard = {}
-  for name in pairs(MotA.Hello.heard) do heard[#heard + 1] = MotA:Short(name) end
+  for name in pairs(MOTA.Hello.heard) do heard[#heard + 1] = MOTA:Short(name) end
   table.sort(heard)
-  MotA:Print("Records:", total, "held from", authors, (authors == 1 and "author" or "authors") .. ",", mine, "of them yours · unconfirmed: 0")
-  MotA:Print("Heard from this session:", #heard > 0 and table.concat(heard, ", ") or "nobody yet")
-  MotA:Print("Last record received:", MotA:Ago(s.lastReceived))
-  MotA:Print("Messages:", s.sent, "sent,", MotA.Comm:Waiting(), "waiting,", s.failed, "failed · received", s.received,
+  MOTA:Print("Records:", total, "held from", authors, (authors == 1 and "author" or "authors") .. ",", mine, "of them yours · unconfirmed: 0")
+  MOTA:Print("Heard from this session:", #heard > 0 and table.concat(heard, ", ") or "nobody yet")
+  MOTA:Print("Last record received:", MOTA:Ago(s.lastReceived))
+  MOTA:Print("Messages:", s.sent, "sent,", MOTA.Comm:Waiting(), "waiting,", s.failed, "failed · received", s.received,
     "(" .. s.ignored .. " ignored, " .. s.conflicts .. " clashing record IDs)")
-  if MotA.outdated then
-    MotA:Print(MotA:Color("crimson", "A newer version of the add-on is in use, so this copy won't send records. Please update."))
+  if MOTA.outdated then
+    MOTA:Print(MOTA:Color("crimson", "A newer version of the add-on is in use, so this copy won't send records. Please update."))
   end
 end)
 
 add("who", "", "guild members running the add-on", function()
   if not needGuild() then return end
-  MotA:RequestRoster()
-  local list = MotA.Hello:List()
+  MOTA:RequestRoster()
+  local list = MOTA.Hello:List()
+  local hasAddon = {}
   if #list == 0 then
-    return MotA:Print("Nobody else's add-on has said hello yet.")
+    MOTA:Print("Nobody else's add-on has said hello yet.")
   end
   for _, e in ipairs(list) do
     local p = e.peer
-    local where = e.online and MotA:Color("leaf", "online") or ("last heard " .. MotA:Ago(p.seen))
+    hasAddon[e.name] = true
+    local where = e.online and MOTA:Color("leaf", "online") or ("last heard " .. MOTA:Ago(p.seen))
     local count = p.c and (" · " .. p.c .. " records") or ""
-    MotA:Print(MotA:Color("leaf", MotA:Short(e.name)), "· v" .. tostring(p.v) .. count, "·", where)
+    MOTA:Print(MOTA:Color("leaf", MOTA:Short(e.name)), "· v" .. tostring(p.v) .. count, "·", where)
+  end
+  -- Online guild members whose add-on hasn't spoken: they don't have it, have
+  -- it switched off, or run a copy too old to hear this one.
+  local without = {}
+  for name, r in pairs(MOTA.roster) do
+    if r.online and not hasAddon[name] and not MOTA:IsMe(name) then without[#without + 1] = MOTA:Short(name) end
+  end
+  table.sort(without)
+  if #without > 0 then
+    MOTA:Print(MOTA:Color("grey", "Online without the add-on (or with an old copy): " .. table.concat(without, ", ")))
   end
 end)
 
@@ -75,57 +87,81 @@ add("test", "<text>", "write a test record and send it to the guild", function(t
   -- One record has to fit in one 255-byte message, with room for its ID and type.
   if #text > 150 then
     text = text:sub(1, 150):gsub("[\192-\255][\128-\191]*$", "") -- don't cut a letter in half
-    MotA:Print("That's too long for one test record, so it was shortened.")
+    MOTA:Print("That's too long for one test record, so it was shortened.")
   end
-  local rec, why = MotA.Book:Write("test.note", { text = text })
-  if not rec then MotA:Print("Not written:", why) end
+  local rec, why = MOTA.Book:Write("test.note", { text = text })
+  if not rec then MOTA:Print("Not written:", why) end
 end)
 
 add("book", "", "the last 10 records in your book", function()
   if not needGuild() then return end
-  local list = MotA.Book:Latest(10)
-  if #list == 0 then return MotA:Print("The book is empty. Try /mota test.") end
+  local list = MOTA.Book:Latest(10)
+  if #list == 0 then return MOTA:Print("The book is empty. Try /mota test.") end
   for _, r in ipairs(list) do
-    MotA:Print(MotA:Color("leaf", MotA:Short(r.a) .. " #" .. r.n), "·", r.k, "·", MotA:Ago(r.t), "·", MotA.Book:Describe(r))
+    MOTA:Print(MOTA:Color("leaf", MOTA:Short(r.a) .. " #" .. r.n), "·", r.k, "·", MOTA:Ago(r.t), "·", MOTA.Book:Describe(r))
   end
 end)
 
 add("probe", "[limits]", "client facts for the add-on plan; 'limits' measures message limits", function(arg)
   if arg == "limits" then
-    MotA.Probe:Limits()
+    MOTA.Probe:Limits()
   else
-    MotA.Probe:Report()
+    MOTA.Probe:Report()
   end
 end)
 
 add("scale", "<size>", "the window's size, such as 0.8 (blank for the default)", function(arg)
   local n = tonumber(arg)
   if arg ~= "" and (not n or n < 0.4 or n > 1.5) then
-    return MotA:Print("Give a size between 0.4 and 1.5, such as /mota scale 0.8.")
+    return MOTA:Print("Give a size between 0.4 and 1.5, such as /mota scale 0.8.")
   end
-  MotA.db.window.scale = n
-  MotA.UI:Build()
-  local used = MotA.UI:SetScale(n)
-  MotA:Print(("Window size %.2f%s."):format(used, n and used < n and " (as big as fits your screen)" or ""))
+  MOTA.db.window.scale = n
+  MOTA.UI:Build()
+  local used = MOTA.UI:SetScale(n)
+  MOTA:Print(("Window size %.2f%s."):format(used, n and used < n and " (as big as fits your screen)" or ""))
 end)
 
 add("minimap", "", "hide or show the seal on the minimap", function()
-  local show = MotA.db.minimap.hide
-  MotA.UI:ShowMinimapSeal(show)
-  MotA:Print(show and "The seal is back on the minimap." or "The minimap seal is hidden. /mota minimap brings it back.")
+  local show = MOTA.db.minimap.hide
+  MOTA.UI:ShowMinimapSeal(show)
+  MOTA:Print(show and "The seal is back on the minimap." or "The minimap seal is hidden. /mota minimap brings it back.")
+end)
+
+add("settings", "", "open the Ministry's settings in the game's options", function()
+  MOTA.UI:OpenSettings()
+end)
+
+add("herald", "[1-3]", "show the sample heralds from the design canvas", function(arg)
+  MOTA.Herald:ShowSamples(tonumber(arg))
+end)
+
+add("fanfare", "[number]", "list the game's fanfare sounds, or play and choose one", function(arg)
+  local list = MOTA.Herald:Fanfares()
+  if #list == 0 then return MOTA:Print("This client has none of the fanfare sounds the add-on knows.") end
+  local n = tonumber(arg)
+  if n and list[n] then
+    MOTA.db.settings.fanfareSound = list[n]
+    MOTA.Herald:PlayFanfare(list[n])
+    return MOTA:Print("Fanfare", n, "(" .. list[n] .. ") chosen for the heralds.")
+  end
+  local chosen = MOTA.db.settings.fanfareSound or list[1]
+  for i, name in ipairs(list) do
+    MOTA:Print(MOTA:Color("leaf", i), name, name == chosen and MOTA:Color("leaf", "· chosen") or "")
+  end
+  MOTA:Print("/mota fanfare <number> plays one and chooses it.")
 end)
 
 add("crests", "", "show the game's own Alliance crests, to choose one", function()
-  MotA.UI:ShowCrests()
+  MOTA.UI:ShowCrests()
 end)
 
 add("crest", "<number|ours>", "try one of the game's crests in the window, or ours", function(arg)
-  MotA.UI:ChooseCrest(arg)
+  MOTA.UI:ChooseCrest(arg)
 end)
 
 add("debug", "", "show the raw hidden add-on traffic in chat (on or off)", function()
-  MotA.db.settings.debug = not MotA.db.settings.debug
-  MotA:Print("Debug messages", MotA.db.settings.debug and "on." or "off.")
+  MOTA.db.settings.debug = not MOTA.db.settings.debug
+  MOTA:Print("Debug messages", MOTA.db.settings.debug and "on." or "off.")
 end)
 
 add("help", "", "this list", function()
@@ -139,13 +175,13 @@ SlashCmdList.MINISTRYOFTHEALLIED = function(input)
   local cmd, rest = (input or ""):match("^%s*(%S*)%s*(.-)%s*$")
   cmd = (cmd or ""):lower()
   if cmd == "" then
-    return MotA.UI:Toggle()
+    return MOTA.UI:Toggle()
   end
   local fn = commands[cmd]
   if fn then
     fn(rest or "")
   else
-    MotA:Print("Unknown command \"" .. cmd .. "\". Commands:")
+    MOTA:Print("Unknown command \"" .. cmd .. "\". Commands:")
     showHelp()
   end
 end

@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  The herald pop-up and the settings page from the Extras board
+  (design/canvas-source/Extras.dc.html), laid out with the canvas stylesheet
+  plus the board's own styles. build.py renders it like layout.html.
+  The herald's top-left corner sits at (122, 100); the settings page's at (100, 400).
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{{css}}
+</style>
+</head>
+<body>
+<div style="position: absolute; left: 100px; top: 100px; width: 720px">
+  <div class="herald" id="herald">
+    <img class="seal" id="hseal" src="{{seal}}" alt="">
+    <div id="htext" style="flex: 1; min-width: 0">
+      <p class="eyebrow" id="heyebrow">Hear ye · the Ballot Hall</p>
+      <h3 id="htitle">The polls are open!</h3>
+      <p id="hbody">Citizens of the Cathedral Ward: elect your Representative before Friday, 9 pm.</p>
+    </div>
+    <button class="{{button_class}}" id="hbutton" type="button">{{button}}</button>
+  </div>
+</div>
+
+<div class="page" id="settings" style="position: absolute; left: 100px; top: 400px; width: 480px; height: 440px">
+  <div class="parch" id="sparch" style="padding: 22px 28px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px">
+      <img id="sseal" src="{{crown}}" alt="" style="width: 44px; height: 44px">
+      <div style="display: flex; flex-direction: column"><span class="eyebrow" id="seyebrow" style="font-size: 9.5px">Options</span><h2 class="h-page" id="stitle" style="font-size: 22px">Ministry of the Allied</h2></div>
+    </div>
+    <div class="setrow" id="row1"><label id="slabel1">Herald pop-ups<small id="ssmall1">Announce votes, laws and defections live</small></label><button class="sw on" id="sw1" type="button"><span></span></button></div>
+    <div class="setrow" id="row2"><label id="slabel2">Fanfare<small id="ssmall2">Play the game's own trumpet with each herald</small></label><button class="sw on" id="sw2" type="button"><span></span></button></div>
+    <div class="setrow" id="row3"><label id="slabel3">District glow<small id="ssmall3">Light your district on the world map</small></label><button class="sw on" id="sw3" type="button"><span></span></button></div>
+    <div class="setrow" id="row4"><label id="slabel4">Citizen cards<small id="ssmall4">Show the card when hovering guild members</small></label><button class="sw" id="sw4" type="button"><span></span></button></div>
+    <div class="setrow" id="row5" style="border-bottom: none"><label id="slabel5">Herald size<small id="ssmall5">How grand the pop-ups appear</small></label>
+      <div class="seg" id="seg"><button class="{{modest_class}}" id="seg-modest" type="button">Modest</button><button class="{{royal_class}}" id="seg-royal" type="button">Royal</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Where every element with an id sits on the page.
+  const out = {};
+  document.querySelectorAll('[id]').forEach(el => {
+    const r = el.getBoundingClientRect();
+    out[el.id] = { x: r.left, y: r.top, w: r.width, h: r.height };
+  });
+  const pre = document.createElement('pre');
+  pre.id = 'rects-json';
+  pre.style.display = 'none';
+  pre.textContent = JSON.stringify(out);
+  document.body.appendChild(pre);
+</script>
+</body>
+</html>
