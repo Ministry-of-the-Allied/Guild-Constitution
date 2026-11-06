@@ -74,12 +74,10 @@ local function buildAside()
   ev.when = Kit:Text(ev, "kitSmallest", "C9D5F0", "CENTER")
   ev.when:SetPoint("TOP", ev.stage, "BOTTOM", 0, -3)
   ev.when:SetWidth(ASIDE_W - 16)
-  local track = Kit:Art(ev, "kitTrack")
-  track:SetPoint("BOTTOM", ev, "BOTTOM", 0, 14)
   ev.steps = {}
   for i = 1, #STAGES do
     local step = Kit:Art(ev, "kitStepTodo", "OVERLAY")
-    step:SetPoint("BOTTOM", ev, "BOTTOM", (i - 3) * 29, 13)
+    step:SetPoint("CENTER", ev, "BOTTOM", (i - 3) * 29, 29) -- centred, as the lit step's glow makes it larger
     ev.steps[i] = step
   end
   aside.event = ev
@@ -144,10 +142,10 @@ local function buildAside()
   portrait:SetPoint("TOPLEFT", foot, "TOPLEFT", 0, -14)
   foot.initials = Kit:Text(foot, "initials", "F3D98A", "CENTER")
   foot.initials:SetPoint("CENTER", portrait, "CENTER", 0, 0)
-  foot.name = Kit:Text(foot, "kitName")
+  foot.name = Kit:Text(foot, "kitNameSmall")
   foot.name:SetPoint("TOPLEFT", foot, "TOPLEFT", 46, -20)
   foot.name:SetWidth(ASIDE_W - 46)
-  foot.name:SetMaxLines(1)
+  foot.name:SetMaxLines(2)
   foot.line = Kit:Text(foot, "kitSmallest", "5E4B33")
   foot.line:SetPoint("TOPLEFT", foot.name, "BOTTOMLEFT", 0, -1)
   aside.foot = foot
@@ -192,6 +190,10 @@ local function refreshAside(cur)
   local minister = Ring:Minister()
   aside.foot.name:SetText(minister and MOTA:Short(minister) or "None appointed")
   aside.foot.line:SetText(minister and "Organises the Ring" or "Awaiting the rank")
+  -- A name too long for one line takes two, in place of the line beneath it.
+  local nameFS = aside.foot.name
+  local wide = nameFS.GetUnboundedStringWidth and nameFS:GetUnboundedStringWidth() or nameFS:GetStringWidth()
+  aside.foot.line:SetShown(wide <= nameFS:GetWidth())
   aside.foot.initials:SetText(minister and MOTA:Short(minister):sub(1, 2) or "—")
 end
 
@@ -306,8 +308,8 @@ local function buildSignup()
   local w = SIGN_W - 32
   form.season = field(form, "Tournament name", 16, 104, w, "")
   form.bracket = field(form, "Level bracket", 16, 154, w, "Open")
-  form.fee = field(form, "Entry fee (gold)", 16, 204, (w - 12) / 2, "1")
-  form.days = field(form, "Sign-up days", 16 + (w + 12) / 2, 204, (w - 12) / 2, "7")
+  form.fee = field(form, "Entry fee (gold)", 16, 204, w, "1")
+  form.days = field(form, "Open days", 16, 254, w, "7")
   form.create = Kit:Button(form, w, 36, "Open the Ring", "gold", function()
     local ok, why = Ring:Create(form.season:GetText(), form.bracket:GetText(), form.fee:GetText(), form.days:GetText())
     report(ok, why)

@@ -591,6 +591,18 @@ run(2)
 check("A clip the game drops offers Restart", V.Playing(V) is None and vh().shown and vh().buttons["blue:Restart"].shown)
 clients.remove(vc)
 
+print("== 12b. the Parties page")
+vns.UI.SelectPage(vns.UI, 4)
+pp = vns.PartiesPage
+check("The Parties page replaces the page heading", not vns.UI.heading.shown and not vns.UI.note.shown)
+pp.Select(pp, "ex")
+pp.Select(pp, "ch")
+check("The chamber opens sealed, on the last party viewed", pp.Select is not None)
+pp.Preview(pp, "member")
+pp.Preview(pp, "outsider")
+pp.Select(pp, "sh")
+vns.UI.SelectPage(vns.UI, 1)
+
 print("== 13. the Ring")
 clients[:] = [max4, hc]  # earlier clients share these names, and would muddle the record numbers
 rk = Client("Kael")

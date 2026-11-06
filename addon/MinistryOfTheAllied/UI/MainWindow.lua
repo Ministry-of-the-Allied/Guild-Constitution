@@ -40,6 +40,10 @@ end
 -- corner of the piece's root (the window unless another frame is given as
 -- anchor); dx, dy shift a piece that is reused somewhere else.
 function UI:Piece(parent, name, layer, sublevel, dx, dy, anchor)
+  -- A frame piece the skins own (the portrait ring) follows the skin's metal.
+  if not M.pieces[name] and MOTA.skin and M.pieces[self:SkinName(name, "metal")] then
+    return self:SkinPiece(parent, name, "metal", layer, sublevel, dx, dy, nil, anchor or parent)
+  end
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
   self:SetPiece(t, name, dx, dy, anchor)
   return t
@@ -70,16 +74,25 @@ end
 
 -- A piece that changes with the skin. place(t) may put it somewhere of its
 -- own after the skin's piece is set (the corners, the subtitle's rules).
-function UI:SkinPiece(parent, base, kind, layer, sublevel, dx, dy, place)
+-- anchor: a page piece its page places itself; a new skin then changes only
+-- its picture and leaves where it sits alone.
+function UI:SkinPiece(parent, base, kind, layer, sublevel, dx, dy, place, anchor)
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
-  local entry = { t = t, base = base, kind = kind, dx = dx, dy = dy, place = place }
+  local entry = { t = t, base = base, kind = kind, dx = dx, dy = dy, place = place, anchor = anchor }
   skinned[#skinned + 1] = entry
   self:ApplySkinPiece(entry)
   return t
 end
 
 function UI:ApplySkinPiece(e)
-  self:SetPiece(e.t, self:SkinName(e.base, e.kind), e.dx, e.dy)
+  if e.anchor and e.applied then
+    local p = M.pieces[self:SkinName(e.base, e.kind)]
+    e.t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
+    e.t:SetTexCoord(p.l, p.r, p.t, p.b)
+    return
+  end
+  e.applied = true
+  self:SetPiece(e.t, self:SkinName(e.base, e.kind), e.dx, e.dy, e.anchor)
   if e.place then e.place(e.t, M.pieces[self:SkinName(e.base, e.kind)]) end
 end
 
@@ -440,7 +453,7 @@ function UI:SelectPage(i)
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
   -- A page with its own contents replaces the note about what it will hold.
-  local built = page.id == "statute" or page.id == "ring" or full
+  local built = page.id == "statute" or page.id == "ring" or page.id == "parties" or full
   self.note:SetShown(not built)
   self.note2:SetShown(not built)
   -- The built pages run from the parchment's top, as their boards do.

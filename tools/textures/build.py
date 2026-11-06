@@ -207,6 +207,8 @@ def extras_html(css, piece_css="", seal="official", button="Vote now", style="bl
         "css": css + "\n" + piece_css,
         "seal": (DESIGN / "textures" / f"seal-{seal}.svg").as_uri(),
         "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "seal_sh": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
+        "seal_ex": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
         "button": html.escape(button, quote=False),
         "button_class": "btn sm" if style == "blue" else "btn quiet sm",
         "modest_class": "on" if seg == "small" else "",
@@ -258,8 +260,13 @@ def pieces_to_draw(pages):
     # Parts for page contents (UI/Kit.lua)
     for name in ("kitBlue", "kitRibbonOn1", "kitRibbonOn2", "kitRibbonOn3", "kitRibbonOn4", "kitRibbonOff1",
                  "kitRibbonOff2", "kitRibbonOff3", "kitGem", "kitGemHollow", "kitCoinG", "kitCoinS", "kitBand",
-                 "kitStepTodo", "kitStepDone", "kitStepNow"):
+                 "kitStepTodo", "kitStepDone", "kitStepNow", "kitRibbonOn5", "kitRibbonOn6", "kitRibbonOn7",
+                 "kitRibbonOff5", "kitRibbonOff6", "kitRibbonOff7", "kitPortraitSh", "kitPortraitEx"):
         d[name] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={},
+                       css=only(["#" + name, "#" + name + " *"]))
+    # Wide parts are drawn smaller, to fit the atlas.
+    for name in ("kitBannerSh", "kitBannerEx", "kitEnvelope"):
+        d[name] = dict(tex="extras", scale=1.3, layout="extras", root="kit", args={},
                        css=only(["#" + name, "#" + name + " *"]))
     d["kitTrack"] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={}, css=only(["#kitTrack"], ["#kitTrack *"]))
 
@@ -520,7 +527,8 @@ def lua_value(v, indent=""):
 def main():
     pages = json.loads((HERE / "pages.json").read_text(encoding="utf-8"))
     css = {"window": stylesheet() + board_styles("WindowSkins.dc.html"),
-           "extras": stylesheet("Extras.dc.html") + board_styles("GladiatorsRing.dc.html"),
+           "extras": stylesheet("Extras.dc.html") + board_styles("GladiatorsRing.dc.html")
+                     + board_styles("Parties.dc.html"),
            "ballot": stylesheet("BallotHall.dc.html")}
     render = {
         "window": lambda c, args: window_html(pages, css["window"], c, **args),
