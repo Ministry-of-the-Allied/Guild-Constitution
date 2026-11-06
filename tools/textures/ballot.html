@@ -1,0 +1,86 @@
+<!doctype html>
+<!--
+  The Ballot Hall's fixed pieces from its board (design/canvas-source/BallotHall.dc.html),
+  laid out with the canvas stylesheet plus the board's own styles. build.py renders
+  it like layout.html, one piece at a time: ribbons, seals and stamps, buttons,
+  pills, and the papers the views sit on. Live text (names, counts, times) is game
+  text drawn over them in UI/BallotHall.lua.
+  The stamp and the held block are drawn at the angle the board's stamp animation
+  ends on (rotate -8deg), since animations are switched off for rendering.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{{css}}
+.at{position:absolute}
+.held-block{display:flex;flex-direction:column;align-items:center;gap:4px;transform:rotate(-8deg);filter:drop-shadow(0 6px 8px rgba(0,0,0,.3))}
+</style>
+</head>
+<body>
+<div id="ballot" class="at" style="left: 20px; top: 20px; width: 1340px; height: 920px">
+
+  <!-- ribbons (the page's sub-views), at rest and on, the Ballot one with and without its red dot -->
+  <button class="ribbon at" id="rb-ballot" type="button" style="left: 0; top: 0">Ballot</button>
+  <button class="ribbon at" id="rb-ballot-dot" type="button" style="left: 160px; top: 0"><span class="dot"></span>Ballot</button>
+  <button class="ribbon on at" id="rb-ballot-on" type="button" style="left: 340px; top: 0">Ballot</button>
+  <button class="ribbon on at" id="rb-ballot-on-dot" type="button" style="left: 500px; top: 0"><span class="dot"></span>Ballot</button>
+  <button class="ribbon at" id="rb-results" type="button" style="left: 680px; top: 0">Results</button>
+  <button class="ribbon on at" id="rb-results-on" type="button" style="left: 860px; top: 0">Results</button>
+  <button class="ribbon at" id="rb-crown" type="button" style="left: 0; top: 60px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg>Crown</button>
+  <button class="ribbon on at" id="rb-crown-on" type="button" style="left: 180px; top: 60px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg>Crown</button>
+
+  <!-- seals: the Official mark, the Crown seal, the Crown stamp, the held block -->
+  <img class="at" id="seal-off" src="{{official}}" alt="" style="left: 0; top: 130px; width: 80px; height: 80px">
+  <img class="at" id="seal-crown" src="{{crown}}" alt="" style="left: 130px; top: 130px; width: 80px; height: 80px">
+  <img class="at" id="seal-tilt" src="{{crown}}" alt="" style="left: 260px; top: 130px; width: 64px; height: 64px; transform: rotate(8deg)">
+  <img class="at" id="stamp" src="{{crown}}" alt="" style="left: 380px; top: 120px; width: 150px; height: 150px; transform: rotate(-8deg); filter: drop-shadow(0 6px 8px rgba(0,0,0,.35))">
+  <div class="at held-block" id="held" style="left: 580px; top: 120px">
+    <img src="{{official}}" alt="" style="width: 96px; height: 96px">
+    <span class="chip k-ink">Waiting for the Crown</span>
+  </div>
+  <span class="at ring" id="ring" style="left: 800px; top: 130px"></span>
+  <span class="at kdot on" id="kdot-on" style="left: 860px; top: 130px; display: block"></span>
+  <span class="at kdot off" id="kdot-off" style="left: 890px; top: 130px; display: block"></span>
+  <span class="at" id="diamond" style="left: 920px; top: 130px; display: block; width: 6px; height: 6px; transform: rotate(45deg); background: #F3D98A; box-shadow: 0 0 0 1px rgba(0,0,0,.35)"></span>
+  <div class="at portrait sm" id="portrait-king" style="left: 960px; top: 130px; --pc: #6B44A8"></div>
+
+  <!-- buttons -->
+  <button class="btn at" id="btn-seal" type="button" style="left: 10px; top: 310px"><img src="{{official}}" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
+  <button class="btn at" id="btn-open" type="button" style="left: 300px; top: 310px">Open polls</button>
+  <button class="btn at" id="btn-close" type="button" style="left: 520px; top: 310px">Close polls</button>
+  <button class="btn gold at" id="btn-declare" type="button" style="left: 740px; top: 310px">Declare the result</button>
+  <button class="btn at" id="btn-runoff" type="button" style="left: 10px; top: 390px">Set up the run-off</button>
+  <button class="btn quiet sm at" id="btn-last" type="button" style="left: 300px; top: 390px">See the last result</button>
+  <button class="btn quiet sm at" id="btn-add" type="button" style="left: 560px; top: 390px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add a candidate</button>
+
+  <!-- the Open Polls form: kind pills and the remove button -->
+  <button class="pill at" id="pill-general" type="button" style="left: 10px; top: 460px">General</button>
+  <button class="pill on at" id="pill-general-on" type="button" style="left: 130px; top: 460px">General</button>
+  <button class="pill at" id="pill-snap" type="button" style="left: 250px; top: 460px">Snap</button>
+  <button class="pill on at" id="pill-snap-on" type="button" style="left: 350px; top: 460px">Snap</button>
+  <button class="pill at" id="pill-runoff" type="button" style="left: 450px; top: 460px">Run-off</button>
+  <button class="pill on at" id="pill-runoff-on" type="button" style="left: 570px; top: 460px">Run-off</button>
+  <button class="xbtn at" id="xbtn" type="button" style="left: 700px; top: 460px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+
+  <!-- the papers each view sits on -->
+  <div class="paper at" id="paper-ballot" style="left: 30px; top: 520px; width: 484px; height: 458px"></div>
+  <div class="paper at" id="paper-half" style="left: 560px; top: 520px; width: 397px; height: 458px"></div>
+  <div class="paper at" id="paper-wide" style="left: 30px; top: 1020px; width: 710px; height: 458px"></div>
+</div>
+
+<script>
+  // Where every element with an id sits on the page.
+  const out = {};
+  document.querySelectorAll('[id]').forEach(el => {
+    const r = el.getBoundingClientRect();
+    out[el.id] = { x: r.left, y: r.top, w: r.width, h: r.height };
+  });
+  const pre = document.createElement('pre');
+  pre.id = 'rects-json';
+  pre.style.display = 'none';
+  pre.textContent = JSON.stringify(out);
+  document.body.appendChild(pre);
+</script>
+</body>
+</html>

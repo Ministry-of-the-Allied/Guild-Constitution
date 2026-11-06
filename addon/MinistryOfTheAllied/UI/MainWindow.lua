@@ -20,6 +20,10 @@ local TAB_COLORS = {
 
 local DEFAULT_SCALE = 0.85
 
+-- Pages that fill the whole parchment themselves: the heading, divider,
+-- eyebrow and note are hidden there (the Ballot Hall, UI/BallotHall.lua).
+UI.fullPages = { ballot = true }
+
 ---------------------------------------------------------------------------
 -- Helpers
 ---------------------------------------------------------------------------
@@ -244,7 +248,7 @@ function UI:Build()
   self.whoSmall:SetPoint("TOPLEFT", self.who, "BOTTOMLEFT", 0, -2)
 
   -- The page: heading, divider and a note about what the page will hold.
-  self:Piece(f, "divider", "ARTWORK")
+  self.divider = self:Piece(f, "divider", "ARTWORK")
   local note = M.slots.note
   self.heading = text(f, "heading", "1B3570")
   self:AtSlot(self.heading, "heading")
@@ -297,11 +301,14 @@ function UI:SelectPage(i)
   if i < 1 or i > #M.pages then i = 1 end
   self.page = i
   MOTA.db.window.page = i
+  local full = UI.fullPages[M.pages[i].id]
   for n, tab in ipairs(self.tabs) do
     setTabLook(tab, n == i and "on" or "rest")
     self.subtitles[n]:SetShown(n == i)
-    self.eyebrows[n]:SetShown(n == i)
+    self.eyebrows[n]:SetShown(n == i and not full)
   end
+  self.heading:SetShown(not full)
+  self.divider:SetShown(not full)
   local slot = M.slots["tab" .. i]
   self.sheenClip:ClearAllPoints()
   self.sheenClip:SetPoint("TOPLEFT", self.window, "TOPLEFT", slot.x, -slot.y)
@@ -309,7 +316,7 @@ function UI:SelectPage(i)
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
   -- A page with its own contents replaces the note about what it will hold.
-  local built = page.id == "statute"
+  local built = page.id == "statute" or full
   self.note:SetShown(not built)
   self.note2:SetShown(not built)
   MOTA:Fire("PAGE_SHOWN", page.id)

@@ -42,7 +42,7 @@ MOTA.CONST = {
 | Phase | Files | Notes |
 |---|---|---|
 | **Built** | Libs/ (AceComm-3.0), Core.lua, Data.lua, Roster.lua, Comm.lua, Book.lua, Hello.lua, Probe.lua, Media.lua, Fonts.lua, UI/MainWindow.lua, UI/Minimap.lua, UI/Crests.lua, UI/Herald.lua, UI/Settings.lua, Commands.lua | Milestones 1–3 and the spec renames (ADDON_SPEC.md 16.4): sync skeleton on AceComm, window, minimap seal, heralds, settings |
-| **v1.0** | UI/Skin.lua, UI/ThroneRoom.lua, UI/BallotHall.lua | Skins, voting (voice onboarding is built: Voice.lua, UI/Constitution.lua) |
+| **v1.0** | UI/Skin.lua, UI/ThroneRoom.lua | Skins and the Throne Room (built in v1.0 already: voice onboarding, Voice.lua and UI/Constitution.lua; the secret ballot, Ballot.lua and UI/BallotHall.lua, Milestone 4) |
 | **v1.1** | UI/StatuteBook.lua, UI/Treasury.lua | Law registry + ledger |
 | **v1.2** | UI/Districts.lua | Citizen roll + regional map |
 | **v1.3** | UI/Parties.lua, UI/Court.lua | Parties with the Party Chamber + the Court |
@@ -89,7 +89,7 @@ MOTA.mode = DetectMode()
 
 ## Vote secrecy rule
 
-Ballots are sent **only by hidden addon whisper to each online King** (rank "The King" or "The Crown") — never to the GUILD or OFFICER channel. If no King is online, the voter's addon holds the sealed ballot and sends it when a King logs in, while polls are still open. The Kings' addons count into a local `MOTADB.ballotTally`, throw the voter's name away after counting, and whisper a receipt back. What goes to the guild is a `ballot.voted` record (who voted, not what they chose). This is intentional and must not be changed without explicit instruction.
+Ballots are sent **only by hidden addon whisper to each online King** (rank "The King" or "The Crown") — never to the GUILD or OFFICER channel. If no King is online, the voter's addon holds the sealed ballot, writes a `ballot.sealed` record (who, not how), and sends the ballot when the voter and a King are online together; a ballot sealed before the polls close still counts until the result is declared (ADDON_SPEC.md 8.2). The Kings' addons count into a local `MOTADB.ballotTally`, throw the voter's name away after counting, and whisper a receipt back. What goes to the guild is a `ballot.voted` record (who voted, not what they chose). This is intentional and must not be changed without explicit instruction.
 
 ---
 

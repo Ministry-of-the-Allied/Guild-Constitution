@@ -25,7 +25,9 @@ function Hello:Send()
   self.sentAt = GetServerTime()
 end
 
-function Hello:SeePeer(name, version, protocol, count)
+-- how is "HI" (they just said hello) or "HR" (they answered ours); the
+-- Ballot Hall listens for HELLO_HEARD to hand over ballots and counts.
+function Hello:SeePeer(name, version, protocol, count, how)
   if MOTA:IsMe(name) then return end
   local p = MOTA.guild.peers[name] or {}
   MOTA.guild.peers[name] = p
@@ -45,11 +47,12 @@ function Hello:SeePeer(name, version, protocol, count)
     self.warned = true
     MOTA:Print(MOTA:Color("crimson", "A newer version of the Ministry add-on is in use (" .. tostring(version) .. "). Please update."))
   end
+  MOTA:Fire("HELLO_HEARD", name, how)
 end
 
 MOTA.Comm:Handle("HI", function(self, sender, channel, f, protocol)
   if channel ~= "GUILD" then return end
-  Hello:SeePeer(sender, f[1], protocol, tonumber(f[2]))
+  Hello:SeePeer(sender, f[1], protocol, tonumber(f[2]), "HI")
   -- Wait a moment at random, so a full guild doesn't all answer in the same instant.
   C_Timer.After(0.5 + math.random() * 2.5, function()
     if not self.guild then return end
@@ -59,7 +62,7 @@ end)
 
 MOTA.Comm:Handle("HR", function(self, sender, channel, f, protocol)
   if channel ~= "WHISPER" then return end
-  Hello:SeePeer(sender, f[1], protocol)
+  Hello:SeePeer(sender, f[1], protocol, nil, "HR")
   self.Book:Reserve(self.me, tonumber(f[2]))
 end)
 

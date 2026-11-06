@@ -6,8 +6,17 @@
 
 local _, MOTA = ...
 
-local roster = {} -- [Name-Realm] = { rank, rankIndex, level, class, online }
+local roster = {} -- [Name-Realm] = { rank, rankIndex, level, class, online, days }
 MOTA.roster = roster
+
+-- Days since a member was last online, from the roster (nil if the game
+-- doesn't say). The game gives years, months, days and hours.
+local function lastOnlineDays(i)
+  if not GetGuildRosterLastOnline then return nil end
+  local y, m, d, h = GetGuildRosterLastOnline(i)
+  if not y and not m and not d and not h then return nil end
+  return (y or 0) * 365 + (m or 0) * 30 + (d or 0) + (h or 0) / 24
+end
 
 local function scan()
   wipe(roster)
@@ -25,6 +34,7 @@ local function scan()
         level = level,
         class = class,
         online = isOnline and true or false,
+        days = isOnline and 0 or lastOnlineDays(i),
       }
     end
   end
@@ -71,4 +81,21 @@ function MOTA:CrownMembers()
   end
   table.sort(list)
   return list
+end
+
+-- Active citizens: guild members online now or within ACTIVE_CITIZEN_DAYS
+-- (ADDON_SPEC.md 8.4). The turnout of a ballot is counted against this.
+-- A member the game gives no last-online time for counts as active.
+function MOTA:IsActive(fullName)
+  local r = roster[fullName]
+  if not r then return false end
+  return r.online or r.days == nil or r.days < self.CONST.ACTIVE_CITIZEN_DAYS
+end
+
+function MOTA:ActiveCitizens()
+  local n = 0
+  for name in pairs(roster) do
+    if self:IsActive(name) then n = n + 1 end
+  end
+  return n
 end
