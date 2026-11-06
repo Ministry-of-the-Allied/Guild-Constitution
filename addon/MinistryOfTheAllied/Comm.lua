@@ -1,24 +1,31 @@
 -- Ministry of the Allied: sending and receiving add-on messages.
 -- Messages travel on the hidden guild channel (or by whisper), never in chat.
--- Everything goes out through one queue that stays under the game's limits,
--- with live news ahead of background traffic (ADDON_SPEC.md, section 7.5).
+-- AceComm-3.0 splits long messages and joins them back together, and its
+-- ChatThrottleLib paces sending so the game never throttles or disconnects
+-- the player. Live news goes ahead of background traffic (ADDON_SPEC.md,
+-- section 7.5).
 --
--- Message format (protocol 1): fields joined by the "unit separator" byte,
+-- Message format (protocol 2): fields joined by the "unit separator" byte,
 --   <protocol> SEP <kind> SEP <field 1> SEP <field 2> ...
+-- A record (RC) has one field: the record packed with the game's own
+-- C_EncodingUtil (CBOR) and turned into text with Base64.
 -- Kinds so far: HI hello, HR hello reply (Hello.lua), RC record (Book.lua),
 -- PB limits-test probe (Probe.lua).
 
-local _, MotA = ...
+local _, MOTA = ...
 local Comm = {}
-MotA.Comm = Comm
+MOTA.Comm = Comm
 
 local SEP = "\031"
-local MAX_LEN = 255 -- bytes per message, the documented maximum (checked by /mota probe limits)
+local MAX_LEN = 4000 -- a sanity limit; AceComm splits anything over 255 bytes
 Comm.SEP = SEP
 Comm.MAX_LEN = MAX_LEN
 
 -- Register the prefix at load time, so messages can be received at once.
-Comm.prefixResult = C_ChatInfo.RegisterAddonMessagePrefix(MotA.PREFIX)
+-- AceComm registers it again below; the game just reports a duplicate.
+Comm.prefixResult = C_ChatInfo.RegisterAddonMessagePrefix(MOTA.PREFIX)
+
+LibStub("AceComm-3.0"):Embed(Comm)
 
 ---------------------------------------------------------------------------
 -- Packing
@@ -31,7 +38,7 @@ function Comm:Clean(v)
 end
 
 function Comm:Pack(kind, ...)
-  local parts = { tostring(MotA.PROTOCOL), kind }
+  local parts = { tostring(MOTA.PROTOCOL), kind }
   for i = 1, select("#", ...) do
     parts[#parts + 1] = self:Clean((select(i, ...)))
   end
@@ -48,42 +55,37 @@ function Comm:Unpack(msg)
   return protocol, kind, fields
 end
 
--- A record's details are stored as key, value pairs. Each value carries a
--- one-letter type: n number, b true/false, s text.
+-- A Lua table to channel-safe text and back, with the game's own packer.
+-- Big batches (catch-up) are compressed too; a single small record isn't,
+-- because compression makes it bigger.
+local E = C_EncodingUtil
+
+function Comm:Encode(value, compress)
+  local packed = E.SerializeCBOR(value)
+  if compress then packed = E.CompressString(packed) end
+  return E.EncodeBase64(packed)
+end
+
+function Comm:Decode(text, compressed)
+  local ok, value = pcall(function()
+    local packed = E.DecodeBase64(text)
+    if compressed then packed = E.DecompressString(packed) end
+    return E.DeserializeCBOR(packed)
+  end)
+  if ok then return value end
+end
+
 function Comm:EncodeRecord(rec)
-  local fields = { rec.a, rec.n, rec.t, rec.k }
-  local keys = {}
-  for k in pairs(rec.d or {}) do keys[#keys + 1] = k end
-  table.sort(keys)
-  for _, k in ipairs(keys) do
-    local v = rec.d[k]
-    fields[#fields + 1] = k
-    if type(v) == "number" then
-      fields[#fields + 1] = "n" .. v
-    elseif type(v) == "boolean" then
-      fields[#fields + 1] = v and "b1" or "b0"
-    else
-      fields[#fields + 1] = "s" .. tostring(v)
-    end
-  end
-  return self:Pack("RC", unpack(fields))
+  return self:Pack("RC", self:Encode({ a = rec.a, n = rec.n, t = rec.t, k = rec.k, d = rec.d or {} }))
 end
 
 function Comm:DecodeRecord(f)
-  local rec = { a = f[1], n = tonumber(f[2]), t = tonumber(f[3]), k = f[4], d = {} }
-  if not (rec.a and rec.n and rec.t and rec.k) or rec.a == "" or rec.k == "" then return nil end
+  local rec = f[1] and self:Decode(f[1])
+  if type(rec) ~= "table" then return nil end
+  if type(rec.a) ~= "string" or type(rec.k) ~= "string" or rec.a == "" or rec.k == "" then return nil end
+  if type(rec.n) ~= "number" or type(rec.t) ~= "number" then return nil end
   if rec.n < 1 or rec.n ~= math.floor(rec.n) then return nil end
-  for i = 5, #f - 1, 2 do
-    local key, raw = f[i], f[i + 1]
-    local tag, body = raw:sub(1, 1), raw:sub(2)
-    if tag == "n" then
-      rec.d[key] = tonumber(body)
-    elseif tag == "b" then
-      rec.d[key] = body == "1"
-    else
-      rec.d[key] = body
-    end
-  end
+  if type(rec.d) ~= "table" then rec.d = {} end
   return rec
 end
 
@@ -109,96 +111,92 @@ end
 
 local SUCCESS = Enum.SendAddonMessageResult and Enum.SendAddonMessageResult.Success or 0
 
-local function isThrottle(r)
-  local E = Enum.SendAddonMessageResult
-  return E and (r == E.AddonMessageThrottle or r == E.ChannelThrottle)
-end
-
--- Sends straight away, without the queue. Returns ok, result code.
+-- Sends one message straight away, bypassing AceComm. Only the limits test
+-- uses this, because it measures the game's own limits. Returns ok, result.
 function Comm:RawSend(msg, channel, target)
-  local r = C_ChatInfo.SendAddonMessage(MotA.PREFIX, msg, channel, target)
+  local r = C_ChatInfo.SendAddonMessage(MOTA.PREFIX, msg, channel, target)
   local ok
   if type(r) == "number" then ok = r == SUCCESS else ok = r ~= false end
   if ok then
-    MotA:Debug("out", channel, target or "", (msg:gsub(SEP, " | ")))
+    MOTA:Debug("out", channel, target or "", (msg:gsub(SEP, " | ")))
   end
   return ok, r
 end
 
 ---------------------------------------------------------------------------
--- The send queue
+-- Sending
 ---------------------------------------------------------------------------
 
--- Kept well under the game's reported budget (a burst of about 10, then about
--- one a second) until /mota probe limits has measured Forever's real limits.
-local MAX_TOKENS = 5
-local REFILL_PER_SECOND = 1
-local MAX_TRIES = 5
-
-local queues = { live = {}, bulk = {} }
-local tokens, lastRefill = MAX_TOKENS, GetTime()
+-- AceComm hands messages to ChatThrottleLib at once, and ChatThrottleLib
+-- would drop one sent while the game has add-on messages locked (Midnight-era
+-- clients lock them, for example during boss fights). So messages wait here
+-- while locked, or while the limits test runs (Comm.paused).
+local held = { live = {}, bulk = {} }
+local inFlight = 0 -- handed to AceComm, not yet confirmed sent
 local ticker
 
+-- Live news uses its own ChatThrottleLib priority, so background catch-up
+-- (BULK) never crowds it out.
+local PRIORITY = { live = "ALERT", bulk = "BULK" }
+
 function Comm:Waiting()
-  return #queues.live + #queues.bulk
+  return #held.live + #held.bulk + inFlight
 end
 
-local function refill()
-  local now = GetTime()
-  tokens = math.min(MAX_TOKENS, tokens + (now - lastRefill) * REFILL_PER_SECOND)
-  lastRefill = now
+local function locked()
+  return C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
+end
+
+-- AceComm calls this as each piece goes out: (item, bytes sent, total, sent?).
+local function done(item, sent, total, didSend)
+  if item.finished then return end -- a piece already failed; the rest don't count
+  if didSend ~= false and sent < total then return end -- more pieces to come
+  item.finished = true
+  inFlight = inFlight - 1
+  if didSend == false then
+    MOTA.stats.failed = MOTA.stats.failed + 1
+    MOTA:Debug("not sent", item.channel, item.target or "")
+  else
+    MOTA.stats.sent = MOTA.stats.sent + 1
+    MOTA:Debug("out", item.channel, item.target or "", (item.msg:gsub(SEP, " | ")))
+  end
+end
+
+local function hand(item, priority)
+  inFlight = inFlight + 1
+  Comm:SendCommMessage(MOTA.PREFIX, item.msg, item.channel, item.target, PRIORITY[priority], done, item)
 end
 
 local function pump()
-  refill()
-  if Comm.paused then return end
-  -- Midnight-era clients can lock add-on messages (for example during boss
-  -- fights). If so, wait; the queue keeps everything until it's allowed.
-  if C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then return end
-  while tokens >= 1 do
-    local q = (#queues.live > 0 and queues.live) or (#queues.bulk > 0 and queues.bulk)
-    if not q then break end
-    local item = q[1]
-    local ok, r = Comm:RawSend(item.msg, item.channel, item.target)
-    if ok then
-      table.remove(q, 1)
-      tokens = tokens - 1
-      MotA.stats.sent = MotA.stats.sent + 1
-    else
-      -- Throttled: just wait. Any other refusal counts as a failed try.
-      if not isThrottle(r) then item.tries = item.tries + 1 end
-      if item.tries >= MAX_TRIES then
-        table.remove(q, 1)
-        MotA.stats.failed = MotA.stats.failed + 1
-        MotA:Debug("gave up sending", item.channel, Comm:ResultName(r))
-      end
-      tokens = 0 -- back off until the next refill
-      break
+  if not Comm.paused and not locked() then
+    for _, priority in ipairs({ "live", "bulk" }) do
+      local q = held[priority]
+      while #q > 0 do hand(table.remove(q, 1), priority) end
     end
   end
-  if Comm:Waiting() == 0 and ticker then
+  if #held.live + #held.bulk == 0 and ticker then
     ticker:Cancel()
     ticker = nil
   end
 end
 
--- Starts the queue ticking if anything is waiting.
+-- Hands over anything held, and keeps checking while something waits.
 function Comm:Kick()
-  if not ticker and self:Waiting() > 0 then
-    ticker = C_Timer.NewTicker(0.25, pump)
-  end
   pump()
+  if not ticker and #held.live + #held.bulk > 0 then
+    ticker = C_Timer.NewTicker(0.5, pump)
+  end
 end
 
 -- priority is "live" (default) or "bulk".
 function Comm:Send(msg, channel, target, priority)
   if #msg > MAX_LEN then
-    MotA.stats.failed = MotA.stats.failed + 1
-    MotA:Debug("not sent, too long:", #msg, "bytes")
+    MOTA.stats.failed = MOTA.stats.failed + 1
+    MOTA:Debug("not sent, too long:", #msg, "bytes")
     return false
   end
-  local q = queues[priority or "live"]
-  q[#q + 1] = { msg = msg, channel = channel, target = target, tries = 0 }
+  local q = held[priority or "live"]
+  q[#q + 1] = { msg = msg, channel = channel, target = target }
   self:Kick()
   return true
 end
@@ -209,7 +207,7 @@ end
 
 local kindHandlers = {}
 
--- fn(MotA, sender, channel, fields, protocol)
+-- fn(MOTA, sender, channel, fields, protocol)
 function Comm:Handle(kind, fn)
   kindHandlers[kind] = fn
 end
@@ -218,7 +216,9 @@ end
 -- protocol, so an old copy can still read who is newer and ask to update.
 local alwaysReadable = { HI = true, HR = true }
 
-MotA:On("CHAT_MSG_ADDON", function(self, _, prefix, text, channel, sender)
+-- AceComm calls this with whole messages, already joined back together.
+function Comm:OnComm(prefix, text, channel, sender)
+  local self = MOTA
   if prefix ~= self.PREFIX then return end
   -- Midnight-era clients can hand add-ons hidden ("secret") values in some
   -- situations; those can't be read, so skip them.
@@ -226,9 +226,10 @@ MotA:On("CHAT_MSG_ADDON", function(self, _, prefix, text, channel, sender)
   if not self.guild then self:CheckGuild() end
   if not self.guild then return end
 
+  local own = self:IsMe(sender)
   sender = self:FullName(sender)
   local protocol, kind, fields = Comm:Unpack(text)
-  if sender == self.me then
+  if own or sender == self.me then
     -- Our own guild messages come back to us. Only the limits test wants them.
     if kind == "PB" and kindHandlers.PB then kindHandlers.PB(self, sender, channel, fields, protocol) end
     return
@@ -254,4 +255,6 @@ MotA:On("CHAT_MSG_ADDON", function(self, _, prefix, text, channel, sender)
     end
   end
   kindHandlers[kind](self, sender, channel, fields, protocol)
-end)
+end
+
+Comm:RegisterComm(MOTA.PREFIX, "OnComm")

@@ -3,9 +3,9 @@
 -- The window's gear, a right-click on the minimap seal and /mota settings
 -- open it too. Switches for features not built yet are shown greyed out.
 
-local _, MotA = ...
-local UI = MotA.UI
-local M = MotA.Media
+local _, MOTA = ...
+local UI = MOTA.UI
+local M = MOTA.Media
 
 local ROWS = {
   { key = "herald", label = "Herald pop-ups", small = "Announce votes, laws and defections live" },
@@ -34,14 +34,14 @@ local function buildSwitch(i, row)
   b.on = piece("swOn", "ARTWORK", 0, slot.y - M.slots.sw1.y)
   b.off = piece("swOff", "ARTWORK", 0, slot.y - M.slots.sw4.y)
   function b:Update()
-    local v = MotA.db.settings[row.key] and true or false
+    local v = MOTA.db.settings[row.key] and true or false
     self.on:SetShown(v)
     self.off:SetShown(not v)
   end
   b:SetScript("OnClick", function(self)
     if row.later then return end
-    MotA.db.settings[row.key] = not MotA.db.settings[row.key]
-    play(MotA.db.settings[row.key] and "IG_MAINMENU_OPTION_CHECKBOX_ON" or "IG_MAINMENU_OPTION_CHECKBOX_OFF")
+    MOTA.db.settings[row.key] = not MOTA.db.settings[row.key]
+    play(MOTA.db.settings[row.key] and "IG_MAINMENU_OPTION_CHECKBOX_ON" or "IG_MAINMENU_OPTION_CHECKBOX_OFF")
     self:Update()
   end)
   if row.later then
@@ -63,12 +63,12 @@ local function buildChoice()
     b.on = piece(prefix .. "On", "ARTWORK")
     b.off = piece(prefix .. "Off", "ARTWORK")
     function b:Update()
-      local chosen = MotA.db.settings.heraldSize == value
+      local chosen = MOTA.db.settings.heraldSize == value
       self.on:SetShown(chosen)
       self.off:SetShown(not chosen)
     end
     b:SetScript("OnClick", function()
-      MotA.db.settings.heraldSize = value
+      MOTA.db.settings.heraldSize = value
       play("IG_MAINMENU_OPTION_CHECKBOX_ON")
       for _, other in ipairs(buttons) do other:Update() end
     end)
@@ -89,12 +89,12 @@ local function build()
   panel.controls = {}
   for i, row in ipairs(ROWS) do
     if i < #ROWS then piece("rowLine", "BORDER", 0, M.slots["row" .. i].y - M.slots.row1.y) end
-    local label = MotA:Tracked(page, "setLabel", "2A1F14", 0.08)
+    local label = MOTA:Tracked(page, "setLabel", "2A1F14", 0.08)
     UI:AtSlot(label, "slabel" .. i, 0, 0, page)
     label:SetText(row.label:upper())
     local small = page:CreateFontString(nil, "OVERLAY")
-    small:SetFontObject(MotA:Font("setSmall"))
-    small:SetTextColor(MotA:RGB("5E4B33"))
+    small:SetFontObject(MOTA:Font("setSmall"))
+    small:SetTextColor(MOTA:RGB("5E4B33"))
     small:SetJustifyH("LEFT")
     UI:AtSlot(small, "ssmall" .. i, 0, 0, page)
     small:SetText(row.small .. (row.later and " · later" or ""))
@@ -134,17 +134,17 @@ end
 function UI:OpenSettings()
   if not panel then build() end
   if InCombatLockdown() then
-    return MotA:Print("The game doesn't let add-ons open its options during combat. Try again afterwards.")
+    return MOTA:Print("The game doesn't let add-ons open its options during combat. Try again afterwards.")
   end
   if self.settingsCategory and Settings and Settings.OpenToCategory then
     Settings.OpenToCategory(self.settingsCategory:GetID())
   elseif InterfaceOptionsFrame_OpenToCategory then
     InterfaceOptionsFrame_OpenToCategory(panel)
   else
-    MotA:Print("Open the game's options (Escape > Options), then AddOns > Ministry of the Allied.")
+    MOTA:Print("Open the game's options (Escape > Options), then AddOns > Ministry of the Allied.")
   end
 end
 
-MotA:On("PLAYER_LOGIN", function()
+MOTA:On("PLAYER_LOGIN", function()
   if not panel then build() end
 end)

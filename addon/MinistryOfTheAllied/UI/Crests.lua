@@ -10,8 +10,8 @@
 -- Atlases the game doesn't have are skipped. Texture files can't be checked
 -- that way, so an empty box just means the game doesn't have that one.
 
-local _, MotA = ...
-local UI = MotA.UI
+local _, MOTA = ...
+local UI = MOTA.UI
 
 UI.crestCandidates = {
   { file = [[Interface\Timer\Alliance-Logo]] },
@@ -91,7 +91,7 @@ local function build()
   end
   local skipped = #UI.crestCandidates - #list
   if skipped > 0 then
-    MotA:Print(skipped, "of the candidate atlases aren't in this client, so they're not shown.")
+    MOTA:Print(skipped, "of the candidate atlases aren't in this client, so they're not shown.")
   end
 end
 
@@ -102,14 +102,14 @@ end
 
 function UI:ChooseCrest(arg)
   if arg == "ours" or arg == "" then
-    MotA.db.crest = nil
-    MotA:Print("Back to our own crest.")
+    MOTA.db.crest = nil
+    MOTA:Print("Back to our own crest.")
   else
     local c = self.crestCandidates[tonumber(arg) or 0]
-    if not c then return MotA:Print("There's no candidate", arg .. ". /mota crests shows them.") end
-    if not exists(c) then return MotA:Print("This client doesn't have that one.") end
-    MotA.db.crest = c
-    MotA:Print("Trying crest", arg, "in the window. /mota crest ours goes back.")
+    if not c then return MOTA:Print("There's no candidate", arg .. ". /mota crests shows them.") end
+    if not exists(c) then return MOTA:Print("This client doesn't have that one.") end
+    MOTA.db.crest = c
+    MOTA:Print("Trying crest", arg, "in the window. /mota crest ours goes back.")
   end
   self:Build()
   self:ApplyCrest()

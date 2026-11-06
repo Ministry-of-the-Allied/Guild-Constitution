@@ -3,18 +3,18 @@
 -- heading line, a title, a line of text and a button. One at a time, each
 -- for a few seconds or until dismissed, never during combat.
 --
---   MotA.Herald:Announce{ seal = "official" | "crown" | "exchange" | "silverhand",
+--   MOTA.Herald:Announce{ seal = "official" | "crown" | "exchange" | "silverhand",
 --     eyebrow = "...", title = "...", text = "...",
 --     button = { label = "Vote now" | "Read it" | "Open" | "Dismiss",
 --                style = "blue" | "quiet", page = <window page number> } }
 --
 -- /mota herald [1-3] shows the board's examples; /mota fanfare picks the sound.
 
-local _, MotA = ...
-local UI = MotA.UI
-local M = MotA.Media
+local _, MOTA = ...
+local UI = MOTA.UI
+local M = MOTA.Media
 local Herald = {}
-MotA.Herald = Herald
+MOTA.Herald = Herald
 
 local SCALE = { full = 0.8, small = 0.56 } -- Royal, and Modest at 70% of it
 local STAY = { full = 10, small = 8 }      -- seconds on screen
@@ -43,7 +43,7 @@ function Herald:Fanfares()
 end
 
 function Herald:PlayFanfare(name)
-  name = name or MotA.db.settings.fanfareSound or self:Fanfares()[1]
+  name = name or MOTA.db.settings.fanfareSound or self:Fanfares()[1]
   if name and SOUNDKIT and SOUNDKIT[name] then PlaySound(SOUNDKIT[name]) end
 end
 
@@ -70,16 +70,16 @@ local function build()
     frame.seals[seal] = piece(frame, "hseal_" .. seal, "ARTWORK")
   end
 
-  frame.eyebrow = MotA:Tracked(frame, "eyebrow", "7A5719", 0.32)
+  frame.eyebrow = MOTA:Tracked(frame, "eyebrow", "7A5719", 0.32)
   UI:AtSlot(frame.eyebrow, "heyebrow", 0, 1, frame)
   frame.title = frame:CreateFontString(nil, "OVERLAY")
-  frame.title:SetFontObject(MotA:Font("heraldTitle"))
-  frame.title:SetTextColor(MotA:RGB("1B3570"))
+  frame.title:SetFontObject(MOTA:Font("heraldTitle"))
+  frame.title:SetTextColor(MOTA:RGB("1B3570"))
   frame.title:SetJustifyH("LEFT")
   UI:AtSlot(frame.title, "htitle", 0, 0, frame)
   frame.body = frame:CreateFontString(nil, "OVERLAY")
-  frame.body:SetFontObject(MotA:Font("heraldBody"))
-  frame.body:SetTextColor(MotA:RGB("2A1F14"))
+  frame.body:SetFontObject(MOTA:Font("heraldBody"))
+  frame.body:SetTextColor(MOTA:RGB("2A1F14"))
   frame.body:SetJustifyH("LEFT")
   frame.body:SetJustifyV("TOP")
   UI:AtSlot(frame.body, "hbody", 0, 0, frame)
@@ -181,13 +181,13 @@ function Herald:Next()
   if InCombatLockdown() then return end -- PLAYER_REGEN_ENABLED tries again
   if not frame then build() end
   current = table.remove(queue, 1)
-  local size = MotA.db.settings.heraldSize == "small" and "small" or "full"
+  local size = MOTA.db.settings.heraldSize == "small" and "small" or "full"
   frame:SetScale(SCALE[size])
   fit(current)
   frame:SetAlpha(1)
   frame:Show()
   if size == "full" then frame.unroll:Play() else frame.fadeIn:Play() end
-  if MotA.db.settings.fanfare then self:PlayFanfare() end
+  if MOTA.db.settings.fanfare then self:PlayFanfare() end
   self:HideLater(STAY[size])
 end
 
@@ -205,7 +205,7 @@ end
 
 -- Queue a herald. Switched off in settings, only forced ones (the samples) show.
 function Herald:Announce(h, force)
-  if not force and not MotA.db.settings.herald then return false end
+  if not force and not MOTA.db.settings.herald then return false end
   queue[#queue + 1] = h
   self:Next()
   return true
@@ -215,7 +215,7 @@ function Herald:Waiting()
   return #queue + (current and 1 or 0)
 end
 
-MotA:On("PLAYER_REGEN_ENABLED", function() Herald:Next() end)
+MOTA:On("PLAYER_REGEN_ENABLED", function() Herald:Next() end)
 
 ---------------------------------------------------------------------------
 -- The Extras board's examples, and test records from other members
@@ -235,14 +235,14 @@ Herald.samples = {
 
 function Herald:ShowSamples(n)
   local list = n and { self.samples[n] } or self.samples
-  if #list == 0 then return MotA:Print("There are", #self.samples, "sample heralds: /mota herald 1, 2 or 3.") end
+  if #list == 0 then return MOTA:Print("There are", #self.samples, "sample heralds: /mota herald 1, 2 or 3.") end
   for _, h in ipairs(list) do self:Announce(h, true) end
-  MotA:Print(#list == 1 and "Showing a sample herald" or "Showing the sample heralds",
+  MOTA:Print(#list == 1 and "Showing a sample herald" or "Showing the sample heralds",
     "(the canvas's example text, not real news).")
-  if InCombatLockdown() then MotA:Print("It waits until you're out of combat.") end
+  if InCombatLockdown() then MOTA:Print("It waits until you're out of combat.") end
 end
 
-MotA:Listen("RECORD_ADDED", function(self, rec)
+MOTA:Listen("RECORD_ADDED", function(self, rec)
   if rec.k ~= "test.note" or rec.a == self.me then return end
   Herald:Announce({
     seal = "official",

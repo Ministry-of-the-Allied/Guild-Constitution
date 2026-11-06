@@ -4,9 +4,9 @@
 -- (win: the window, herald: the herald pop-up, settings: the settings page;
 -- y goes down). l, r, t, b are the piece's texture coordinates.
 
-local _, MotA = ...
+local _, MOTA = ...
 
-MotA.Media = {
+MOTA.Media = {
   dir = "Interface\\AddOns\\MinistryOfTheAllied\\Media\\",
   heraldButtons = {
     "Vote now",

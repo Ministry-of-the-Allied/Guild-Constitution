@@ -1,17 +1,22 @@
 ## Interface: 16001
 ## Title: |cffC9A24AMinistry of the Allied|r
-## Notes: The guild's government in game: elections, laws, parties, treasury and more.
-## Author: Ministry of the Allied
+## Notes: The political state of the Ministry of the Allied
+## Author: The Crown
 ## Version: 0.1.0
 ## IconTexture: Interface\Icons\INV_Misc_Note_02
-## SavedVariables: MinistryOfTheAlliedDB
+## SavedVariables: MOTADB
 ## AddonCompartmentFunc: MinistryOfTheAllied_OnAddonCompartmentClick
 
 # Milestone 1: skeleton, guild handshake, first records, probe.
 # Milestone 2: the window, the minimap seal and the crest finder.
 # Milestone 3: herald pop-ups and the settings panel.
-# Load order matters: Core first, Commands last.
+# Since 2026-11-06: AceComm-3.0 carries every message (ADDON_SPEC.md, section 3).
+# Load order matters: libraries, then Core, Commands last.
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceComm-3.0\AceComm-3.0.xml
 Core.lua
+Data.lua
 Roster.lua
 Comm.lua
 Book.lua
@@ -19,7 +24,7 @@ Hello.lua
 Probe.lua
 Media.lua
 Fonts.lua
-UI\Window.lua
+UI\MainWindow.lua
 UI\Minimap.lua
 UI\Crests.lua
 UI\Herald.lua

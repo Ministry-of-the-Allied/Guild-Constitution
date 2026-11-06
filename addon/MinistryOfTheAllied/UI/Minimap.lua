@@ -2,16 +2,16 @@
 -- A wax seal on the minimap's edge. Click: open the Ministry. Right-click:
 -- settings. Drag: move it around the minimap. /mota minimap hides or shows it.
 
-local _, MotA = ...
-local UI = MotA.UI
-local M = MotA.Media
+local _, MOTA = ...
+local UI = MOTA.UI
+local M = MOTA.Media
 
 local SEAL = 34 -- the seal's width on the minimap, in game units
 
 local button
 
 local function place()
-  local angle = math.rad(MotA.db.minimap.angle or 200)
+  local angle = math.rad(MOTA.db.minimap.angle or 200)
   local radius = Minimap:GetWidth() / 2 + 6
   button:ClearAllPoints()
   button:SetPoint("CENTER", Minimap, "CENTER", radius * math.cos(angle), radius * math.sin(angle))
@@ -21,7 +21,7 @@ local function followCursor()
   local mx, my = Minimap:GetCenter()
   local cx, cy = GetCursorPosition()
   local scale = Minimap:GetEffectiveScale()
-  MotA.db.minimap.angle = math.deg(math.atan2(cy / scale - my, cx / scale - mx))
+  MOTA.db.minimap.angle = math.deg(math.atan2(cy / scale - my, cx / scale - mx))
   place()
 end
 
@@ -62,10 +62,10 @@ local function build()
   button:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   button:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText("Ministry of the Allied", MotA:RGB("F3D98A"))
-    GameTooltip:AddLine("Click: open the Ministry", MotA:RGB("C3CFEC"))
-    GameTooltip:AddLine("Right-click: settings", MotA:RGB("C3CFEC"))
-    GameTooltip:AddLine("Drag: move the seal", MotA:RGB("C3CFEC"))
+    GameTooltip:SetText("Ministry of the Allied", MOTA:RGB("F3D98A"))
+    GameTooltip:AddLine("Click: open the Ministry", MOTA:RGB("C3CFEC"))
+    GameTooltip:AddLine("Right-click: settings", MOTA:RGB("C3CFEC"))
+    GameTooltip:AddLine("Drag: move the seal", MOTA:RGB("C3CFEC"))
     GameTooltip:Show()
   end)
   button:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -73,11 +73,11 @@ local function build()
 end
 
 function UI:ShowMinimapSeal(show)
-  MotA.db.minimap.hide = not show
+  MOTA.db.minimap.hide = not show
   if show and not button then build() end
   if button then button:SetShown(show) end
 end
 
-MotA:On("PLAYER_LOGIN", function(self)
+MOTA:On("PLAYER_LOGIN", function(self)
   if Minimap and not self.db.minimap.hide then UI:ShowMinimapSeal(true) end
 end)

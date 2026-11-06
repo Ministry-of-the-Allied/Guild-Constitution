@@ -4,11 +4,11 @@
 -- tools/textures/build.py writes from the canvas's own stylesheet.
 -- Milestone 2: the frame, the tabs and empty pages. Page contents come later.
 
-local _, MotA = ...
+local _, MOTA = ...
 local UI = {}
-MotA.UI = UI
+MOTA.UI = UI
 
-local M = MotA.Media
+local M = MOTA.Media
 local W, H = M.window.w, M.window.h
 
 -- Colours from the canvas (design/canvas-source/ministry.css).
@@ -50,13 +50,13 @@ function UI:AtSlot(region, slot, dx, dy, anchor)
 end
 
 local function tint(texture, hex)
-  texture:SetVertexColor(MotA:RGB(hex))
+  texture:SetVertexColor(MOTA:RGB(hex))
 end
 
 local function text(parent, font, hex, layer)
   local fs = parent:CreateFontString(nil, layer or "OVERLAY")
-  fs:SetFontObject(MotA:Font(font))
-  fs:SetTextColor(MotA:RGB(hex))
+  fs:SetFontObject(MOTA:Font(font))
+  fs:SetTextColor(MOTA:RGB(hex))
   fs:SetJustifyH("LEFT")
   fs:SetJustifyV("TOP")
   return fs
@@ -285,7 +285,7 @@ function UI:Build()
   end)
 
   self:RestorePosition()
-  self:SelectPage(MotA.db.window.page or 1)
+  self:SelectPage(MOTA.db.window.page or 1)
   return f
 end
 
@@ -296,7 +296,7 @@ end
 function UI:SelectPage(i)
   if i < 1 or i > #M.pages then i = 1 end
   self.page = i
-  MotA.db.window.page = i
+  MOTA.db.window.page = i
   for n, tab in ipairs(self.tabs) do
     setTabLook(tab, n == i and "on" or "rest")
     self.subtitles[n]:SetShown(n == i)
@@ -324,14 +324,14 @@ function UI:Refresh()
   self.who:SetText(name)
   self.initials:SetText(name:match("^[%z\1-\127\194-\244][\128-\191]*") or "?")
   -- The canvas shows your district here; until the Citizens module, your guild rank.
-  local rank = MotA.guild and select(2, GetGuildInfo("player"))
+  local rank = MOTA.guild and select(2, GetGuildInfo("player"))
   self.whoSmall:SetText(rank or "No guild yet")
 
   local left
-  if MotA.guild then
-    local n = MotA.Hello:OnlineCount()
-    local last = MotA.stats.lastReceived
-    left = ("Synced with %d %s · %s"):format(n, n == 1 and "citizen" or "citizens", last and MotA:Ago(last) or "no records yet")
+  if MOTA.guild then
+    local n = MOTA.Hello:OnlineCount()
+    local last = MOTA.stats.lastReceived
+    left = ("Synced with %d %s · %s"):format(n, n == 1 and "citizen" or "citizens", last and MOTA:Ago(last) or "no records yet")
   else
     left = IsInGuild() and "Waiting for the guild roster" or "Not in a guild yet"
   end
@@ -343,12 +343,12 @@ end
 
 function UI:SavePosition()
   local point, _, relPoint, x, y = self.window:GetPoint(1)
-  local w = MotA.db.window
+  local w = MOTA.db.window
   w.point, w.relPoint, w.x, w.y = point, relPoint, x, y
 end
 
 function UI:RestorePosition()
-  local w = MotA.db.window
+  local w = MOTA.db.window
   self.window:ClearAllPoints()
   if w.point then
     self.window:SetPoint(w.point, UIParent, w.relPoint or w.point, w.x or 0, w.y or 0)
@@ -378,7 +378,7 @@ end
 function UI:ApplyCrest()
   if not self.crest then return end
   local p = M.pieces.crest
-  local choice = MotA.db.crest
+  local choice = MOTA.db.crest
   local t = self.crest
   t:ClearAllPoints()
   if choice and choice.atlas and C_Texture.GetAtlasInfo(choice.atlas) then
@@ -401,10 +401,10 @@ function UI:ApplyCrest()
 end
 
 -- Keep the window's live text up to date while it's open.
-MotA:Listen("RECORD_ADDED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
-MotA:Listen("GUILD_READY", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
-MotA:On("ZONE_CHANGED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
-MotA:On("ZONE_CHANGED_NEW_AREA", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:Listen("RECORD_ADDED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:Listen("GUILD_READY", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:On("ZONE_CHANGED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:On("ZONE_CHANGED_NEW_AREA", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 
 -- The game's add-on menu by the minimap (where the client has one).
 function MinistryOfTheAllied_OnAddonCompartmentClick()

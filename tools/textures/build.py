@@ -428,7 +428,7 @@ def main():
            "-- Positions are in canvas units from the top-left corner of the piece's root\n"
            "-- (win: the window, herald: the herald pop-up, settings: the settings page;\n"
            "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
-           "local _, MotA = ...\n\nMotA.Media = " + lua_value(media) + "\n")
+           "local _, MOTA = ...\n\nMOTA.Media = " + lua_value(media) + "\n")
     (ADDON / "Media.lua").write_text(lua, encoding="utf-8", newline="\n")
     print("  Media.lua")
 

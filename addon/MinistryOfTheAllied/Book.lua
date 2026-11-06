@@ -9,9 +9,9 @@
 -- Milestone 1 only takes records sent live by their own author. Records passed
 -- on by someone else arrive with catch-up in a later milestone (section 4).
 
-local _, MotA = ...
+local _, MOTA = ...
 local Book = {}
-MotA.Book = Book
+MOTA.Book = Book
 
 -- Who may create each type of record. Types this copy doesn't know are still
 -- kept (so they can be passed on later) but never acted on (section 7).
@@ -20,28 +20,28 @@ Book.rules = {
 }
 
 function Book:Ready()
-  return MotA.guild ~= nil and MotA.me ~= nil
+  return MOTA.guild ~= nil and MOTA.me ~= nil
 end
 
 function Book:Get(author, n)
-  local list = MotA.guild and MotA.guild.records[author]
+  local list = MOTA.guild and MOTA.guild.records[author]
   return list and list[n]
 end
 
 function Book:Top(author)
-  return MotA.guild and MotA.guild.tops[author] or 0
+  return MOTA.guild and MOTA.guild.tops[author] or 0
 end
 
 -- A guild member holds our records up to number n (from their hello reply).
 function Book:Reserve(author, n)
-  local g = MotA.guild
+  local g = MOTA.guild
   if g and n and n > (g.reserved[author] or 0) then g.reserved[author] = n end
 end
 
 -- The next number for one of my own records. It never reuses a number that a
 -- guild member already holds, even if this computer lost records in a crash.
 function Book:NextNumber()
-  local g, me = MotA.guild, MotA.me
+  local g, me = MOTA.guild, MOTA.me
   return math.max(g.tops[me] or 0, g.reserved[me] or 0) + 1
 end
 
@@ -54,17 +54,17 @@ end
 -- Returns "added", "known" (the same record is already held) or "conflict"
 -- (a different record with the same ID; the first one is kept).
 function Book:Add(rec)
-  local g = MotA.guild
+  local g = MOTA.guild
   g.records[rec.a] = g.records[rec.a] or {}
   local have = g.records[rec.a][rec.n]
   if have then
     if have.t == rec.t and have.k == rec.k then return "known" end
-    MotA.stats.conflicts = MotA.stats.conflicts + 1
+    MOTA.stats.conflicts = MOTA.stats.conflicts + 1
     return "conflict"
   end
   g.records[rec.a][rec.n] = { t = rec.t, k = rec.k, d = rec.d, got = GetServerTime() }
   if rec.n > (g.tops[rec.a] or 0) then g.tops[rec.a] = rec.n end
-  MotA:Fire("RECORD_ADDED", rec)
+  MOTA:Fire("RECORD_ADDED", rec)
   return "added"
 end
 
@@ -72,23 +72,23 @@ end
 -- Returns the record, or nil and the reason it wasn't written.
 function Book:Write(kind, details)
   if not self:Ready() then return nil, "not in a guild yet, or the roster hasn't loaded" end
-  if MotA.outdated then return nil, "a newer version is in use; update before writing records" end
-  local rec = { a = MotA.me, n = self:NextNumber(), t = GetServerTime(), k = kind, d = details or {} }
-  local msg = MotA.Comm:EncodeRecord(rec)
-  if #msg > MotA.Comm.MAX_LEN then return nil, "too long for one message (" .. #msg .. " bytes)" end
+  if MOTA.outdated then return nil, "a newer version is in use; update before writing records" end
+  local rec = { a = MOTA.me, n = self:NextNumber(), t = GetServerTime(), k = kind, d = details or {} }
+  local msg = MOTA.Comm:EncodeRecord(rec)
+  if #msg > MOTA.Comm.MAX_LEN then return nil, "too long to send (" .. #msg .. " bytes)" end
   self:Add(rec)
-  MotA.Comm:Send(msg, "GUILD")
+  MOTA.Comm:Send(msg, "GUILD")
   return rec
 end
 
 function Book:Count()
   local total, authors, mine = 0, 0, 0
-  if not MotA.guild then return 0, 0, 0 end
-  for author, list in pairs(MotA.guild.records) do
+  if not MOTA.guild then return 0, 0, 0 end
+  for author, list in pairs(MOTA.guild.records) do
     authors = authors + 1
     for _ in pairs(list) do
       total = total + 1
-      if author == MotA.me then mine = mine + 1 end
+      if author == MOTA.me then mine = mine + 1 end
     end
   end
   return total, authors, mine
@@ -97,8 +97,8 @@ end
 -- The newest records first.
 function Book:Latest(limit)
   local all = {}
-  if not MotA.guild then return all end
-  for author, list in pairs(MotA.guild.records) do
+  if not MOTA.guild then return all end
+  for author, list in pairs(MOTA.guild.records) do
     for n, r in pairs(list) do
       all[#all + 1] = { a = author, n = n, t = r.t, k = r.k, d = r.d }
     end
@@ -125,9 +125,9 @@ end
 -- Records arriving from the guild
 ---------------------------------------------------------------------------
 
-MotA.Comm:Handle("RC", function(self, sender, channel, fields)
+MOTA.Comm:Handle("RC", function(self, sender, channel, fields)
   if channel ~= "GUILD" then return end
-  local rec = MotA.Comm:DecodeRecord(fields)
+  local rec = MOTA.Comm:DecodeRecord(fields)
   if not rec or rec.a ~= sender or not Book:Allowed(rec) then
     self.stats.ignored = self.stats.ignored + 1
     self:Debug("record ignored from", sender)
@@ -139,7 +139,7 @@ MotA.Comm:Handle("RC", function(self, sender, channel, fields)
 end)
 
 -- Test records are announced in chat, so two testers can see them arrive.
-MotA:Listen("RECORD_ADDED", function(self, rec)
+MOTA:Listen("RECORD_ADDED", function(self, rec)
   if rec.k ~= "test.note" then return end
   if rec.a == self.me then
     self:Print("Test record", self:Color("leaf", "#" .. rec.n), "written and sent to the guild:", Book:Describe(rec))

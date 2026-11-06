@@ -4,7 +4,7 @@
 -- and labels, EB Garamond for reading text. If the game can't load them, the
 -- game's own font (Friz Quadrata) is used instead.
 
-local _, MotA = ...
+local _, MOTA = ...
 
 local DIR = [[Interface\AddOns\MinistryOfTheAllied\Media\Fonts\]]
 local FALLBACK = STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
@@ -36,14 +36,14 @@ local STYLES = {
   setSmall = { "garamond", 14 },            -- .setrow label small
 }
 
-function MotA:FontSize(name)
+function MOTA:FontSize(name)
   return STYLES[name][2]
 end
 
-MotA.fonts = {}
-MotA.fontsFailed = {} -- names of fonts that fell back to the game's font
+MOTA.fonts = {}
+MOTA.fontsFailed = {} -- names of fonts that fell back to the game's font
 
-function MotA:Font(name)
+function MOTA:Font(name)
   if self.fonts[name] then return self.fonts[name] end
   local style = STYLES[name]
   local font = CreateFont("MinistryOfTheAlliedFont_" .. name)
@@ -65,7 +65,7 @@ end
 -- (CSS letter-spacing), which game text can't do, so each letter gets its own
 -- font string. tracking is in em, like the canvas (.32em = 0.32).
 -- Returns a frame: use SetText, SetColor and the usual SetPoint and SetAlpha.
-function MotA:Tracked(parent, font, hex, tracking)
+function MOTA:Tracked(parent, font, hex, tracking)
   local box = CreateFrame("Frame", nil, parent)
   local size = self:FontSize(font)
   box:SetSize(1, size * 1.25)
@@ -74,7 +74,7 @@ function MotA:Tracked(parent, font, hex, tracking)
 
   function box:SetColor(c)
     self.color = c
-    for _, fs in ipairs(self.letters) do fs:SetTextColor(MotA:RGB(c)) end
+    for _, fs in ipairs(self.letters) do fs:SetTextColor(MOTA:RGB(c)) end
   end
 
   function box:SetText(text)
@@ -84,10 +84,10 @@ function MotA:Tracked(parent, font, hex, tracking)
       local fs = self.letters[n]
       if not fs then
         fs = self:CreateFontString(nil, "OVERLAY")
-        fs:SetFontObject(MotA:Font(font))
+        fs:SetFontObject(MOTA:Font(font))
         self.letters[n] = fs
       end
-      fs:SetTextColor(MotA:RGB(self.color))
+      fs:SetTextColor(MOTA:RGB(self.color))
       fs:ClearAllPoints()
       fs:SetPoint("TOPLEFT", self, "TOPLEFT", x, 0)
       fs:SetText(ch)
@@ -103,6 +103,6 @@ function MotA:Tracked(parent, font, hex, tracking)
 end
 
 -- "RRGGBB" to r, g, b in 0-1.
-function MotA:RGB(hex)
+function MOTA:RGB(hex)
   return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255
 end
