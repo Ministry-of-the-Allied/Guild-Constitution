@@ -2,7 +2,7 @@
 
 Part of the add-on plan (`ADDON_PLAN.md`, section 13). Core / Sync is the base every other module stands on: how the add-on stores the guild's records, shares them between members, and decides which records to trust.
 
-Status: **in progress**, first draft 2026-11-03. Items marked *(to test)* need checking in game after launch on 2026-11-04.
+Status: **in progress**, first draft 2026-11-03. Items marked *(to test)* need checking in game after launch on 2026-11-04. Milestone 1 (main plan, section 14) built the first slice on 2026-11-05: see section 12.
 
 ---
 
@@ -41,7 +41,7 @@ Author + Number is the record's unique ID ("Max's record 57"). No two records sh
 - **Limits** *(to test)*: each message can carry at most 255 characters, and the game throttles how fast an add-on can send (roughly a burst of about 10, then about one a second per prefix). So:
   - Records are packed tightly, compressed, and split into pieces when they're too long.
   - Everything goes through one send queue that stays under the limit, with live news (herald events) jumping the queue ahead of background catch-up.
-- **Libraries:** use the standard, widely used community libraries rather than writing our own: **Ace3** (AceComm for split messages and the queue, AceDB for storage, AceConfig for settings), **LibSerialize** and **LibDeflate** for packing and compressing. All have permissive licences that allow shipping them inside the add-on.
+- **Libraries:** use the standard, widely used community libraries rather than writing our own: **Ace3** (AceComm for split messages and the queue, AceDB for storage, AceConfig for settings), **LibSerialize** and **LibDeflate** for packing and compressing. All have permissive licences that allow shipping them inside the add-on. **Replaced 2026-11-05: no libraries.** The game's own packer (`C_EncodingUtil`) does the packing and compressing, our own send queue does the pacing, and splitting long messages gets added with catch-up (main plan, section 3).
 
 ## 4. Keeping everyone in step
 
@@ -121,3 +121,52 @@ This is strong protection against ordinary mischief, not bank-level security. A 
 
 - Message size and throttle limits in the Forever client (section 3) *(to test)*.
 - Whether add-on messages are blocked in combat or instances (section 8) *(to test)*.
+
+## 12. Built so far (Milestone 1, 2026-11-05)
+
+Code: `addon/MinistryOfTheAllied/`. The main plan's section 14 lists what the milestone does and how to test it. This section records how the parts above were built.
+
+### Files
+
+| File | What it holds |
+|---|---|
+| `Core.lua` | The shared namespace, events, chat output, saved data, one book per guild |
+| `Roster.lua` | The guild roster: ranks, who is online, who is the Crown |
+| `Comm.lua` | Message packing, the send queue, receiving |
+| `Book.lua` | The book of records: numbering, adding, sending, who may write which type |
+| `Hello.lua` | The guild handshake and version check |
+| `Probe.lua` | `/mota probe` and `/mota probe limits` |
+| `Commands.lua` | The slash commands |
+
+### Message format (protocol 1)
+
+Every message is short text fields joined by the "unit separator" byte (character 31), which players can't type:
+
+`<protocol> · <kind> · <field> · <field> …`
+
+| Kind | Channel | Fields |
+|---|---|---|
+| `HI` hello | GUILD | version, records held |
+| `HR` hello reply | WHISPER, back to whoever said hello | version, the highest record number held from them |
+| `RC` record | GUILD | author, number, time, type, then the details as key, value pairs |
+| `PB` probe | GUILD | test ID, sequence, padding (only the sender reads these) |
+
+- A record's detail values carry a one-letter type: `n` number, `b` true/false, `s` text.
+- `HI` and `HR` always keep the version as their first field, whatever the protocol, so an old copy can still tell it's out of date.
+- A copy that hears a newer protocol stops writing records and asks the player to update (section 7). It still reads hellos.
+- Whispers are only taken from guild members. A copy ignores its own guild messages coming back to it, except during the limits test, which counts them.
+
+### Record types so far
+
+| Type | Who may write it | Details |
+|---|---|---|
+| `test.note` | anyone | `text`: a short message, for testing sync |
+
+### Saved data
+
+`MinistryOfTheAlliedDB` (account-wide):
+
+- `settings`: options such as `debug`.
+- `guilds["<guild name>-<realm>"]`: that guild's `records` (`[author][number]`), `tops` (highest number held per author), `reserved` (highest number another member said they hold of ours) and `peers` (the last hello from each member's add-on).
+- `probe`: the last `/mota probe` report and limits test.
+- `window`, `minimap`, `crest`: where the window was left, its size and page, the minimap seal's place, and the chosen crest (Milestone 2).

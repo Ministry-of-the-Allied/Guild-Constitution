@@ -1,0 +1,65 @@
+[
+  {
+    "id": "throne",
+    "label": "Throne Room",
+    "small": "State of the realm",
+    "subtitle": "The Throne Room",
+    "eyebrow": "The state of the realm",
+    "heading": "The Throne Room",
+    "note": "Who holds power, the countdown to the next election, any vote open now, your district and party, your duties and letters, and the latest decrees."
+  },
+  {
+    "id": "ballot",
+    "label": "Ballot Hall",
+    "small": "Votes & results",
+    "subtitle": "The Ballot Hall",
+    "eyebrow": "All voting",
+    "heading": "The Ballot Hall",
+    "note": "The ballot paper you seal your vote with, standing for Prime Minister, the results, and the no-confidence petition."
+  },
+  {
+    "id": "statute",
+    "label": "Statute Book",
+    "small": "Laws & court",
+    "subtitle": "The Statute Book",
+    "eyebrow": "Laws, the court and treaties",
+    "heading": "The Statute Book",
+    "note": "The laws in force, laws awaiting Royal Assent or renewal, the rulings of the High Judiciary, and the treaties."
+  },
+  {
+    "id": "parties",
+    "label": "The Parties",
+    "small": "Public & chamber",
+    "subtitle": "The Parties",
+    "eyebrow": "Public face and private chamber",
+    "heading": "The Parties",
+    "note": "Each party's crest, leader, members and manifesto, and the Party Chamber that only its own members can see."
+  },
+  {
+    "id": "treasury",
+    "label": "Treasury",
+    "small": "The ledger",
+    "subtitle": "The Treasury",
+    "eyebrow": "The guild coffers",
+    "heading": "The Treasury",
+    "note": "The ledger, filled in from the guild bank: the Minister of the Treasury, the balance, gold in and out, and taxes."
+  },
+  {
+    "id": "districts",
+    "label": "Districts",
+    "small": "Map & council",
+    "subtitle": "The Districts",
+    "eyebrow": "Map, council and citizen roll",
+    "heading": "The Districts",
+    "note": "The Stormwind map with your district aglow, the Regional Council, the Citizen Roll, and district transfers."
+  },
+  {
+    "id": "ring",
+    "label": "The Ring",
+    "small": "Gladiator duels",
+    "subtitle": "The Gladiator's Ring",
+    "eyebrow": "Monthly duels",
+    "heading": "The Gladiator's Ring",
+    "note": "Sign-up, the bracket and the Hall of Champions for the monthly duelling tournament."
+  }
+]

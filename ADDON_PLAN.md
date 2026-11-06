@@ -2,7 +2,7 @@
 
 The single source of truth for the guild add-on. Read this before working on the add-on; update it whenever a decision is made.
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
 ---
 
@@ -30,7 +30,7 @@ Planned modules:
 
 1. **Design the UI first** in Claude Design: the full visual theme, textures and every screen, before any code. One consistent theme from day one, so nothing has to be reskinned later.
 2. **Plan each system in detail**, one module at a time. Each module gets its own file in `plan/` (see section 13), linked from here.
-3. **Build** the add-on.
+3. **Build** the add-on, in small milestones that each load in the game and can be tested (section 14). Building started 2026-11-05.
 
 ## 3. Decisions made
 
@@ -38,7 +38,7 @@ Planned modules:
 - **A citizen's district and other add-on details live in the add-on's own synced data, not in guild notes.** Officer notes can only be read by ranks with permission, and this leaves public and officer notes free for members to use as normal. *(Decided 2026-11-03)*
 - **District map highlights:** a citizen's own district is drawn as a highlighted area on the Stormwind city map. *(Decided 2026-11-03)*
 - **Visual theme:** regal Stormwind/Alliance. Parchment, wax seals, royal blue and gold. It must feel premium and ceremonial, not basic. *(Decided 2026-11-03)*
-- **Universal window crest:** the Stormwind Alliance crest (gold lion-head shield on royal blue, crossed swords, hammer on top, gold filigree) sits at the **top-left corner of every add-on window**, breaking out over the frame border, as the shared mark of the whole UI. Reference image: `design/reference/alliance-crest.png`. In game, check for a built-in texture/atlas of the crest before shipping our own. *(Decided 2026-11-03)*
+- **Universal window crest:** the Alliance crest sits at the **top-left corner of every add-on window**, breaking out over the frame border, as the shared mark of the whole UI. *(Decided 2026-11-03)* Since 2026-11-06 it's our own lion crest, `design/textures/alliance-crest.png`: the Crown crest's shape (crossed gold sceptres, fringed drapes, gold filigree) with a gold lion head in place of the crown and royal blue in place of the purple. The old Stormwind picture stays in `design/reference/alliance-crest.png` for reference. *(Max, 2026-11-06)*
 - **World map skins:** the game's world map window is reskinned to match the player's party (or the Crown), with the party seal in the top-left corner in place of the Alliance crest. Details in 11.23. *(Decided 2026-11-03)*
 - **Voting is direct, not by constituency.** The Prime Minister is elected in one guild-wide count, and every citizen's vote counts the same (the Charter: "direct popular vote of all citizens"). Votes of No Confidence are guild-wide too. A citizen's district never changes the weight of their vote. Districts only matter when electing each district's Regional Representative (Charter 8.2). *(Confirmed 2026-11-03)*
 - **The Treasurer is appointed by the PM**, as the Minister of the Treasury (Charter 2.2), not elected. *(Decided 2026-11-03)*
@@ -49,11 +49,18 @@ Planned modules:
 - **Party membership and privacy** as set out in section 7: join through the party's designated officer after paying 5g, leaders elected inside the Party Chamber, 14-day cooling-off after crossing the floor. *(Decided 2026-11-04)*
 - **The treasury ledger is fully public.** Every line on the Treasury page shows the member's name, withdrawals included (11.9). *(Decided 2026-11-04)*
 - **The Court** works as set out in 11.22. *(Decided 2026-11-04)*
+- **Building starts with Core / Sync**, as section 13 orders. Milestone 1 is the skeleton, the guild handshake, the first records and an in-game probe; the themed window comes next (section 14). *(Agreed with Max 2026-11-05)*
+- **The add-on's code lives in `addon/MinistryOfTheAllied/`** in this repo. For testing, a folder link (a Windows junction) puts that folder inside Forever's `Interface/AddOns`, so a change shows in the game after `/reload`, with no copying. *(Decided 2026-11-05)*
+- **No outside libraries.** The probe showed Forever has the game's own data packer (`C_EncodingUtil`), so LibSerialize and LibDeflate aren't needed. The Milestone 1 send queue already does AceComm's pacing, and splitting long messages is a small addition when catch-up is built. The settings panel is our own design, held by the game's built-in settings system, so AceDB and AceConfig aren't needed either. Nothing to download, keep updated or credit. This replaces the Core/Sync plan's earlier choice of Ace3, LibSerialize and LibDeflate. *(Agreed with Max 2026-11-05)*
+- **The live design canvas is the source of truth for the look.** `design/canvas-source/` is a copy of it, and the texture script builds from that copy, so the copy is refreshed from the live canvas before each build. *(Max, 2026-11-05)*
+- **The window is drawn from the canvas itself.** `tools/textures/build.py` lays the window out with the canvas's own stylesheet, draws each piece in Microsoft Edge, and packs the pieces into game textures (`addon/MinistryOfTheAllied/Media/`), with their positions in `Media.lua`. When the design changes, run the script again. *(Decided 2026-11-05)*
+- **The canvas fonts ship inside the add-on:** Cinzel, Cinzel Decorative and EB Garamond, from Google Fonts, with their SIL Open Font License files. If the game can't load them, the add-on uses the game's own font. *(Agreed with Max 2026-11-05)*
+- **The crest:** Max found the first crest on Google Images, so it was likely Blizzard's own art. The plan was to use the game's own copy if it has one (`/mota crests` shows the likely candidates), and ours if not. **For now the add-on keeps our own crest** *(Max, 2026-11-06)*; the crest finder stays in, so the question can be reopened. The lion crest that replaced it the same day was made for us in Higgsfield (GPT Image 2.6) from the Crown crest, so it isn't Blizzard's art.
 
 ## 4. Open questions / to test after launch
 
 - **Auto promote/demote:** test once WoW Forever is live (launches 2026-11-04). The game only lets a character whose rank has promote/demote permission do it, so the result is probably applied by a Crown/officer client. It may need a button click rather than happening fully on its own.
-- **Addon message limits:** check the throttle on message size and rate, and whether the Midnight-era restrictions block addon messages in instances or combat. This decides how often we sync and how compact the data must be.
+- **Addon message limits:** check the throttle on message size and rate, and whether the Midnight-era restrictions block addon messages in instances or combat. This decides how often we sync and how compact the data must be. `/mota probe limits` measures it in game (section 14); run `/mota probe` inside a dungeon too.
 - **Vote integrity:** answered by alt links (11.1), the active roll (11.2) and the independent count (11.3); the Crown confirms every result. Accepted risk: see section 3 on ballots.
 - **Honour titles:** check that the add-on can still add text to friendly nameplates and the mouseover tooltip in the Midnight-era client (11.5).
 - **Chat tags:** check that the add-on can still change how guild chat lines are displayed (11.6).
@@ -61,7 +68,7 @@ Planned modules:
 - **Guild bank money log:** check which guild ranks can see it, and how many entries the game keeps before old ones drop off (11.9).
 - **Trade window warning:** check the add-on can show a warning when a trade window opens with a citizen under embargo (11.15).
 - **World map window:** a Forever screenshot (`design/reference/forever-world-map.webp`) confirms the client uses the modern world map window ("Map & Quest Log", with the location bar and the quest log toggle). Still to check: that the party skin (11.23) stays on when the map is enlarged or shrunk, that opening the map in combat causes no errors, and whether the "Player / Cursor" coordinates strip along the bottom of the screenshot is a Forever feature or came from that player's own add-ons.
-- **Interface (TOC) version number** for the Forever client: read it in game with `/dump (select(4, GetBuildInfo()))`.
+- ~~**Interface (TOC) version number**~~ **Answered 2026-11-05 by `/mota probe`:** the Forever client (version 1.60.1, build 70790) uses interface number **16001**, and its project ID (`WOW_PROJECT_ID`) is **18**. The TOC now lists 16001 alone. Each Forever patch will raise the number, so check it after every patch.
 
 ## 5. Game client (researched 2026-11-03)
 
@@ -141,7 +148,7 @@ Agreed with Max on 2026-11-04 ("yes to all for now"), matched to Charter 3.2:
 The visual design is done in Claude Design. Style brief: `design/STYLE_BRIEF.md`.
 
 - **Design canvas:** https://claude.ai/artifact/V6ZmxpJtw85SrWT9S87acJ (private until shared from its Share menu). It has the style guide, the pages as a clickable prototype, and the small extras.
-- **Textures and seals:** `design/textures/` holds the parchment, leather, filigree, divider and four wax seals, as SVG. These get converted to game textures (TGA/BLP) at build time.
+- **Textures and seals:** `design/textures/` holds the parchment, leather, filigree, divider and four wax seals, as SVG. `tools/textures/build.py` turns them, with the rest of the window, into game textures (TGA) (section 3).
 - **Canvas source:** `design/canvas-source/` holds a copy of the boards and the shared stylesheet.
 - Names, gold amounts, vote counts and laws on the boards are sample data.
 - **To update on the boards:** the Treasury board still says the Treasurer was "Elected"; change it to appointed by the PM.
@@ -361,7 +368,7 @@ Each module is planned in detail in its own file, before it's built. Order: Core
 
 | # | Module | File | Status |
 |---|---|---|---|
-| 1 | Core / Sync | `plan/01-core-sync.md` | In progress |
+| 1 | Core / Sync | `plan/01-core-sync.md` | In progress; Milestone 1 built (section 14) |
 | 2 | Citizens | — | Not started |
 | 3 | Offices & Ranks | — | Not started |
 | 4 | Elections & Votes | — | Not started |
@@ -371,3 +378,87 @@ Each module is planned in detail in its own file, before it's built. Order: Core
 | 8 | Districts & Map | — | Not started |
 | 9 | Chronicle, Honours, Letters & Sharing | — | Not started |
 | 10 | Gladiator's Ring | — | Not started |
+
+## 14. Build milestones
+
+Each milestone is a small slice that loads in the game and can be tested before the next one starts. The code is in `addon/MinistryOfTheAllied/`.
+
+### Milestone 1: the add-on wakes up *(built 2026-11-05, to test in game)*
+
+Agreed with Max on 2026-11-05. It's the first slice of Core / Sync (`plan/01-core-sync.md`), with no window yet.
+
+- **Loads in Forever:** the TOC, one shared code base, and the saved book (`MinistryOfTheAlliedDB`, account-wide) that survives `/reload` and logging out.
+- **Guild handshake:** on login each copy says hello on the hidden guild channel with its version, and everyone who hears it answers by whisper. Anyone on an older version is told to update.
+- **The first records:** the add-only book from the Core/Sync plan, with Author + Number IDs, sent live to the guild. Test records only, for now.
+- **Probe:** answers the open questions in section 4 from inside the game, and saves the answers in the add-on's saved file as well as printing them.
+- **Commands:** `/mota` (status and the command list; the window comes later), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`. `/ministry` works the same.
+- **Not in it:** the window, the minimap seal, game textures, catching up on records missed while offline, and the full trust rules.
+
+Smaller decisions it settled *(2026-11-05)*:
+
+- **One book per guild.** The saved data keeps a separate book for each guild (by guild name and realm), so a character in another guild never mixes records with the Ministry's.
+- **Record numbers are never reused.** The hello reply tells the newcomer the highest record number the answerer holds from them. If a crash lost a member's latest records, their next record still gets a fresh number.
+- **Only records sent by their own author are taken for now.** Records passed on by someone else wait for catch-up, a later milestone (Core/Sync plan, sections 4 and 5).
+- **Record types a copy doesn't know are kept but never acted on**, so a newer copy's records survive in an older one's book (Core/Sync plan, section 7).
+- **The send queue starts cautious:** a burst of 5, then one a second, until the limits test has measured Forever's real limits. If the game locks add-on messages (for example during a boss fight), the queue waits.
+- **Message format:** short text fields joined by an invisible separator byte. The details are in the Core/Sync plan, section 12.
+- Checked before the first in-game test with real Lua 5.1 (the same Lua version WoW uses), running the add-on in two pretend game clients: handshake, test records, relogging, a lost saved file, a newer version arriving, and a message lockdown.
+
+**How to test it:**
+
+1. The folder link is in place: `Interface/AddOns/MinistryOfTheAllied` in the Forever client points at `addon/MinistryOfTheAllied/` in the repo.
+2. At the character screen, open **AddOns** and check **Ministry of the Allied** is ticked. If it says "Out of date" after a Forever patch, tick **Load out of date AddOns** and update the TOC's Interface number.
+3. In game: `/mota` shows the status line and the commands. `/mota probe` prints the client facts. Copy them into section 4.
+4. With a second guild member online with the add-on: both run `/mota who` and see each other. One runs `/mota test Hear ye!`, and the other sees it arrive in chat.
+5. `/reload`, then `/mota book`: the test records are still there.
+6. `/mota probe limits`, about a minute after logging in, then `/reload` so the results are written to the saved file.
+
+**Results so far** (Max, 2026-11-05; the probe found no guild, so only the solo checks ran):
+
+- **It loads.** The add-on loaded in Forever, and `/mota probe` ran.
+- **Interface number 16001, project ID 18** (section 4).
+- **The game's own data packer is there and works.** `C_EncodingUtil` can pack, compress and turn data into text. A sample record came to 62 bytes packed, 64 compressed and 88 as text. So compressing a single small record makes it bigger: compression only pays off for big batches, such as catch-up. This feeds the libraries decision in Milestone 2.
+- **The message lockdown check exists in Forever** (`C_ChatInfo.InChatMessagingLockdown`), and it was off in the open world. The send queue already waits while it's on. Still to check inside a dungeon.
+- **Send result codes exist**, so the queue can tell a throttle from other refusals.
+- The realm's clock and the computer's clock agreed to the second.
+- **Still to test, on a character in a guild:** the handshake, test records, `/reload` keeping the book, and `/mota probe limits`. Max's character has no guild on Forever yet (2026-11-05), so these wait until the guild is formed there.
+
+### Milestone 2: the window *(built 2026-11-05, to test in game)*
+
+Agreed with Max on 2026-11-05. You can test all of it alone, with no guild.
+
+- **The window:** `/mota` opens and closes it. It has the blue leather frame with the gold rim and filigree corners, the crest breaking out over the top-left corner, the title with the page's name beneath, and the settings and close buttons (settings comes later). You can drag it, it reopens where it was, and Escape closes it. It opens at 0.85 of the canvas size, or smaller if the screen needs it; `/mota scale` changes that.
+- **The seven tabs** from the canvas, Throne Room through The Ring ("Gladiator duels"), each with its icon, a hover look, and the gold active look with its shine.
+- **Pages:** each has its eyebrow, heading and divider, and a note saying what it will hold. Their contents come in later milestones.
+- **Live text:** your name and guild rank at the foot of the rail (the canvas shows your district there, which comes with the Citizens module). The status strip shows sync status from Milestone 1 on the left, and where you are and the day on the right.
+- **Minimap seal:** click it to open the window, drag it round the minimap. `/mota minimap` hides or shows it.
+- **Crest finder:** `/mota crests` shows the game's likely Alliance crests, and `/mota crest <n>` tries one in the window (section 3).
+- **Probe:** `/mota probe` now also says whether the add-on's fonts loaded.
+- The window was checked in a pretend game client before the first in-game test: opening and closing it, the tabs, hover, the scale, the minimap seal, the crest finder, the page being remembered after a relog, and that every texture and font file it asks for exists.
+
+Smaller decisions it settled *(2026-11-05)*:
+
+- **The pieces:** one large background (the frame, the title and the parchment page) drawn at 1.46 times the canvas size, and the small pieces (tabs, labels, icons, buttons, seals) at twice the canvas size, so they stay sharp on large screens. The add-on's folder is about 15 MB, mostly these textures.
+- **Fixed-text labels are pictures, live text is game text.** The tab labels, the page names under the title and the eyebrows are drawn from the canvas, because the game can't space letters out the way the canvas does. Headings, notes and the status strip are game text in the add-on's fonts.
+- **The shadow** around the window is a soft picture stretched in nine pieces, so its corners stay round.
+
+**How to test it:**
+
+1. `/reload` (or log in), then `/mota`: the window opens on the Throne Room.
+2. Click each tab: the page name, heading and note change, and the tab turns gold with a shine every few seconds. Hover over a resting tab to see it lighten.
+3. Drag the window, close it with Escape or the red button, then reopen it: it's back where you left it, on the same page.
+4. Try `/mota scale 0.7` and `/mota scale` (back to the default).
+5. Find the seal on the minimap edge: hover for its tooltip, click it, drag it round.
+6. `/mota probe`: check "Add-on fonts: loaded". If not, the text falls back to the game's font: tell Claude.
+7. `/mota crests`: look for a crest close to ours. If there's one, `/mota crest <its number>` tries it in the window; `/mota crest ours` goes back.
+
+**Results** (Max, 2026-11-06, on a character with no guild):
+
+- **It works in Forever.** The window, tabs and textures load, and everything looks sharp.
+- **The add-on's own fonts load** (`/mota probe`: "Add-on fonts: loaded"), so Forever's new font system still accepts add-on fonts.
+- **The crest:** we keep our own for now (section 3).
+- Everything else in the probe matched Milestone 1's results.
+
+### Milestone 3 *(next; to agree with Max)*
+
+To be decided. Likely candidates: the settings panel and herald pop-ups (no guild needed), or catch-up and the trust rules from the Core/Sync plan (needs the guild).

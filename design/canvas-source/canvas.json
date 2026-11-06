@@ -1,92 +1,121 @@
 {
   "v": 3,
-  "createdOnFiles": {
-    "v": 1,
-    "at": "2026-11-03T17:20:00Z"
+  "attachments": {},
+  "boards": {
+    "BallotHall.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "2 · The Ballot Hall (all voting)",
+      "w": 1160,
+      "x": 2800,
+      "y": 0
+    },
+    "Districts.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "6 · The Districts (map & council)",
+      "w": 1160,
+      "x": 4040,
+      "y": 940
+    },
+    "Extras.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "title": "Small extras — minimap seal, heralds, citizen card, settings",
+      "w": 1440,
+      "x": 1560,
+      "y": 1880
+    },
+    "GladiatorsRing.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "7 · The Gladiator's Ring (monthly duels)",
+      "w": 1160,
+      "x": 3120,
+      "y": 1880
+    },
+    "Main.dc.html": {
+      "h": 1800,
+      "title": "The Royal Seal — style guide",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Parties.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "4 · The Parties (public & private chamber)",
+      "w": 1160,
+      "x": 1560,
+      "y": 940
+    },
+    "StatuteBook.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "3 · The Statute Book (laws & court)",
+      "w": 1160,
+      "x": 4040,
+      "y": 0
+    },
+    "ThroneRoom.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "1 · The Throne Room (home)",
+      "w": 1160,
+      "x": 1560,
+      "y": 0
+    },
+    "Treasury.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "5 · The Treasury",
+      "w": 1160,
+      "x": 2800,
+      "y": 940
+    },
+    "WorldMapSkins.dc.html": {
+      "h": 1790,
+      "title": "World map skins — party, Crown and Ministry",
+      "w": 1800,
+      "x": 0,
+      "y": 2900
+    }
   },
-  "title": "Ministry of the Allied — Add-on UI",
+  "createdOnFiles": {
+    "at": "2026-11-03T17:20:00Z",
+    "v": 1
+  },
+  "designSystems": [],
   "launch": {
     "view": "canvas"
   },
-  "pages": [],
-  "boards": {
-    "Main.dc.html": {
-      "x": 0,
-      "y": 0,
-      "w": 1440,
-      "h": 1800,
-      "title": "The Royal Seal — style guide"
-    },
-    "ThroneRoom.dc.html": {
+  "noteOrder": [
+    "pagesTitle",
+    "sample",
+    "play"
+  ],
+  "notes": {
+    "pagesTitle": {
+      "kind": "title1",
+      "maxW": 3640,
+      "text": "One window · seven pages",
+      "w": 240,
       "x": 1560,
-      "y": 0,
-      "w": 1160,
-      "h": 820,
-      "title": "1 · The Throne Room (home)",
-      "is_interactive": true
+      "y": -300
     },
-    "BallotHall.dc.html": {
-      "x": 2800,
-      "y": 0,
-      "w": 1160,
-      "h": 820,
-      "title": "2 · The Ballot Hall (all voting)",
-      "is_interactive": true
+    "play": {
+      "fill": "teal",
+      "text": "Press Play on any page: the left-hand tabs link the seven pages together, and the ribbons, ballot, chamber and map respond to clicks.",
+      "w": 300,
+      "x": 5280,
+      "y": 300
     },
-    "StatuteBook.dc.html": {
-      "x": 4040,
-      "y": 0,
-      "w": 1160,
-      "h": 820,
-      "title": "3 · The Statute Book (laws & court)",
-      "is_interactive": true
-    },
-    "Parties.dc.html": {
-      "x": 1560,
-      "y": 940,
-      "w": 1160,
-      "h": 820,
-      "title": "4 · The Parties (public & private chamber)",
-      "is_interactive": true
-    },
-    "Treasury.dc.html": {
-      "x": 2800,
-      "y": 940,
-      "w": 1160,
-      "h": 820,
-      "title": "5 · The Treasury",
-      "is_interactive": true
-    },
-    "Districts.dc.html": {
-      "x": 4040,
-      "y": 940,
-      "w": 1160,
-      "h": 820,
-      "title": "6 · The Districts (map & council)",
-      "is_interactive": true
-    },
-    "Extras.dc.html": {
-      "x": 1560,
-      "y": 1880,
-      "w": 1440,
-      "h": 900,
-      "title": "Small extras — minimap seal, heralds, citizen card, settings",
-      "is_interactive": true
-    },
-    "GladiatorsRing.dc.html": {
-      "x": 3120,
-      "y": 1880,
-      "w": 1160,
-      "h": 820,
-      "title": "7 · The Gladiator's Ring (monthly duels)",
-      "is_interactive": true
-    },
-    "WorldMapSkins.dc.html": {
-      "x": 0,
-      "y": 2900,
-      "w": 1800,
-      "h": 1790,
-      "title": "World map skins — party, Crown and Ministry"
+    "sample": {
+      "fill": "blue",
+      "text": "All character names, gold amounts, vote counts and laws on these boards are sample data to show the layout. The real add-on fills them from the guild's synced data.",
+      "w": 300,
+      "x": 5280,
+      "y": 0
     }
   },
   "order": [
@@ -101,28 +130,6 @@
     "Extras.dc.html",
     "WorldMapSkins.dc.html"
   ],
-  "notes": {
-    "pagesTitle": {
-      "x": 1560,
-      "y": -300,
-      "text": "One window · seven pages",
-      "kind": "title1",
-      "maxW": 3640
-    },
-    "sample": {
-      "x": 5280,
-      "y": 0,
-      "w": 300,
-      "text": "All character names, gold amounts, vote counts and laws on these boards are sample data to show the layout. The real add-on fills them from the guild's synced data.",
-      "fill": "blue"
-    },
-    "play": {
-      "x": 5280,
-      "y": 300,
-      "w": 300,
-      "text": "Press Play on any page: the left-hand tabs link the seven pages together, and the ribbons, ballot, chamber and map respond to clicks.",
-      "fill": "teal"
-    }
-  },
-  "designSystems": []
+  "pages": [],
+  "title": "Ministry of the Allied — Add-on UI"
 }

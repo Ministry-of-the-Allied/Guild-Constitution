@@ -42,7 +42,7 @@ Three materials do almost all the work:
 | Faded ink | `#5E4B33` | Secondary text (passes 4.5:1 on parchment) |
 
 **Wax colours:**
-- **Crown:** royal blue wax with a gold lion.
+- **Crown:** royal purple wax with a gold crown.
 - **Silverhand:** argent (silver-white) wax with a blue hand.
 - **Azeroth Exchange:** deep crimson wax with a gold coin-scale.
 - **Neutral / official:** oxblood red.
