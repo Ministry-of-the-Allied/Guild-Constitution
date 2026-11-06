@@ -90,7 +90,11 @@ end
 -- This character's realm, with spaces and dashes taken out. The game can
 -- report no realm for a moment around login, so it falls back to the realm's
 -- display name, and returns "" if neither is known yet.
+-- Once the guild roster has loaded, the realm is taken from this character's
+-- own roster entry (LearnMe), because Forever writes it there and in add-on
+-- message senders in a form of its own (e.g. "CAMWOWEU5Realm7PvE").
 function MOTA:MyRealm()
+  if self.homeRealm then return self.homeRealm end
   local realm = GetNormalizedRealmName and GetNormalizedRealmName()
   if (not realm or realm == "") and GetRealmName then
     realm = (GetRealmName() or ""):gsub("[%s%-]", "")
@@ -117,6 +121,16 @@ function MOTA:SetMe()
   if name and realm ~= "" then self.me = name .. "-" .. realm end
 end
 
+-- Called by Roster.lua with this character's own name exactly as the guild
+-- roster writes it (found by the character's unique ID), which is the form
+-- add-on messages arrive in.
+function MOTA:LearnMe(fullName)
+  if not fullName or fullName == self.me then return end
+  self:Debug("own name from the roster:", fullName, "(was", tostring(self.me) .. ")")
+  self.me = fullName
+  self.homeRealm = fullName:match("%-(.+)$")
+end
+
 -- True if a sender's name is this character's own, in any of the forms the
 -- game uses: "Name" for the player's own realm, or "Name-Realm".
 function MOTA:IsMe(name)
@@ -125,9 +139,14 @@ function MOTA:IsMe(name)
   return name == self.me or name == mine or Ambiguate(name, "none") == mine
 end
 
--- A name for display: the realm is dropped when it isn't needed.
+-- A name for display: the realm is dropped when it's the guild's own.
 function MOTA:Short(fullName)
-  return fullName and Ambiguate(fullName, "guild") or "?"
+  if not fullName then return "?" end
+  local realm = self:MyRealm()
+  if realm ~= "" and fullName:sub(-(#realm + 1)) == "-" .. realm then
+    return fullName:sub(1, -(#realm + 2))
+  end
+  return Ambiguate(fullName, "guild")
 end
 
 function MOTA:Ago(t)

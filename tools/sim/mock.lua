@@ -92,14 +92,22 @@ function CopyTable(t)
   for k, v in pairs(t) do c[k] = type(v) == "table" and CopyTable(v) or v end
   return c
 end
-function Ambiguate(name) return (name:gsub("%-.*$", "")) end
+function Ambiguate(name) if ODD_REALM then return name end return (name:gsub("%-.*$", "")) end
 
 -- player, guild, roster
 -- With REALM_LATE the game knows no realm for the first half second, as can
 -- happen around login.
-function GetNormalizedRealmName() if REALM_LATE and GetTime() < 0.5 then return nil end return REALM end
+-- With ODD_REALM the game's realm lookup gives a different form from the one
+-- in roster names and message senders, and Ambiguate never strips it, as in
+-- Forever ("CAMWOWEU5Realm7PvE").
+function GetNormalizedRealmName()
+  if REALM_LATE and GetTime() < 0.5 then return nil end
+  if ODD_REALM then return "Realm7PvE" end
+  return REALM
+end
 function GetRealmName() if REALM_LATE and GetTime() < 0.5 then return nil end return REALM end
 function UnitName() return PLAYER end
+function UnitGUID() return "Player-" .. PLAYER .. "-" .. REALM end
 function IsInGuild() return GUILD ~= nil end
 local myRank, myRankIndex = "Citizen", 3
 for _, m in ipairs(ROSTER) do
@@ -110,7 +118,7 @@ C_GuildInfo = { GuildRoster = function() py_roster_request() end }
 function GetNumGuildMembers() return ROSTER_READY and #ROSTER or 0, 0, 0 end
 function GetGuildRosterInfo(i)
   local m = ROSTER[i]
-  return m[1], m[2], m[3], 60, "Paladin", "Stormwind", "", "", m[4], 0, "PALADIN"
+  return m[1], m[2], m[3], 60, "Paladin", "Stormwind", "", "", m[4], 0, "PALADIN", 0, 0, false, false, 8, "Player-" .. m[1]
 end
 
 C_AddOns = { GetAddOnMetadata = function(_, key) if key == "Version" then return ADDON_VERSION or "0.1.0" end end }

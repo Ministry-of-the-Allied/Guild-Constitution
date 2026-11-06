@@ -46,7 +46,7 @@ clock = [0.0]
 
 
 class Client:
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False):
         self.name = name
         self.full = name + "-" + REALM
         self.log = []
@@ -61,6 +61,7 @@ class Client:
         g.ADDON_VERSION = version
         g.LOCKDOWN = lockdown
         g.REALM_LATE = realm_late
+        g.ODD_REALM = odd_realm
         g.py_send = self.send
         g.py_print = self.print
         g.py_error = self.error
@@ -171,6 +172,18 @@ check("Kael's record carries his full name", bram.said(r'Test record #1 from Kae
       and any(a == "Kael-Realm" for a in bram.lua.eval("(function() local t = {} for a in pairs(MinistryOfTheAllied.guild.records) do t[#t+1] = a end return table.concat(t, ',') end)()").split(",")))
 clients.remove(kael)
 
+print("== 1c. Kael on a Forever-style realm name")
+kael = Client("Kael", odd_realm=True)
+clients.append(kael)
+run(12)
+kael.slash("who")
+check("Forever realm: Kael doesn't list himself", not kael.said(r"Kael · v") and kael.said(r"Bram · v"))
+check("Forever realm: names show without the realm", kael.said(r"Online without the add-on \(or with an old copy\): Elowen$"))
+kael.slash("test Forever realm")
+run(2)
+check("Forever realm: Kael's record carries his roster name", bram.said(r'Test record #2 from Kael: "Forever realm"'))
+clients.remove(kael)
+
 print("== 2. test records")
 max_.slash("test Hear ye, the polls are open!")
 run(2)
@@ -182,7 +195,7 @@ max_.slash("test " + "é" * 120)
 run(2)
 max_.slash("book")
 max_.slash("sync")
-check("Max holds 4 records", max_.said(r"Records: 4 held from 3 authors, 2 of them yours"))
+check("Max holds 5 records", max_.said(r"Records: 5 held from 3 authors, 2 of them yours"))
 check("AceComm split the long record into pieces", any(m.startswith("\x01") for m in max_.wire)
       and any(m.startswith("\x03") for m in max_.wire))
 check("...and Bram got it back whole", bram.said(r"Test record #2 from Max: \"é{20,}"))
@@ -203,7 +216,7 @@ max_.slash("debug")
 max_.slash("probe limits")
 run(30)
 check("Limits test finishes", max_.said(r"Limits test:"))
-check("Limits test sees the burst throttle", max_.said(r"the game took 10 and refused 10"))
+check("Limits test sees the burst throttle", max_.said(r"Burst: 20 at once, the game took \d+ and refused \d+ \(\d+ AddonMessageThrottle\)"))
 check("256-byte message refused", max_.said(r"256-byte message: refused"))
 
 print("== 4. Max relogs with saved data")
@@ -213,7 +226,7 @@ max2 = Client("Max", saved=saved)
 clients.append(max2)
 run(8)
 max2.slash("sync")
-check("Max still holds 4 records after relog", max2.said(r"Records: 4 held"))
+check("Max still holds 5 records after relog", max2.said(r"Records: 5 held"))
 max2.slash("test after relog")
 run(2)
 check("Next record is #3", bram.said(r"Test record #3 from Max"))
