@@ -1,6 +1,6 @@
 # The pretend game client
 
-Runs the add-on in several pretend WoW clients at once, in real Lua 5.1 (the Lua the game uses), and checks what happens: the guild handshake, records, AceComm splitting long messages, relogging, a newer version arriving, a message lockdown, the window, heralds and settings.
+Runs the add-on in several pretend WoW clients at once, in real Lua 5.1 (the Lua the game uses), and checks what happens: the guild handshake, records, AceComm splitting long messages, relogging, a newer version arriving, a message lockdown, the window, heralds and settings, the Charter narration, and the secret ballot (two Kings, held ballots, hand-over, ties and run-offs).
 
 - `mock.lua`: just enough of the game's API (time, events, guild roster, add-on messages).
 - `mock_ui.lua`: pretend frames, textures and fonts, plus what AceComm and ChatThrottleLib need and a pretend `C_EncodingUtil`.

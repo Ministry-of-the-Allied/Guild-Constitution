@@ -109,7 +109,7 @@ function Methods:CreateFontString(name, layer, template)
 end
 function Methods:SetFontObject(f) assert(f, "SetFontObject(nil)") self.font = f end
 function Methods:SetText(t) assert(self.kind ~= "FontString" or self.font, "text without a font") self.text = t end
-function Methods:GetText() return self.text end
+function Methods:GetText() return rawget(self, "text") end
 function Methods:SetTextColor(r, g, b) for _, v in ipairs({ r, g, b }) do assert(v >= 0 and v <= 1, "colour out of range") end end
 function Methods:SetJustifyH(j) assert(({ LEFT = 1, CENTER = 1, RIGHT = 1 })[j], "bad justify") end
 function Methods:SetJustifyV(j) assert(({ TOP = 1, MIDDLE = 1, BOTTOM = 1 })[j], "bad justify") end
@@ -366,3 +366,11 @@ C_EncodingUtil = {
   EncodeBase64 = b64enc,
   DecodeBase64 = b64dec,
 }
+
+-- Edit boxes (the Ballot Hall's Open Polls form)
+function Methods:SetAutoFocus() end
+function Methods:SetTextInsets() end
+function Methods:SetMaxLetters() end
+function Methods:ClearFocus() end
+function Methods:SetFocus() end
+function Methods:HasFocus() return false end

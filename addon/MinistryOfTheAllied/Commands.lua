@@ -110,6 +110,44 @@ add("constitution", "", "read and hear the Charter", function()
   MOTA.UI.window:Show()
 end)
 
+add("ballot", "[count]", "open the Ballot Hall and say where the vote stands; 'count' shows the Crown's count", function(arg)
+  if not needGuild() then return end
+  local B = MOTA.Ballot
+  local b = B:Current()
+  local stage = B:Stage(b)
+  if arg == "count" then
+    if not B:IsKing() then return MOTA:Print("Only the two Crown ranks hold the count.") end
+    if not b then return MOTA:Print("No election is open or waiting to be declared.") end
+    local t = B:Tally(b.id)
+    local parts = {}
+    for i, c in ipairs(b.d.cands) do parts[#parts + 1] = c.n .. " " .. (t.counts[i] or 0) end
+    MOTA:Print(b.d.name, "·", stage, "·", table.concat(parts, ", "), "· held", B:HeldCount(b), "· refused", t.refused or 0)
+    for _, k in ipairs(B:Kings()) do
+      if not k.me then
+        local pc = B:PeerCount(b.id, k.name)
+        MOTA:Print(MOTA:Short(k.name) .. ":", not k.online and "offline" or not pc and "not compared yet"
+          or (pc.same and "counts agree (" .. pc.total .. ")" or "counts differ (" .. pc.total .. ")"))
+      end
+    end
+    return
+  end
+  if stage == "open" then
+    local mine = ({ none = "you haven't voted yet", sending = "your ballot is on its way", held = "your ballot is sealed and waiting for a King",
+      sent = "your ballot was received", late = "your ballot arrived too late" })[B:MyState(b)]
+    MOTA:Print(b.d.name, "· polls close in", B:Left(B:CloseTime(b)), "·", mine)
+  elseif stage == "closed" then
+    MOTA:Print(b.d.name, "· polls closed, the Crown is counting")
+  else
+    local last = B:Results()[1]
+    MOTA:Print(last and ("No polls open · last result: " .. last.result.name) or "No polls open.")
+  end
+  MOTA.UI:Build()
+  for i, page in ipairs(MOTA.Media.pages) do
+    if page.id == "ballot" then MOTA.UI:SelectPage(i) end
+  end
+  MOTA.UI.window:Show()
+end)
+
 add("voice", "[on|off|stop|next|reset]", "the Charter narration: how far it's got, or control it", function(arg)
   local V = MOTA.Voice
   local busy = "Not while the introduction is being read."

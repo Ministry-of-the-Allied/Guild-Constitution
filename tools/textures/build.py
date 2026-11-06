@@ -1,10 +1,11 @@
 """Turns the design canvas into game textures for the add-on.
 
-It renders two layouts in Microsoft Edge, one piece at a time, with the
+It renders three layouts in Microsoft Edge, one piece at a time, with the
 canvas's own stylesheet (design/canvas-source/ministry.css):
 
   tools/textures/layout.html   the add-on window (Throne Room board)
   tools/textures/extras.html   the herald pop-up and the settings page (Extras board)
+  tools/textures/ballot.html   the Ballot Hall's ribbons, seals, buttons and papers (Ballot Hall board)
 
 then crops each piece, packs them into textures and writes:
 
@@ -42,6 +43,8 @@ EDGE_PATHS = [
 
 WIN_W, WIN_H = 1000, 680
 VIEW_W, VIEW_H = 1400, 960   # the page size Edge renders
+BALLOT_VIEW = (1400, 1560)   # the Ballot Hall layout is taller: its papers sit below the pieces
+PAPER_SCALE = 0.9            # the papers are soft parchment: 0.9x keeps all three in one 1024 texture
 ATLAS_SCALE = 2              # small pieces are drawn at twice their size, for sharpness
 CHROME_SCALE = 1.46          # the big window background: as sharp as fits in 2048 x 1024
 ATLAS_WIDTH = 1024
@@ -54,6 +57,8 @@ BLOBS = {
     "d4a81ff364cfd13a95212c60a73bd187": "textures/parchment-grain.svg",
     "83dde6b367275cb6d4d9550c6c74c5ac": "textures/tab-frame.svg",
     "e91083b63eec292d284b54d9d2ba82db": "textures/divider-ink.svg",
+    "19c005d5f1860452928780ca70041223": "textures/seal-official.svg",
+    "539190bbac866c98462ae1069c2f22b6": "textures/seal-crown.svg",
 }
 SEALS = ["official", "crown", "exchange", "silverhand"]
 
@@ -91,6 +96,12 @@ SLOTS = {
     "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal"]
     + [f"row{i}" for i in range(1, 6)] + [f"slabel{i}" for i in range(1, 6)]
     + [f"ssmall{i}" for i in range(1, 6)] + [f"sw{i}" for i in range(1, 5)],
+    # The Ballot Hall's pieces, so the add-on knows each one's own box (without its shadow).
+    "ballot": ["ballot", "rb-ballot", "rb-ballot-dot", "rb-ballot-on", "rb-ballot-on-dot", "rb-results",
+               "rb-results-on", "rb-crown", "rb-crown-on", "seal-off", "seal-crown", "seal-tilt", "stamp", "held",
+               "ring", "kdot-on", "kdot-off", "diamond", "portrait-king", "btn-seal", "btn-open", "btn-close",
+               "btn-declare", "btn-runoff", "btn-last", "btn-add", "pill-general", "pill-general-on", "pill-snap",
+               "pill-snap-on", "pill-runoff", "pill-runoff-on", "xbtn", "paper-ballot", "paper-half", "paper-wide"],
 }
 
 
@@ -162,6 +173,14 @@ def extras_html(css, piece_css="", seal="official", button="Vote now", style="bl
     })
 
 
+def ballot_html(css, piece_css=""):
+    return fill("ballot.html", {
+        "css": css + "\n" + piece_css,
+        "official": (DESIGN / "textures" / "seal-official.svg").as_uri(),
+        "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+    })
+
+
 def only(show, hide=(), extra=""):
     """CSS that hides everything except the piece being drawn."""
     css = "body *{visibility:hidden!important}\n"
@@ -188,6 +207,9 @@ def pieces_to_draw(pages):
 
     def settings(name, css, tex="extras", scale=ATLAS_SCALE, **args):
         d[name] = dict(tex=tex, scale=scale, layout="extras", root="settings", args=args, css=css)
+
+    def ballot(name, css, tex="ballot", scale=ATLAS_SCALE):
+        d[name] = dict(tex=tex, scale=scale, layout="ballot", root="ballot", args={}, css=css)
 
     # The window (Milestone 2)
     win("chrome", only(["#rim", "#rim *", ".corner", "#title", "#page", "#parch"],
@@ -229,6 +251,13 @@ def pieces_to_draw(pages):
     settings("segModestOff", only(["#seg-modest"]), seg="full")
     settings("segRoyalOn", only(["#seg-royal"]), seg="full")
     settings("segRoyalOff", only(["#seg-royal"]), seg="small")
+
+    # The Ballot Hall (Milestone 4). Piece names are the layout's ids, prefixed "b_".
+    for el in SLOTS["ballot"][1:]:
+        if el.startswith("paper-"):
+            ballot("b_" + el, only([f"#{el}"]), tex="papers", scale=PAPER_SCALE)
+        else:
+            ballot("b_" + el, only([f"#{el}", f"#{el} *"]))
     return d
 
 
@@ -247,26 +276,27 @@ class Edge:
                 self.local.profile = self.workdir / f"profile{self.count}"
         return self.local.profile
 
-    def _args(self, scale):
+    def _args(self, scale, size=None):
+        w, h = size or (VIEW_W, VIEW_H)
         return [self.exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
                 "--no-default-browser-check", "--disable-extensions", f"--user-data-dir={self._profile()}",
                 f"--force-device-scale-factor={scale}", "--default-background-color=00000000",
-                f"--window-size={VIEW_W},{VIEW_H}", "--virtual-time-budget=5000"]
+                f"--window-size={w},{h}", "--virtual-time-budget=5000"]
 
-    def screenshot(self, name, text, scale):
+    def screenshot(self, name, text, scale, size=None):
         page = self.workdir / f"{name}.html"
         png = self.workdir / f"{name}.png"
         page.write_text(text, encoding="utf-8")
-        subprocess.run(self._args(scale) + [f"--screenshot={png}", page.as_uri()],
+        subprocess.run(self._args(scale, size) + [f"--screenshot={png}", page.as_uri()],
                        capture_output=True, timeout=180)
         if not png.exists():
             raise RuntimeError(f"Edge didn't draw {name}")
         return Image.open(png).convert("RGBA")
 
-    def rects(self, name, text):
+    def rects(self, name, text, size=None):
         page = self.workdir / f"{name}-rects.html"
         page.write_text(text, encoding="utf-8")
-        out = subprocess.run(self._args(1) + ["--dump-dom", page.as_uri()],
+        out = subprocess.run(self._args(1, size) + ["--dump-dom", page.as_uri()],
                              capture_output=True, timeout=180, text=True, encoding="utf-8")
         m = re.search(r'<pre id="rects-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
         if not m:
@@ -356,11 +386,13 @@ def lua_value(v, indent=""):
 
 def main():
     pages = json.loads((HERE / "pages.json").read_text(encoding="utf-8"))
-    css = {"window": stylesheet(), "extras": stylesheet("Extras.dc.html")}
+    css = {"window": stylesheet(), "extras": stylesheet("Extras.dc.html"), "ballot": stylesheet("BallotHall.dc.html")}
     render = {
         "window": lambda c, args: window_html(pages, css["window"], c, **args),
         "extras": lambda c, args: extras_html(css["extras"], c, **args),
+        "ballot": lambda c, args: ballot_html(css["ballot"], c),
     }
+    view = {"ballot": BALLOT_VIEW}
     MEDIA.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="mota-textures-"))
     edge = Edge(work)
@@ -368,6 +400,7 @@ def main():
     rects = {}
     rects.update(edge.rects("window", render["window"]("", {})))
     rects.update(edge.rects("extras", render["extras"]("", {})))
+    rects.update(edge.rects("ballot", render["ballot"]("", {}), BALLOT_VIEW))
     origin = {root: (rects[root]["x"], rects[root]["y"]) for root in SLOTS}
     slots = {}
     for root, names in SLOTS.items():
@@ -382,7 +415,7 @@ def main():
 
     def draw(name):
         p = todo[name]
-        im = edge.screenshot(name, render[p["layout"]](p["css"], p["args"]), p["scale"])
+        im = edge.screenshot(name, render[p["layout"]](p["css"], p["args"]), p["scale"], view.get(p["layout"]))
         return name, crop(im, p["scale"], origin[p["root"]])
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -397,7 +430,7 @@ def main():
         pieces[name] = dict(pos, tex=tex, root=todo[name]["root"], l=x / size[0], r=(x + im.width) / size[0],
                             t=y / size[1], b=(y + im.height) / size[1])
 
-    for tex in ("atlas", "extras"):
+    for tex in ("atlas", "extras", "ballot", "papers"):
         items = [(n, drawn[n][0]) for n, p in todo.items() if p["tex"] == tex]
         image, spots = pack(items)
         for name, _ in items:
@@ -426,7 +459,7 @@ def main():
     lua = ("-- Generated by tools/textures/build.py from the design canvas. Don't edit by hand:\n"
            "-- change the design or the layouts, then run the script again.\n"
            "-- Positions are in canvas units from the top-left corner of the piece's root\n"
-           "-- (win: the window, herald: the herald pop-up, settings: the settings page;\n"
+           "-- (win: the window, herald: the herald pop-up, settings: the settings page, ballot: the Ballot Hall layout;\n"
            "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
            "local _, MOTA = ...\n\nMOTA.Media = " + lua_value(media) + "\n")
     (ADDON / "Media.lua").write_text(lua, encoding="utf-8", newline="\n")
