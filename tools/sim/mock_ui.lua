@@ -87,18 +87,23 @@ function Methods:CreateTexture(name, layer, template, sublevel)
 end
 function Methods:SetTexture(path, wrapH, wrapV, filter)
   self.texture = path
+  self.wrap = wrapH
   if type(path) == "string" then TEXTURES_USED[path] = true end
   assert(filter == nil or ({ LINEAR = 1, TRILINEAR = 1, NEAREST = 1 })[filter], "bad filter")
   return true
 end
 function Methods:SetColorTexture() end
 function Methods:SetAtlas(name) self.atlas = name end
+-- Coordinates past 1 only on a repeating (tiled) texture; swapped ends mirror the picture.
 function Methods:SetTexCoord(l, r, t, b)
-  for _, v in ipairs({ l, r, t, b }) do assert(type(v) == "number" and v >= 0 and v <= 1.0001, "texcoord out of range") end
-  assert(l < r and t < b, "texcoords back to front")
+  local max = rawget(self, "wrap") == "REPEAT" and 64 or 1.0001
+  for _, v in ipairs({ l, r, t, b }) do assert(type(v) == "number" and v >= 0 and v <= max, "texcoord out of range") end
+  assert(l ~= r and t ~= b, "texcoords of no size")
+  self.coords = { l, r, t, b }
 end
 function Methods:SetVertexColor(r, g, b)
   for _, v in ipairs({ r, g, b }) do assert(v >= 0 and v <= 1, "colour out of range") end
+  self.color = { r, g, b }
 end
 function Methods:SetBlendMode(m) assert(({ ADD = 1, BLEND = 1, MOD = 1, ALPHAKEY = 1, DISABLE = 1 })[m], "bad blend") end
 
@@ -110,7 +115,11 @@ end
 function Methods:SetFontObject(f) assert(f, "SetFontObject(nil)") self.font = f end
 function Methods:SetText(t) assert(self.kind ~= "FontString" or self.font, "text without a font") self.text = t end
 function Methods:GetText() return rawget(self, "text") end
-function Methods:SetTextColor(r, g, b) for _, v in ipairs({ r, g, b }) do assert(v >= 0 and v <= 1, "colour out of range") end end
+function Methods:SetTextColor(r, g, b)
+  for _, v in ipairs({ r, g, b }) do assert(v >= 0 and v <= 1, "colour out of range") end
+  self.color = { r, g, b }
+end
+function Methods:GetObjectType() return self.kind end
 function Methods:SetJustifyH(j) assert(({ LEFT = 1, CENTER = 1, RIGHT = 1 })[j], "bad justify") end
 function Methods:SetJustifyV(j) assert(({ TOP = 1, MIDDLE = 1, BOTTOM = 1 })[j], "bad justify") end
 function Methods:SetSpacing() end

@@ -11,6 +11,7 @@
 # Milestone 2: the window, the minimap seal and the crest finder.
 # Milestone 3: herald pop-ups and the settings panel.
 # Milestone 4: the secret ballot and the Ballot Hall page.
+# Milestone 5: the window skins (UI\Skin.lua, before the other UI files).
 # Since 2026-11-06: AceComm-3.0 carries every message (ADDON_SPEC.md, section 3).
 # Load order matters: libraries, then Core, Commands last.
 Libs\LibStub\LibStub.lua
@@ -29,6 +30,7 @@ Charter.lua
 Voice.lua
 Ring.lua
 Ballot.lua
+UI\Skin.lua
 UI\MainWindow.lua
 UI\Minimap.lua
 UI\Crests.lua

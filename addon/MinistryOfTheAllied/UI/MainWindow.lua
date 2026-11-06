@@ -11,14 +11,18 @@ MOTA.UI = UI
 local M = MOTA.Media
 local W, H = M.window.w, M.window.h
 
--- Colours from the canvas (design/canvas-source/ministry.css).
-local TAB_COLORS = {
-  rest = { label = "E5CF92", small = "EBC3B2" },
-  hover = { label = "FBEFC4", small = "EBC3B2" },
-  on = { label = "0E1F45", small = "3A2A0A" },
+-- Tab colours by look, from the skin's tokens (UI/Skin.lua, ADDON_SPEC.md 9.3).
+local TAB_TOKENS = {
+  rest = { label = "TAB_INK", small = "TAB_SMALL" },
+  hover = { label = "TAB_INK_HOVER", small = "TAB_SMALL" },
+  on = { label = "TAB_INK_ON", small = "TAB_SMALL_ON" },
 }
 
 local DEFAULT_SCALE = 0.85
+
+-- Every texture that changes with the skin, so a new skin can be put on at once.
+local skinned = {}
+local setTabLook -- below, with the tabs
 
 -- Pages that fill the whole parchment themselves: the heading, divider,
 -- eyebrow and note are hidden there (the Ballot Hall, UI/BallotHall.lua).
@@ -36,13 +40,60 @@ end
 -- corner of the piece's root (the window unless another frame is given as
 -- anchor); dx, dy shift a piece that is reused somewhere else.
 function UI:Piece(parent, name, layer, sublevel, dx, dy, anchor)
-  local p = M.pieces[name]
+  -- A frame piece the skins own (the portrait ring) follows the skin's metal.
+  if not M.pieces[name] and MOTA.skin and M.pieces[self:SkinName(name, "metal")] then
+    return self:SkinPiece(parent, name, "metal", layer, sublevel, dx, dy, nil, anchor or parent)
+  end
   local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
-  t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
-  t:SetTexCoord(p.l, p.r, p.t, p.b)
-  t:SetSize(p.w, p.h)
-  t:SetPoint("TOPLEFT", anchor or self.window, "TOPLEFT", p.x + (dx or 0), -(p.y + (dy or 0)))
+  self:SetPiece(t, name, dx, dy, anchor)
   return t
+end
+
+-- Puts a piece on an existing texture. at = { x, y } places it there instead
+-- of where the layout has it; flipH, flipV mirror it.
+function UI:SetPiece(t, name, dx, dy, anchor, at, flipH, flipV)
+  local p = M.pieces[name]
+  t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
+  local l, r, tp, b = p.l, p.r, p.t, p.b
+  if flipH then l, r = r, l end
+  if flipV then tp, b = b, tp end
+  t:SetTexCoord(l, r, tp, b)
+  t:SetSize(p.w, p.h)
+  t:ClearAllPoints()
+  local x, y = p.x + (dx or 0), p.y + (dy or 0)
+  if at then x, y = at[1], at[2] end
+  t:SetPoint("TOPLEFT", anchor or self.window, "TOPLEFT", x, -y)
+end
+
+-- The piece's name in the current skin: per skin ("crown:leather") or per
+-- metal ("gold:tabOn").
+function UI:SkinName(base, kind)
+  local s = MOTA.skin
+  return (kind == "metal" and s.METAL or s.FILE) .. ":" .. base
+end
+
+-- A piece that changes with the skin. place(t) may put it somewhere of its
+-- own after the skin's piece is set (the corners, the subtitle's rules).
+-- anchor: a page piece its page places itself; a new skin then changes only
+-- its picture and leaves where it sits alone.
+function UI:SkinPiece(parent, base, kind, layer, sublevel, dx, dy, place, anchor)
+  local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
+  local entry = { t = t, base = base, kind = kind, dx = dx, dy = dy, place = place, anchor = anchor }
+  skinned[#skinned + 1] = entry
+  self:ApplySkinPiece(entry)
+  return t
+end
+
+function UI:ApplySkinPiece(e)
+  if e.anchor and e.applied then
+    local p = M.pieces[self:SkinName(e.base, e.kind)]
+    e.t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
+    e.t:SetTexCoord(p.l, p.r, p.t, p.b)
+    return
+  end
+  e.applied = true
+  self:SetPiece(e.t, self:SkinName(e.base, e.kind), e.dx, e.dy, e.anchor)
+  if e.place then e.place(e.t, M.pieces[self:SkinName(e.base, e.kind)]) end
 end
 
 -- Places a region at a slot from the layout (where live text or a button goes).
@@ -55,6 +106,16 @@ end
 
 local function tint(texture, hex)
   texture:SetVertexColor(MOTA:RGB(hex))
+end
+
+-- Colours a texture or text with one of the skin's tokens.
+local function ink(region, token)
+  local c = MOTA.skin[token]
+  if region:GetObjectType() == "FontString" then
+    region:SetTextColor(c.r, c.g, c.b)
+  else
+    region:SetVertexColor(c.r, c.g, c.b)
+  end
 end
 
 local function text(parent, font, hex, layer)
@@ -102,17 +163,85 @@ local function buildShadow(f)
 end
 
 ---------------------------------------------------------------------------
+-- The frame, in layers (ADDON_SPEC.md 9.7): the skin's leather, the shared
+-- grain tiled over it, the metal's rim and rules, the parchment page with
+-- its metal rim, and the filigree corners.
+---------------------------------------------------------------------------
+
+-- The filigree corner is drawn once (top right); the bottom two are mirror images.
+local function placeCorner(corner)
+  return function(t, p)
+    local tr, s = M.slots["corner-tr"], M.slots["corner-" .. corner]
+    local ox, oy = p.x - tr.x, p.y - tr.y
+    if corner == "bl" then
+      UI:SetPiece(t, UI:SkinName("corner", "metal"), 0, 0, nil, { s.x + s.w - ox - p.w, s.y + s.h - oy - p.h }, true, true)
+    else
+      UI:SetPiece(t, UI:SkinName("corner", "metal"), 0, 0, nil, { s.x + ox, s.y + s.h - oy - p.h }, false, true)
+    end
+  end
+end
+
+function UI:BuildFrame(f)
+  self:SkinPiece(f, "leather", "skin", "BACKGROUND", -6)
+  local lr = M.slots.leather
+  local grain = f:CreateTexture(nil, "BACKGROUND", nil, -5)
+  grain:SetTexture(texturePath("grain"), "REPEAT", "REPEAT", "TRILINEAR")
+  grain:SetTexCoord(0, lr.w / M.grain.tile, 0, lr.h / M.grain.tile)
+  grain:SetSize(lr.w, lr.h)
+  grain:SetPoint("TOPLEFT", f, "TOPLEFT", lr.x, -lr.y)
+  for _, part in ipairs(M.frameParts) do
+    self:SkinPiece(f, part, "metal", "BACKGROUND", -4)
+  end
+  self:Piece(f, "parch", "BACKGROUND", -3)
+  self:SkinPiece(f, "corner", "metal", "BORDER", 0)
+  self:SkinPiece(f, "corner", "metal", "BORDER", 0, 0, 0, placeCorner("bl"))
+  self:SkinPiece(f, "corner", "metal", "BORDER", 0, 0, 0, placeCorner("br"))
+end
+
+-- The two rules either side of the page's name, which is a different width on each page.
+function UI:PlaceSubRule(t, right)
+  local sub = M.pieces["subtitle" .. (self.page or 1)]
+  local p = M.pieces[self:SkinName("subRule", "metal")]
+  if right then
+    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x + sub.w + M.subRule.gapR, p.y }, true, false)
+  else
+    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x - M.subRule.gapL - p.w, p.y }, false, false)
+  end
+end
+
+-- Colours the window's labels and live text with the skin's tokens.
+function UI:InkWindow()
+  for i, tab in ipairs(self.tabs) do setTabLook(tab, tab.look or "rest") end
+  for _, sub in ipairs(self.subtitles) do ink(sub, "SUBTITLE") end
+  ink(self.who, "NAME_INK")
+  ink(self.whoSmall, "PALE_INK")
+  ink(self.footLeft, "PALE_INK")
+  ink(self.footRight, "PALE_INK")
+end
+
+-- A new skin: every skinned piece, the crest and the colours, at once.
+function UI:ReSkin()
+  if not self.window then return end
+  for _, e in ipairs(skinned) do self:ApplySkinPiece(e) end
+  self:ApplyCrest()
+  self:InkWindow()
+end
+
+MOTA:Listen("SKIN_CHANGED", function() UI:ReSkin() end)
+
+---------------------------------------------------------------------------
 -- Tabs
 ---------------------------------------------------------------------------
 
-local function setTabLook(tab, look)
-  local colors = TAB_COLORS[look]
+function setTabLook(tab, look)
+  local tokens = TAB_TOKENS[look]
+  tab.look = look
   tab.bgRest:SetShown(look == "rest")
   tab.bgHover:SetShown(look == "hover")
   tab.bgOn:SetShown(look == "on")
-  tint(tab.icon, colors.label)
-  tint(tab.label, colors.label)
-  tint(tab.small, colors.small)
+  ink(tab.icon, tokens.label)
+  ink(tab.label, tokens.label)
+  ink(tab.small, tokens.small)
 end
 
 local function buildTab(f, i)
@@ -125,9 +254,9 @@ local function buildTab(f, i)
 
   local dyRest = s.y - M.slots.tab2.y
   local dyOn = s.y - M.slots.tab1.y
-  tab.bgRest = UI:Piece(tab, "tabRest", "BACKGROUND", 0, 0, dyRest)
-  tab.bgHover = UI:Piece(tab, "tabHover", "BACKGROUND", 0, 0, dyRest)
-  tab.bgOn = UI:Piece(tab, "tabOn", "BACKGROUND", 0, 0, dyOn)
+  tab.bgRest = UI:SkinPiece(tab, "tabRest", "skin", "BACKGROUND", 0, 0, dyRest)
+  tab.bgHover = UI:SkinPiece(tab, "tabHover", "skin", "BACKGROUND", 0, 0, dyRest)
+  tab.bgOn = UI:SkinPiece(tab, "tabOn", "metal", "BACKGROUND", 0, 0, dyOn)
   tab.icon = UI:Piece(tab, "icon" .. i, "ARTWORK")
   tab.label = UI:Piece(tab, "label" .. i, "ARTWORK")
   tab.small = UI:Piece(tab, "small" .. i, "ARTWORK")
@@ -185,8 +314,8 @@ local function buildKnob(f, piece, slot, tooltip, onClick)
   local s = UI:AtSlot(b, slot)
   b:SetSize(s.w, s.h)
   b:SetFrameLevel(f:GetFrameLevel() + 15)
-  UI:Piece(b, piece, "ARTWORK")
-  local glow = UI:Piece(b, piece, "HIGHLIGHT")
+  UI:SkinPiece(b, piece, "skin", "ARTWORK")
+  local glow = UI:SkinPiece(b, piece, "skin", "HIGHLIGHT")
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
   b:SetScript("OnClick", onClick)
@@ -220,14 +349,19 @@ function UI:Build()
   tinsert(UISpecialFrames, "MinistryOfTheAlliedFrame") -- Escape closes it
 
   buildShadow(f)
-  self:Piece(f, "chrome", "BACKGROUND", 0)
+  self:BuildFrame(f)
 
-  -- Header: the page's name under the title (the title is part of the chrome).
+  -- Header: the title, and the page's name under it between two rules.
+  self:SkinPiece(f, "title", "metal", "ARTWORK")
   self.subtitles, self.eyebrows = {}, {}
   for i = 1, #M.pages do
     self.subtitles[i] = self:Piece(f, "subtitle" .. i, "ARTWORK")
     self.eyebrows[i] = self:Piece(f, "eyebrow" .. i, "ARTWORK")
   end
+  self.subRules = {
+    self:SkinPiece(f, "subRule", "metal", "ARTWORK", 0, 0, 0, function(t) UI:PlaceSubRule(t, false) end),
+    self:SkinPiece(f, "subRule", "metal", "ARTWORK", 0, 0, 0, function(t) UI:PlaceSubRule(t, true) end),
+  }
   buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:OpenSettings() end)
   buildKnob(f, "knobClose", "knob-close", "Close", function() f:Hide() end)
 
@@ -237,8 +371,8 @@ function UI:Build()
   buildSheen(f)
 
   -- The rail's foot: who you are.
-  self:Piece(f, "railLine", "ARTWORK")
-  self:Piece(f, "portrait", "ARTWORK")
+  self:SkinPiece(f, "railLine", "metal", "ARTWORK")
+  self:SkinPiece(f, "portrait", "metal", "ARTWORK")
   self.initials = text(f, "initials", "F3D98A")
   local ps = M.slots.portrait
   self.initials:SetPoint("CENTER", f, "TOPLEFT", ps.x + ps.w / 2, -(ps.y + ps.h / 2))
@@ -262,8 +396,8 @@ function UI:Build()
   self.note2:SetWidth(note.w)
   self.note2:SetText("This page is built in a later milestone.")
 
-  -- The status strip along the bottom.
-  self:Piece(f, "pip", "ARTWORK")
+  -- The status strip along the bottom (coloured by UI:InkWindow).
+  self:SkinPiece(f, "pip", "metal", "ARTWORK")
   self.footLeft = text(f, "foot", "AFC0E6")
   self:AtSlot(self.footLeft, "foot-left", 16, 5)
   self.footRight = text(f, "foot", "AFC0E6")
@@ -275,8 +409,9 @@ function UI:Build()
   local top = CreateFrame("Frame", nil, f)
   top:SetAllPoints()
   top:SetFrameLevel(f:GetFrameLevel() + 30)
-  self.crest = self:Piece(top, "crest", "ARTWORK")
+  self.crest = top:CreateTexture(nil, "ARTWORK")
   self:ApplyCrest()
+  self:InkWindow()
 
   f:SetScript("OnShow", function()
     play("IG_CHARACTER_INFO_OPEN")
@@ -309,6 +444,8 @@ function UI:SelectPage(i)
   end
   self.heading:SetShown(not full)
   self.divider:SetShown(not full)
+  self:PlaceSubRule(self.subRules[1], false)
+  self:PlaceSubRule(self.subRules[2], true)
   local slot = M.slots["tab" .. i]
   self.sheenClip:ClearAllPoints()
   self.sheenClip:SetPoint("TOPLEFT", self.window, "TOPLEFT", slot.x, -slot.y)
@@ -393,7 +530,7 @@ end
 
 function UI:ApplyCrest()
   if not self.crest then return end
-  local p = M.pieces.crest
+  local p = M.pieces[self:SkinName("crest", "skin")] -- the skin's own emblem (9.2)
   local choice = MOTA.db.crest
   local t = self.crest
   t:ClearAllPoints()
