@@ -25,14 +25,80 @@ a{color:#1B3570}a:hover{color:#3A63B8}
   background:transparent;border-bottom:1px dotted rgba(110,79,23,.45)}
 .opt:hover{background:rgba(201,162,74,.12)}
 .opt.on{background:linear-gradient(90deg,rgba(201,162,74,.28),rgba(201,162,74,.04))}
+.opt:disabled{cursor:default}
 .ring{flex:none;width:38px;height:38px;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(110,79,23,.65),inset 0 0 0 5px rgba(247,238,213,.9),inset 0 0 0 6px rgba(110,79,23,.3)}
 .stamp{position:absolute;right:26px;bottom:18px;width:150px;height:150px;animation:stamp .55s cubic-bezier(.2,1.4,.4,1) both;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35))}
+.held{position:absolute;right:22px;bottom:16px;display:flex;flex-direction:column;align-items:center;gap:4px;animation:stamp .55s cubic-bezier(.2,1.4,.4,1) both;filter:drop-shadow(0 6px 8px rgba(0,0,0,.3))}
 @keyframes stamp{0%{transform:scale(2.2) rotate(-24deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(-8deg);opacity:1}}
 .chip.k-sh{--c:#1F4290}.chip.k-ex{--c:#9E1B22}.chip.k-ink{--c:#5E4B33}.chip.k-teal{--c:#1F7A70}.chip.k-ox{--c:#6E1712}
-.thresh{position:absolute;top:-8px;bottom:-8px;width:2px;background:#6E1712;box-shadow:0 0 0 1px rgba(255,240,220,.6)}
+.bar.p-sh > i{background:linear-gradient(180deg,#3A68C0,#1F4290)}
+.bar.p-ex > i{background:linear-gradient(180deg,#C2413C,#8A161C)}
+.bar.p-ind > i{background:linear-gradient(180deg,#8A7556,#5E4B33)}
+.kdot{flex:none;width:9px;height:9px;border-radius:50%}
+.kdot.on{background:#3FAE6E;box-shadow:0 0 0 1px rgba(20,60,30,.6),0 0 6px rgba(63,174,110,.7)}
+.kdot.off{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(110,79,23,.6)}
+.btn:disabled,.xbtn:disabled{opacity:.45;cursor:default}
+/* Crown form */
+.fld{display:flex;flex-direction:column;gap:5px;margin:0}
+.fld-lab{font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:#7A5719}
+.inp{height:34px;padding:0 10px;border:none;border-radius:2px;font-family:'EB Garamond',serif;font-size:15.5px;color:#2A1F14;background:rgba(255,250,235,.78);
+  box-shadow:inset 0 0 0 1px rgba(110,79,23,.6),inset 0 2px 4px rgba(90,63,16,.16)}
+.inp::placeholder{color:#76634A;font-style:italic}
+.inp:focus{outline:2px solid #3A63B8;outline-offset:1px}
+select.inp{padding:0 6px;cursor:pointer}
+.pills{display:inline-flex;gap:6px}
+.pill{height:30px;padding:0 14px;border:none;border-radius:2px;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:#4A3A22;background:linear-gradient(180deg,#E6D6AE,#D2BB89);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
+.pill.on{color:#F3D98A;background:linear-gradient(180deg,#3460B4,#1B3570 58%,#12285A)}
+.xbtn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border:none;border-radius:50%;cursor:pointer;color:#6E1712;background:transparent;box-shadow:inset 0 0 0 1px rgba(110,79,23,.5)}
+.xbtn svg{width:14px;height:14px}
+.ticks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.ticks li{position:relative;padding-left:18px;font-size:14.5px;line-height:1.35;color:#E8EEFF}
+.ticks li::before{content:"";position:absolute;left:2px;top:7px;width:6px;height:6px;transform:rotate(45deg);background:#F3D98A}
+.warn{margin:0;padding:7px 10px;font-size:14px;line-height:1.35;color:#6E1712;background:rgba(158,27,34,.08);box-shadow:inset 0 0 0 1px rgba(110,23,18,.45)}
+/* the record of past elections */
+.rec{display:flex;flex-direction:column}
+.rec-head{display:flex;justify-content:space-between;padding:7px 10px;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:#7A5719;border-bottom:1px solid rgba(110,79,23,.7)}
+.rec-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px dotted rgba(110,79,23,.4);font-size:14.5px;line-height:1.25}
+/* board controls: outside the game window, for reviewing the design only */
+.lvrow{position:absolute;display:flex;align-items:center;gap:22px}
+.lvgrp{display:flex;align-items:center;gap:10px}
+.lvlab{font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:rgba(243,217,138,.85)}
+.lv{display:inline-flex;gap:2px;padding:3px;border-radius:4px;background:rgba(6,9,18,.6);box-shadow:inset 0 0 0 1px rgba(201,162,74,.5)}
+.lv button{height:30px;padding:0 12px;border:none;border-radius:2px;background:transparent;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#C9D5F0}
+.lv button:hover{color:#FBEFC4}
+.lv button.on{color:#0E1F45;background:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 30%,#C9A24A 100%)}
+.lvgo{height:36px;padding:0 14px;border:none;border-radius:4px;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#FBEFC4;
+  background:radial-gradient(ellipse 120% 170% at 30% 22%,#B9503F 0%,#6E1712 42%,#2C0705 100%);box-shadow:inset 0 0 0 1px rgba(201,162,74,.6)}
+/* the last King's logout warning */
+.dim{position:absolute;inset:0;z-index:30;border-radius:9px;background:rgba(6,9,18,.62);display:grid;place-items:center}
+.popup{width:440px;padding:24px 30px 22px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.held-note{margin:0;padding:7px 10px;font-size:14px;line-height:1.35;background:rgba(201,162,74,.12);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
 </style>
 </helmet>
 <div class="stage" style="width: 1160px; height: 820px">
+  <div class="lvrow" style="right: 60px; top: 24px">
+    <div class="lvgrp">
+      <span class="lvlab">Seen as</span>
+      <div class="lv" role="group" aria-label="Seen as">
+        <sc-for list="{{viewerOpts}}" as="v" hint-placeholder-count="2">
+          <button class="{{v.cls}}" type="button" aria-pressed="{{v.pressed}}" onClick="{{v.pick}}">{{v.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div class="lvgrp">
+      <span class="lvlab">Kings online</span>
+      <div class="lv" role="group" aria-label="Kings online">
+        <sc-for list="{{kingOpts}}" as="k" hint-placeholder-count="3">
+          <button class="{{k.cls}}" type="button" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}">{{k.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{canLogout}}" hint-placeholder-val="{{ false }}">
+      <button class="lvgo" type="button" onClick="{{tryLogout}}">Log out</button>
+    </sc-if>
+  </div>
+
   <div class="win" style="left: 100px; top: 86px">
     <div class="win-rim"><div class="win-leather"></div></div>
     <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
@@ -56,8 +122,14 @@ a{color:#1B3570}a:hover{color:#3A63B8}
         <a class="tab" href="Districts.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path></svg><span>Districts<small>Map &amp; council</small></span></a>
         <a class="tab" href="GladiatorsRing.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg><span>The Ring<small>Gladiator duels</small></span></a>
         <div class="rail-foot">
-          <div class="portrait sm" style="--pc: #A8506F">AV</div>
-          <div class="who">Aldric Vane<small>Cathedral Ward</small></div>
+          <sc-if value="{{citizenViewer}}" hint-placeholder-val="{{ true }}">
+            <div class="portrait sm" style="--pc: #A8506F">AV</div>
+            <div class="who">Aldric Vane<small>Cathedral Ward</small></div>
+          </sc-if>
+          <sc-if value="{{crownViewer}}" hint-placeholder-val="{{ false }}">
+            <div class="portrait sm" style="--pc: #6B44A8">KA</div>
+            <div class="who">King Aldmere<small>The King</small></div>
+          </sc-if>
         </div>
       </nav>
 
@@ -66,38 +138,52 @@ a{color:#1B3570}a:hover{color:#3A63B8}
 
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
             <div class="ribbons" role="tablist" aria-label="Ballot Hall views">
-              <button class="{{rb.ballot}}" type="button" role="tab" onClick="{{show.ballot}}">Ballot</button>
-              <button class="{{rb.results}}" type="button" role="tab" onClick="{{show.results}}">Results</button>
-              <button class="{{rb.petition}}" type="button" role="tab" onClick="{{show.petition}}"><span class="dot"></span>Petition</button>
+              <button class="{{rb.ballot}}" type="button" role="tab" aria-selected="{{sel.ballot}}" onClick="{{show.ballot}}"><sc-if value="{{ballotDot}}" hint-placeholder-val="{{ true }}"><span class="dot"></span></sc-if>Ballot</button>
+              <button class="{{rb.results}}" type="button" role="tab" aria-selected="{{sel.results}}" onClick="{{show.results}}">Results</button>
+              <button class="{{rb.petition}}" type="button" role="tab" aria-selected="{{sel.petition}}" onClick="{{show.petition}}">Petition</button>
+              <sc-if value="{{crownViewer}}" hint-placeholder-val="{{ false }}">
+                <button class="{{rb.crown}}" type="button" role="tab" aria-selected="{{sel.crown}}" title="Only the two Crown ranks see this" onClick="{{show.crown}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg>Crown</button>
+              </sc-if>
             </div>
-            <span class="eyebrow" style="font-size: 10px">2 ballots open</span>
+            <sc-if value="{{citizenViewer}}" hint-placeholder-val="{{ true }}">
+              <span class="eyebrow" style="font-size: 10px">{{topNote}}</span>
+            </sc-if>
           </div>
 
-          <sc-if value="{{isBallot}}" hint-placeholder-val="{{ true }}">
+          <!-- BALLOT: polls open -->
+          <sc-if value="{{ballotOpen}}" hint-placeholder-val="{{ true }}">
             <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 206px minmax(0, 1fr); gap: 20px">
-              <div style="display: flex; flex-direction: column; gap: 10px">
-                <p class="eyebrow" style="font-size: 10px">Open ballots</p>
-                <button class="{{bcls.rep}}" type="button" onClick="{{pickBallot.rep}}">
+              <div style="display: flex; flex-direction: column; gap: 12px">
+                <p class="eyebrow" style="font-size: 10px">Open ballot</p>
+                <div class="bl on" style="cursor: default">
                   <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 36px; height: 36px; flex: none">
-                  <span style="display: flex; flex-direction: column; gap: 1px"><span class="h-name" style="font-size: 13.5px; line-height: 1.2">Cathedral Ward Representative</span><span class="small muted" style="font-size: 13px">Election · closes Fri 9 pm</span></span>
-                </button>
-                <button class="{{bcls.law}}" type="button" onClick="{{pickBallot.law}}">
-                  <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 36px; height: 36px; flex: none">
-                  <span style="display: flex; flex-direction: column; gap: 1px"><span class="h-name" style="font-size: 13.5px; line-height: 1.2">The Raid Tithe Act</span><span class="small muted" style="font-size: 13px">Law vote · 1 day 4 hours left</span></span>
-                </button>
+                  <span style="display: flex; flex-direction: column; gap: 1px"><span class="h-name" style="font-size: 13.5px; line-height: 1.2">{{poll.name}}</span><span class="small muted" style="font-size: 13px">{{poll.kindLabel}} · 2 hours</span></span>
+                </div>
+                <div class="plate sunk" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+                  <span class="eyebrow" style="font-size: 9.5px">Polls close in</span>
+                  <span class="num" style="font-size: 22px">{{poll.left}}</span>
+                  <span class="small muted" style="font-size: 13px">At {{poll.closes}} realm time</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <span class="eyebrow" style="font-size: 9.5px">Your ballot goes to</span>
+                  <sc-for list="{{kingRows}}" as="k" hint-placeholder-count="2">
+                    <div style="display: flex; align-items: center; gap: 8px"><span class="{{k.dot}}"></span><span class="small" style="flex: 1; font-size: 14px">{{k.name}}</span><span class="small muted italic" style="font-size: 13px">{{k.state}}</span></div>
+                  </sc-for>
+                  <span class="small muted" style="font-size: 13px; line-height: 1.3">{{deliveryNote}}</span>
+                </div>
                 <p class="small muted italic" style="margin: auto 0 0; font-size: 14px; line-height: 1.35">Your vote is secret. The Ministry records only <strong>that</strong> you voted, never <strong>how</strong>.</p>
               </div>
 
               <div class="paper" style="display: flex; flex-direction: column; padding: 22px 30px 20px">
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center">
-                  <p class="eyebrow" style="font-size: 10px">Official ballot · {{paper.kind}}</p>
-                  <h2 class="h-page" style="font-size: 24px">{{paper.title}}</h2>
-                  <p class="small muted italic" style="margin: 2px 0 0">{{paper.instruction}}</p>
+                  <p class="eyebrow" style="font-size: 10px">Official ballot · {{poll.kindLabel}}</p>
+                  <h2 class="h-page" style="font-size: 24px">{{poll.name}}</h2>
+                  <p class="small muted italic" style="margin: 2px 0 0">Mark one name. Every citizen's vote counts the same.</p>
                 </div>
                 <div class="rule dbl" style="margin: 12px 0 4px"></div>
                 <div style="display: flex; flex-direction: column">
-                  <sc-for list="{{options}}" as="o" hint-placeholder-count="3">
-                    <button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}">
+                  <sc-for list="{{options}}" as="o" hint-placeholder-count="2">
+                    <button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" disabled="{{o.locked}}" onClick="{{o.pick}}">
                       <sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
                         <img src="/_blob/19c005d5f1860452928780ca70041223" alt="Marked" style="width: 38px; height: 38px; flex: none">
                       </sc-if>
@@ -112,75 +198,236 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                     </button>
                   </sc-for>
                 </div>
-                <div style="margin-top: auto; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
-                  <span class="small muted">{{hint}}</span>
-                  <button class="btn" type="button" onClick="{{seal}}"><img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
+                <div style="margin-top: auto; padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px">
+                  <span style="display: flex; flex-direction: column; gap: 1px">
+                    <span class="small" style="font-weight: 600">{{hint}}</span>
+                    <span class="small muted italic" style="font-size: 13px">{{hintSub}}</span>
+                  </span>
+                  <sc-if value="{{canSeal}}" hint-placeholder-val="{{ true }}">
+                    <button class="btn" type="button" disabled="{{noPick}}" onClick="{{seal}}"><img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
+                  </sc-if>
                 </div>
-                <sc-if value="{{sealed}}" hint-placeholder-val="{{ false }}">
-                  <img class="stamp" src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Ballot sealed">
+                <sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
+                  <img class="stamp" src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Ballot sealed and received by the Crown">
+                </sc-if>
+                <sc-if value="{{waiting}}" hint-placeholder-val="{{ false }}">
+                  <div class="held">
+                    <img src="/_blob/19c005d5f1860452928780ca70041223" alt="Ballot sealed" style="width: 96px; height: 96px">
+                    <span class="chip k-ink">Waiting for the Crown</span>
+                  </div>
                 </sc-if>
               </div>
             </div>
           </sc-if>
 
+          <!-- BALLOT: polls closed, result not yet declared -->
+          <sc-if value="{{ballotClosed}}" hint-placeholder-val="{{ false }}">
+            <div class="paper" style="flex: 1; min-height: 0; padding: 30px 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center">
+              <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 76px; height: 76px; transform: rotate(-6deg)">
+              <p class="eyebrow" style="font-size: 10px">Polls closed · {{poll.name}}</p>
+              <h2 class="h-page" style="font-size: 25px">The Crown is counting</h2>
+              <p class="prose" style="font-size: 15.5px; max-width: 460px">The result will be proclaimed here, and a herald will announce it to everyone online.</p>
+              <p class="small muted italic" style="margin: 0">{{closedVoteNote}}</p>
+            </div>
+          </sc-if>
+
+          <!-- BALLOT: no polls open -->
+          <sc-if value="{{ballotNone}}" hint-placeholder-val="{{ false }}">
+            <div class="paper" style="flex: 1; min-height: 0; padding: 30px 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center">
+              <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 64px; height: 64px">
+              <p class="eyebrow" style="font-size: 10px">No polls open</p>
+              <h2 class="h-page" style="font-size: 25px">The Ballot Hall is quiet</h2>
+              <p class="prose" style="font-size: 15.5px; max-width: 460px">When the Crown opens the polls, a herald calls “The polls are open!” and your ballot appears here.</p>
+              <button class="btn quiet sm" type="button" style="margin-top: 6px" onClick="{{show.results}}">See the last result</button>
+            </div>
+          </sc-if>
+
+          <!-- RESULTS -->
           <sc-if value="{{isResults}}" hint-placeholder-val="{{ false }}">
             <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px">
               <article class="paper" style="padding: 24px 30px; display: flex; flex-direction: column; gap: 12px">
                 <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Crown seal" style="position: absolute; right: 18px; top: 14px; width: 74px; height: 74px; transform: rotate(8deg)">
-                <p class="eyebrow" style="font-size: 10px">Proclaimed by the Crown · 2 September</p>
-                <h2 class="h-page" style="font-size: 24px; padding-right: 70px">The General Election</h2>
-                <p class="prose dropcap" style="font-size: 15.5px; line-height: 1.45">By the will of the citizens, the Silverhand is returned to govern, and Lady Seraphine Vale is named Prime Minister of the Second Government.</p>
+                <p class="eyebrow" style="font-size: 10px">Proclaimed by the Crown · {{res.date}}</p>
+                <h2 class="h-page" style="font-size: 24px; padding-right: 70px">{{res.name}}</h2>
+                <p class="prose dropcap" style="font-size: 15.5px; line-height: 1.45">{{res.text}}</p>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px">
-                  <div style="display: grid; grid-template-columns: 130px minmax(0, 1fr) 70px; gap: 12px; align-items: center">
-                    <span class="h-name" style="font-size: 13.5px">Silverhand</span>
-                    <div class="bar" style="height: 16px; --bc: linear-gradient(180deg,#3A68C0,#1F4290)"><i style="width: 56%"></i></div>
-                    <span class="num" style="text-align: right">27 · 56%</span>
-                  </div>
-                  <div style="display: grid; grid-template-columns: 130px minmax(0, 1fr) 70px; gap: 12px; align-items: center">
-                    <span class="h-name" style="font-size: 13.5px">Azeroth Exchange</span>
-                    <div class="bar" style="height: 16px; --bc: linear-gradient(180deg,#C2413C,#8A161C)"><i style="width: 44%"></i></div>
-                    <span class="num" style="text-align: right">21 · 44%</span>
-                  </div>
+                  <sc-for list="{{res.rows}}" as="r" hint-placeholder-count="2">
+                    <div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 70px; gap: 12px; align-items: center">
+                      <span style="display: flex; flex-direction: column"><span class="h-name" style="font-size: 13px; line-height: 1.2">{{r.name}}</span><span class="small muted" style="font-size: 12.5px">{{r.tag}}</span></span>
+                      <div class="{{r.barCls}}" style="height: 16px"><i style="width: {{r.width}}"></i></div>
+                      <span class="num" style="text-align: right">{{r.label}}</span>
+                    </div>
+                  </sc-for>
                 </div>
                 <div class="rule" style="margin-top: 4px"></div>
-                <p class="small muted" style="margin: 0">Turnout <strong class="num">48</strong> of 55 citizens (87%) · Incoming government took office 3 September</p>
+                <p class="small muted" style="margin: 0">Turnout <strong class="num">{{res.total}}</strong> of 55 active citizens ({{res.turnout}}) · {{res.after}}</p>
               </article>
               <section style="display: flex; flex-direction: column; gap: 8px">
                 <h3 class="h-sec">The record</h3>
-                <table class="ledger" style="font-size: 14.5px">
-                  <thead><tr><th>Ballot</th><th class="r">Outcome</th></tr></thead>
-                  <tbody>
-                    <tr><td>Guild Bank Levy<br><span class="muted" style="font-size: 13px">Law · 30 Oct</span></td><td class="r"><span class="chip" style="--c: #1F7A70">Passed 30–12</span></td></tr>
-                    <tr><td>No Confidence<br><span class="muted" style="font-size: 13px">Petition · 30 Oct</span></td><td class="r"><span class="chip" style="--c: #6E1712">Failed 31%</span></td></tr>
-                    <tr><td>Old Quarter Rep.<br><span class="muted" style="font-size: 13px">Election · 12 Sept</span></td><td class="r"><span class="chip" style="--c: #8E2B22">Dagna</span></td></tr>
-                    <tr><td>Open Market Act<br><span class="muted" style="font-size: 13px">Law · 9 Sept</span></td><td class="r"><span class="chip" style="--c: #5E4B33">Vetoed</span></td></tr>
-                  </tbody>
-                </table>
+                <div class="rec">
+                  <div class="rec-head"><span>Election</span><span>Outcome</span></div>
+                  <sc-for list="{{records}}" as="r" hint-placeholder-count="3">
+                    <div class="rec-row">
+                      <span>{{r.name}}<br><span class="muted" style="font-size: 13px">{{r.sub}}</span></span>
+                      <span class="{{r.chip}}">{{r.out}}</span>
+                    </div>
+                  </sc-for>
+                </div>
               </section>
             </div>
           </sc-if>
 
+          <!-- PETITION: no-confidence status, recorded by the Crown -->
           <sc-if value="{{isPetition}}" hint-placeholder-val="{{ false }}">
-            <div class="paper" style="flex: 1; min-height: 0; padding: 26px 40px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
-              <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 70px; height: 70px">
-              <p class="eyebrow" style="font-size: 10px">Petition to the Crown · opened by Garrick Thorne</p>
-              <h2 class="h-page" style="font-size: 25px">No Confidence in the Second Government</h2>
-              <div style="width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px">
-                <div class="bar" style="position: relative; height: 22px; overflow: visible; --bc: linear-gradient(180deg,#B9503F,#6E1712)">
-                  <i style="width: 25.5%"></i>
-                  <span class="thresh" style="left: 40%"></span>
+            <div class="paper" style="flex: 1; min-height: 0; padding: 24px 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+              <p class="eyebrow" style="font-size: 10px">Votes of no confidence · recorded by the Crown</p>
+              <h2 class="h-page" style="font-size: 25px">No Confidence</h2>
+              <p class="prose" style="font-size: 15px; line-height: 1.4; max-width: 540px">To call for a vote of no confidence, send an in-game letter to the Crown (Charter, Part V). If 40% of active citizens write within seven days, the Crown calls a Snap Election.</p>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 540px; margin-top: 4px">
+                <div class="plate sunk" style="padding: 10px"><span class="h-name" style="font-size: 18px; display: block; line-height: 32px; color: #6E1712">Failed</span><span class="eyebrow" style="font-size: 9.5px">Last · 15 Nov</span></div>
+                <div class="plate sunk" style="padding: 10px"><span class="num" style="font-size: 26px; display: block">22</span><span class="eyebrow" style="font-size: 9.5px">Letters needed</span></div>
+                <div class="plate sunk" style="padding: 10px"><span class="num" style="font-size: 26px; display: block">12</span><span class="eyebrow" style="font-size: 9.5px">Cooling days left</span></div>
+              </div>
+              <div style="width: 100%; max-width: 540px; display: flex; flex-direction: column; gap: 6px; margin-top: 4px">
+                <div class="bar gold" style="height: 14px"><i style="width: 60%"></i></div>
+                <span class="small muted" style="font-size: 13.5px">Cooling period: 18 of 30 days gone. Another petition may be raised from 15 December.</span>
+              </div>
+              <sc-if value="{{crownViewer}}" hint-placeholder-val="{{ false }}">
+                <button class="btn quiet sm" type="button">Record an outcome</button>
+              </sc-if>
+              <p class="small muted italic" style="margin: auto 0 0; max-width: 540px">The add-on takes no signatures. Letters go to the Crown by mail, and the Crown records the outcome here.</p>
+            </div>
+          </sc-if>
+
+          <!-- CROWN: open the polls (no poll open) -->
+          <sc-if value="{{crownForm}}" hint-placeholder-val="{{ false }}">
+            <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px">
+              <div class="paper" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+                  <h2 class="h-page" style="font-size: 21px">Open the polls</h2>
+                  <span class="eyebrow" style="font-size: 9.5px">Crown only</span>
                 </div>
-                <div style="position: relative; height: 18px">
-                  <span class="eyebrow" style="position: absolute; left: 40%; transform: translateX(-50%); font-size: 9.5px; color: #6E1712">40% threshold</span>
+                <label class="fld"><span class="fld-lab">Election</span><input class="inp" type="text" value="{{form.name}}" onChange="{{form.setName}}" placeholder="e.g. The Snap Election"></label>
+                <div class="fld">
+                  <span class="fld-lab">Kind</span>
+                  <div class="pills" role="group" aria-label="Kind of election">
+                    <sc-for list="{{kinds}}" as="k" hint-placeholder-count="3">
+                      <button class="{{k.cls}}" type="button" aria-pressed="{{k.pressed}}" onClick="{{k.pick}}">{{k.label}}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div class="fld">
+                  <span class="fld-lab">Candidates</span>
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <sc-for list="{{formCands}}" as="c" hint-placeholder-count="2">
+                      <div style="display: flex; align-items: center; gap: 6px">
+                        <input class="inp" style="flex: 1; min-width: 0" type="text" aria-label="{{c.nameLabel}}" value="{{c.name}}" onChange="{{c.setName}}" placeholder="Name">
+                        <select class="inp" style="width: 152px" aria-label="{{c.partyLabel}}" value="{{c.party}}" onChange="{{c.setParty}}">
+                          <option value="sh">Silverhand</option>
+                          <option value="ex">Azeroth Exchange</option>
+                          <option value="ind">Independent</option>
+                        </select>
+                        <button class="xbtn" type="button" aria-label="{{c.removeLabel}}" disabled="{{c.noRemove}}" onClick="{{c.remove}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <span class="small muted italic" style="font-size: 13.5px">{{formNote}}</span>
+                <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                  <button class="btn quiet sm" type="button" disabled="{{formFull}}" onClick="{{addCand}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add a candidate</button>
+                  <button class="btn" type="button" disabled="{{cantOpen}}" onClick="{{openPolls}}">Open polls</button>
                 </div>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 520px">
-                <div class="plate sunk" style="padding: 10px"><span class="num" style="font-size: 26px; display: block">14</span><span class="eyebrow" style="font-size: 9.5px">Signatures</span></div>
-                <div class="plate sunk" style="padding: 10px"><span class="num" style="font-size: 26px; display: block">22</span><span class="eyebrow" style="font-size: 9.5px">Needed</span></div>
-                <div class="plate sunk" style="padding: 10px"><span class="num" style="font-size: 26px; display: block">3</span><span class="eyebrow" style="font-size: 9.5px">Days left of 7</span></div>
+              <div class="plate blue" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; align-self: start">
+                <h3 class="h-sec">When you open the polls</h3>
+                <ul class="ticks">
+                  <li>A herald calls “The polls are open!” to everyone online.</li>
+                  <li>Each ballot comes by private whisper to the two Kings, never to the guild or the officers.</li>
+                  <li>Anyone who logs in while polls are open is sent the ballot.</li>
+                  <li>Who may vote: members active in the last 30 days (55 today).</li>
+                  <li>With no King online, sealed ballots wait with their voters. They still count if they reach you before you declare.</li>
+                  <li>Ballots are taken for two hours. Then you close the polls and declare the result.</li>
+                </ul>
               </div>
-              <button class="btn" type="button" style="margin-top: 4px; --x: 0">Sign the petition</button>
-              <p class="small muted italic" style="margin: 0; max-width: 520px">Only the Crown sees who has signed. If the petition fails, another may not be raised for thirty days.</p>
+            </div>
+          </sc-if>
+
+          <!-- CROWN: live count (polls open) and final count (polls closed) -->
+          <sc-if value="{{crownCount}}" hint-placeholder-val="{{ false }}">
+            <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px">
+              <div class="paper" style="padding: 20px 26px; display: flex; flex-direction: column; gap: 10px">
+                <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="position: absolute; right: 16px; top: 12px; width: 60px; height: 60px; transform: rotate(8deg)">
+                <p class="eyebrow" style="font-size: 9.5px">{{count.eyebrow}}</p>
+                <h2 class="h-page" style="font-size: 22px; padding-right: 60px">{{poll.name}}</h2>
+                <sc-if value="{{crownOpen}}" hint-placeholder-val="{{ true }}">
+                  <p class="small muted" style="margin: 0">{{count.when}}</p>
+                </sc-if>
+                <div class="rule dbl" style="margin: 2px 0"></div>
+                <div style="display: flex; flex-direction: column; gap: 9px">
+                  <sc-for list="{{count.rows}}" as="r" hint-placeholder-count="2">
+                    <div style="display: grid; grid-template-columns: 140px minmax(0, 1fr) 34px; gap: 12px; align-items: center">
+                      <span style="display: flex; flex-direction: column"><span class="h-name" style="font-size: 13px; line-height: 1.2">{{r.name}}</span><span class="small muted" style="font-size: 12.5px">{{r.tag}}</span></span>
+                      <div class="{{r.barCls}}" style="height: 14px"><i style="width: {{r.width}}"></i></div>
+                      <span class="num" style="text-align: right; font-size: 16px">{{r.num}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div class="rule"></div>
+                <p class="small muted" style="margin: 0">{{count.turnout}}</p>
+
+                <sc-if value="{{closedHeld}}" hint-placeholder-val="{{ false }}">
+                  <p class="held-note"><strong>{{count.held}} sealed ballots</strong> haven't reached the Crown yet. They still count if their voters log in before the result is declared.</p>
+                </sc-if>
+
+                <sc-if value="{{crownOpen}}" hint-placeholder-val="{{ true }}">
+                  <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                    <span class="small muted italic" style="font-size: 13.5px">Close now, or when the two hours are up.</span>
+                    <button class="btn" type="button" onClick="{{closePolls}}">Close polls</button>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{closedWin}}" hint-placeholder-val="{{ false }}">
+                  <p class="small italic" style="margin: 0; line-height: 1.4">“{{count.proclamation}}”</p>
+                  <sc-if value="{{differ}}" hint-placeholder-val="{{ false }}">
+                    <p class="warn">The Kings' counts differ by 2. Settle it before declaring.</p>
+                  </sc-if>
+                  <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                    <span class="small muted italic" style="font-size: 13.5px">A herald announces it to everyone online.</span>
+                    <button class="btn gold" type="button" onClick="{{declare}}">Declare the result</button>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{closedTie}}" hint-placeholder-val="{{ false }}">
+                  <p class="small" style="margin: 0; line-height: 1.4"><strong>Tied, {{count.tieScore}}.</strong> By the Charter, the tied candidates face a run-off within 48 hours.</p>
+                  <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                    <span class="small muted italic" style="font-size: 13.5px">The tie is proclaimed, and the run-off is set up for you.</span>
+                    <button class="btn" type="button" onClick="{{runoff}}">Set up the run-off</button>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 12px">
+                <div class="plate" style="display: flex; flex-direction: column; gap: 10px">
+                  <h3 class="h-sec">The two counts</h3>
+                  <sc-for list="{{kingCounts}}" as="k" hint-placeholder-count="2">
+                    <div style="display: flex; align-items: center; gap: 10px">
+                      <div class="portrait sm" style="--pc: #6B44A8">{{k.init}}</div>
+                      <span style="flex: 1; display: flex; flex-direction: column"><span class="h-name" style="font-size: 13.5px">{{k.name}}</span><span class="small muted" style="font-size: 13px">{{k.role}}</span></span>
+                      <span class="{{k.numCls}}">{{k.num}}</span>
+                    </div>
+                  </sc-for>
+                  <div class="rule"></div>
+                  <span><span class="{{status.chip}}">{{status.label}}</span></span>
+                  <p class="small muted" style="margin: 0; font-size: 13.5px; line-height: 1.35">{{status.text}}</p>
+                </div>
+                <div class="plate sunk" style="padding: 9px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 5px; column-gap: 10px; align-items: baseline">
+                  <span class="small" style="font-size: 13.5px">Sealed, not yet delivered</span>
+                  <span class="num" style="font-size: 16px">{{count.held}}</span>
+                  <span class="small" style="font-size: 13.5px">Second ballots refused</span>
+                  <span class="num" style="font-size: 16px">{{count.refused}}</span>
+                </div>
+                <p class="small muted italic" style="margin: 0; font-size: 13.5px; line-height: 1.35">The count keeps no names. The guild's record shows who voted, never how.</p>
+              </div>
             </div>
           </sc-if>
         </div>
@@ -189,71 +436,272 @@ a{color:#1B3570}a:hover{color:#3A63B8}
 
     <div class="win-foot">
       <span><span class="pip"></span>Synced with 34 citizens · moments ago</span>
-      <span>Polls close Friday · 9 pm realm time</span>
+      <span>{{footNote}}</span>
     </div>
+
+    <sc-if value="{{showLogout}}" hint-placeholder-val="{{ false }}">
+      <div class="dim">
+        <div class="paper popup" role="alertdialog" aria-labelledby="lastking-title">
+          <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 56px; height: 56px">
+          <p class="eyebrow" style="font-size: 10px">Polls are open · {{poll.name}}</p>
+          <h2 class="h-page" id="lastking-title" style="font-size: 21px">You are the last King online</h2>
+          <p class="prose" style="font-size: 15px; line-height: 1.4">If you log out, ballots sealed from now on wait with their voters until a King returns. They still count if they reach the Crown before the result is declared.</p>
+          <div style="display: flex; gap: 12px; margin-top: 8px">
+            <button class="btn quiet sm" type="button" onClick="{{logoutAnyway}}">Log out anyway</button>
+            <button class="btn" type="button" onClick="{{stayOnline}}">Stay online</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
   </div>
+
+  <p class="board-note" style="left: 100px; top: 776px; margin: 0; max-width: 400px; line-height: 1.3">{{tryNote}}</p>
+  <sc-if value="{{crownViewer}}" hint-placeholder-val="{{ false }}">
+    <div class="lvrow" style="right: 60px; top: 776px">
+      <div class="lvgrp">
+        <span class="lvlab">Count</span>
+        <div class="lv" role="group" aria-label="Sample count">
+          <sc-for list="{{sampleOpts}}" as="s" hint-placeholder-count="3">
+            <button class="{{s.cls}}" type="button" aria-pressed="{{s.pressed}}" onClick="{{s.pick}}">{{s.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div class="lvgrp">
+        <span class="lvlab">Waiting</span>
+        <div class="lv" role="group" aria-label="Sealed ballots waiting">
+          <sc-for list="{{heldOpts}}" as="h" hint-placeholder-count="2">
+            <button class="{{h.cls}}" type="button" aria-pressed="{{h.pressed}}" onClick="{{h.pick}}">{{h.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1160,"height":820}}'>
 class Component extends DCLogic {
   renderVals() {
     const st = this.state || {};
-    const view = st.view || 'ballot';
-    const ballot = st.ballot || 'rep';
+    const ELIG = 55;
+    const PARTY = {
+      sh: { tag: 'Silverhand', the: 'the Silverhand', chip: 'chip k-sh', bar: 'bar p-sh' },
+      ex: { tag: 'Azeroth Exchange', the: 'the Azeroth Exchange', chip: 'chip k-ex', bar: 'bar p-ex' },
+      ind: { tag: 'Independent', the: '', chip: 'chip k-ink', bar: 'bar p-ind' }
+    };
+    const CHIP_TAG = { sh: 'Silverhand', ex: 'Exchange', ind: 'Independent' };
+    const LINE = { sh: 'Standing for the Silverhand', ex: 'Standing for the Azeroth Exchange', ind: 'Standing as an Independent' };
+    const KIND = { general: 'General Election', snap: 'Snap Election', runoff: 'Run-off' };
+    const SAMPLE_CANDS = [
+      { id: 'sv', name: 'Lady Seraphine Vale', party: 'sh' },
+      { id: 'gt', name: 'Garrick Thorne', party: 'ex' }
+    ];
+    const BLANK_FORM = { name: '', kind: 'general', cands: [{ id: 'n1', name: '', party: 'sh' }, { id: 'n2', name: '', party: 'ex' }] };
+
+    // board controls
+    const viewer = st.viewer || 'citizen';
+    const crownViewer = viewer === 'crown';
+    const kingsRaw = st.kings || 'both';
+    const kings = crownViewer && kingsRaw === 'none' ? 'one' : kingsRaw;
+    const sample = st.sample || 'clear';
+    const held = st.held ?? 2;
+
+    // shared state: one prototype, so the Crown's actions change what citizens see
+    const poll = st.poll || { stage: 'open', name: 'The General Election', kind: 'general', cands: SAMPLE_CANDS, closes: '9:40 pm', left: '1 h 12 min', fresh: false };
+    const form = st.form || BLANK_FORM;
+    const history = st.history || [];
     const pick = st.pick || null;
     const sealed = !!st.sealed;
-    const set = (patch) => () => this.setState(patch);
+    const delivered = !!st.delivered;
+    let view = st.view || (poll.stage === 'open' ? 'ballot' : 'results');
+    if (view === 'crown' && !crownViewer) view = 'ballot';
 
-    const papers = {
-      rep: {
-        kind: 'District election',
-        title: 'Cathedral Ward Representative',
-        instruction: 'Mark one name. Only citizens of the Cathedral Ward may vote.',
-        options: [
-          { id: 'ea', name: 'Elinor Ashby', line: '“A council that listens before it speaks.”', tag: 'Silverhand', k: 'k-sh' },
-          { id: 'tw', name: 'Tomas Wren', line: '“Open the square to trade and travellers.”', tag: 'Exchange', k: 'k-ex' },
-          { id: 'bc', name: 'Brother Callum', line: '“The Light answers to no party.”', tag: 'Independent', k: 'k-ink' }
-        ]
-      },
-      law: {
-        kind: 'Law vote',
-        title: 'The Raid Tithe Act',
-        instruction: 'A tenth of all raid gold paid to the treasury for consumables and repairs.',
-        options: [
-          { id: 'aye', name: 'Aye', line: 'I support this law.', tag: 'For', k: 'k-teal' },
-          { id: 'nay', name: 'Nay', line: 'I oppose this law.', tag: 'Against', k: 'k-ox' },
-          { id: 'abs', name: 'Abstain', line: 'I record my presence without a choice.', tag: 'Abstain', k: 'k-ink' }
-        ]
-      }
+    const set = (patch) => () => this.setState(patch);
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const pct = (v, t) => (t ? Math.round((v * 100) / t) : 0);
+    const short = (n) => n.replace(/^(Lady|Lord|Sir|Brother|Sister|Dame) /, '');
+    const rowsFor = (cands, votes) => {
+      const t = sum(votes);
+      return cands.map((c, i) => ({
+        name: c.name, tag: PARTY[c.party].tag, barCls: PARTY[c.party].bar,
+        num: votes[i], width: pct(votes[i], t) + '%', label: votes[i] + ' · ' + pct(votes[i], t) + '%'
+      }));
     };
-    const paper = papers[ballot];
-    const options = paper.options.map((o) => ({
-      ...o,
-      on: pick === o.id,
-      off: pick !== o.id,
-      pressed: pick === o.id ? 'true' : 'false',
-      cls: pick === o.id ? 'opt on' : 'opt',
-      chipCls: 'chip ' + o.k,
-      pick: () => this.setState({ pick: o.id, sealed: false })
+
+    // sample counts (the real ones live only in the Kings' add-ons)
+    const BASE = { open: { clear: [18, 13, 4, 2], tie: [15, 15, 3, 2] }, closed: { clear: [27, 21, 5, 2], tie: [24, 24, 4, 1] } };
+    const base = BASE[poll.stage === 'closed' ? 'closed' : 'open'][sample === 'tie' ? 'tie' : 'clear'];
+    const votes = poll.cands.map((c, i) => (poll.fresh && poll.stage === 'open' ? 0 : (base[i] ?? 1)));
+    const total = sum(votes);
+    const top = Math.max(...votes);
+    const leaders = poll.cands.filter((c, i) => votes[i] === top);
+    const isTie = poll.stage === 'closed' && total > 0 && leaders.length > 1;
+    const winner = leaders[0];
+    const differ = sample === 'differ' && kings !== 'one' && total > 2;
+    const total2 = differ ? total - 2 : total;
+    // ballots sealed while no King was online: their public "sealed" records tell the Kings how many are coming
+    const heldN = poll.fresh && poll.stage === 'open' ? 0 : held;
+
+    const procText = (h) => {
+      if (h.tie) return 'The citizens are evenly divided: ' + h.tiedNames + ' have ' + h.top + ' votes each. By the Charter, they face a run-off within 48 hours.';
+      const p = PARTY[h.winner.party];
+      return 'By the will of the citizens, ' + h.winner.name + (p.the ? ' of ' + p.the : ', standing as an Independent,') + ' is named Prime Minister, with ' + h.top + ' of ' + h.total + ' votes.';
+    };
+    const record = (tie) => ({ name: poll.name, kind: poll.kind, date: '3 December', cands: poll.cands, votes, total, top, tie, winner, tiedNames: leaders.map((c) => c.name).join(' and ') });
+    const resetBallot = { pick: null, sealed: false, delivered: false };
+
+    // citizen ballot
+    const options = poll.cands.map((c) => ({
+      name: c.name, line: LINE[c.party], tag: CHIP_TAG[c.party], chipCls: PARTY[c.party].chip,
+      on: pick === c.id, off: pick !== c.id, pressed: pick === c.id ? 'true' : 'false',
+      cls: pick === c.id ? 'opt on' : 'opt', locked: sealed,
+      pick: () => { if (!sealed) this.setState({ pick: c.id }); }
+    }));
+    const sent = sealed && delivered;
+    const waiting = sealed && !delivered;
+    const kingRows = [
+      { name: crownViewer ? 'King Aldmere (you)' : 'King Aldmere', on: kings !== 'none' },
+      { name: 'King Corwen', on: kings === 'both' }
+    ].map((k) => ({ name: k.name, dot: k.on ? 'kdot on' : 'kdot off', state: k.on ? 'online' : 'offline' }));
+    const deliveryNote = waiting
+      ? 'Held here until a King comes online. The Kings see that a ballot is waiting, never how you voted. It counts if it arrives before the result is declared.'
+      : kings === 'none'
+      ? 'No King is online. Seal it anyway: your add-on keeps it, even through a /reload, and sends it when one logs in.'
+      : kings === 'one'
+        ? (crownViewer ? 'Counted in your own add-on. King Corwen is handed the count on logging in.' : 'By private whisper to King Aldmere. King Corwen is handed the count on logging in.')
+        : 'By private whisper to the two Kings. No one else receives it.';
+
+    // the Crown's form
+    const updForm = (patch) => this.setState({ form: { ...form, ...patch } });
+    const named = form.cands.filter((c) => c.name.trim());
+    const cantOpen = !form.name.trim() || named.length < 2;
+    const formCands = form.cands.map((c, i) => ({
+      ...c,
+      nameLabel: 'Candidate ' + (i + 1) + ' name', partyLabel: 'Candidate ' + (i + 1) + ' party', removeLabel: 'Remove candidate ' + (i + 1),
+      noRemove: form.cands.length <= 2,
+      setName: (e) => updForm({ cands: form.cands.map((x) => (x.id === c.id ? { ...x, name: e.target.value } : x)) }),
+      setParty: (e) => updForm({ cands: form.cands.map((x) => (x.id === c.id ? { ...x, party: e.target.value } : x)) }),
+      remove: () => updForm({ cands: form.cands.filter((x) => x.id !== c.id) })
+    }));
+    const kinds = ['general', 'snap', 'runoff'].map((k) => ({
+      label: { general: 'General', snap: 'Snap', runoff: 'Run-off' }[k],
+      cls: form.kind === k ? 'pill on' : 'pill', pressed: form.kind === k ? 'true' : 'false',
+      pick: () => updForm({ kind: k })
     }));
 
+    // the Crown's count
+    const kingCounts = [
+      { init: 'KA', name: 'King Aldmere', role: 'The King · you', num: String(total), numCls: 'num' },
+      { init: 'KC', name: 'King Corwen', role: 'The Crown', num: kings === 'one' ? 'offline' : String(total2), numCls: kings === 'one' ? 'small muted italic' : 'num' }
+    ];
+    const status = kings === 'one'
+      ? { chip: 'chip k-ink', label: 'King Corwen offline', text: 'When King Corwen logs in, your add-on whispers the count across, so both Kings hold it.' }
+      : differ
+        ? { chip: 'chip k-ox', label: 'Counts differ by 2', text: "King Corwen's add-on has 2 fewer ballots, perhaps after a disconnect. Settle it between you before declaring." }
+        : { chip: 'chip k-teal', label: 'Counts agree', text: "Both Kings' add-ons hold the same count." };
+    const count = {
+      eyebrow: poll.stage === 'closed' ? 'Polls closed · final count' : 'Live count · only the Crown sees this',
+      when: poll.stage === 'closed' ? 'Ballots are no longer taken.' : 'Polls close in ' + poll.left + ' · ' + poll.closes + ' realm time',
+      rows: rowsFor(poll.cands, votes),
+      turnout: (poll.stage === 'closed' ? 'Turnout ' : 'So far ') + total + ' of ' + ELIG + ' active citizens (' + pct(total, ELIG) + '%)',
+      proclamation: poll.stage === 'closed' && !isTie ? procText(record(false)) : '',
+      tieScore: leaders.map(() => top).join(' to '),
+      refused: total > 0 ? '1' : '0',
+      held: String(heldN)
+    };
+
+    // results
+    const last = history[0];
+    const res = last
+      ? { date: last.date, name: last.name, text: procText(last), rows: rowsFor(last.cands, last.votes), total: last.total, after: last.tie ? 'Run-off within 48 hours' : 'Announced by herald to everyone online' }
+      : { date: '2 September', name: 'The General Election', text: 'By the will of the citizens, the Silverhand is returned to govern, and Lady Seraphine Vale is named Prime Minister of the Second Government.', rows: rowsFor(SAMPLE_CANDS, [27, 21]), total: 48, after: 'Incoming government took office 3 September' };
+    res.turnout = pct(res.total, ELIG) + '%';
+    const records = history.map((h) => ({
+      name: h.name, sub: KIND[h.kind] + ' · 3 Dec',
+      chip: h.tie ? 'chip k-ox' : PARTY[h.winner.party].chip, out: h.tie ? 'Tied · run-off' : short(h.winner.name)
+    })).concat([
+      { name: 'The General Election', sub: 'General Election · 2 Sept', chip: 'chip k-sh', out: 'Seraphine Vale' },
+      { name: 'The Founding Election run-off', sub: 'Run-off · 3 June', chip: 'chip k-sh', out: 'Seraphine Vale' },
+      { name: 'The Founding Election', sub: 'General Election · 1 June', chip: 'chip k-ox', out: 'Tied · run-off' }
+    ]).slice(0, 5);
+
+    // board controls
+    const lvBtn = (cur, val, label, onPick) => ({ label, cls: cur === val ? 'on' : '', pressed: cur === val ? 'true' : 'false', pick: onPick });
+    const setViewer = (v) => () => this.setState({ viewer: v, ...(v === 'crown' && sealed && !delivered ? { delivered: true } : {}) });
+    const setKings = (k) => () => this.setState({ kings: k, ...(k !== 'none' && sealed ? { delivered: true } : {}) });
+    const rib = (v) => (view === v ? 'ribbon on' : 'ribbon');
+
     return {
-      isBallot: view === 'ballot',
+      citizenViewer: !crownViewer,
+      crownViewer,
+      viewerOpts: [lvBtn(viewer, 'citizen', 'Citizen', setViewer('citizen')), lvBtn(viewer, 'crown', 'The Crown', setViewer('crown'))],
+      kingOpts: crownViewer
+        ? [lvBtn(kings, 'both', 'Both', setKings('both')), lvBtn(kings, 'one', 'Only you', setKings('one'))]
+        : [lvBtn(kings, 'both', 'Both', setKings('both')), lvBtn(kings, 'one', 'One', setKings('one')), lvBtn(kings, 'none', 'None', setKings('none'))],
+      sampleOpts: [lvBtn(sample, 'clear', 'Clear win', set({ sample: 'clear' })), lvBtn(sample, 'tie', 'Tie', set({ sample: 'tie' })), lvBtn(sample, 'differ', 'Counts differ', set({ sample: 'differ' }))],
+
+      rb: { ballot: rib('ballot'), results: rib('results'), petition: rib('petition'), crown: rib('crown') },
+      sel: { ballot: String(view === 'ballot'), results: String(view === 'results'), petition: String(view === 'petition'), crown: String(view === 'crown') },
+      show: { ballot: set({ view: 'ballot' }), results: set({ view: 'results' }), petition: set({ view: 'petition' }), crown: set({ view: 'crown' }) },
+      ballotDot: poll.stage === 'open' && !sealed,
+      topNote: poll.stage === 'open' ? 'Polls close ' + poll.closes : poll.stage === 'closed' ? 'Polls closed' : 'No polls open',
+      footNote: poll.stage === 'open' ? 'Polls close ' + poll.closes + ' · realm time' : poll.stage === 'closed' ? 'Polls closed · awaiting the proclamation' : 'No polls open',
+      tryNote: crownViewer
+        ? 'Try it: pick Only you, then Log out. Or close the polls and declare; set Count to Tie for a run-off.'
+        : 'Try it: set Kings online to None, mark a name and seal. Then pick One: the held ballot is sent.',
+
+      ballotOpen: view === 'ballot' && poll.stage === 'open',
+      ballotClosed: view === 'ballot' && poll.stage === 'closed',
+      ballotNone: view === 'ballot' && poll.stage === 'none',
       isResults: view === 'results',
       isPetition: view === 'petition',
-      rb: {
-        ballot: view === 'ballot' ? 'ribbon on' : 'ribbon',
-        results: view === 'results' ? 'ribbon on' : 'ribbon',
-        petition: view === 'petition' ? 'ribbon on' : 'ribbon'
-      },
-      show: { ballot: set({ view: 'ballot' }), results: set({ view: 'results' }), petition: set({ view: 'petition' }) },
-      bcls: { rep: ballot === 'rep' ? 'bl on' : 'bl', law: ballot === 'law' ? 'bl on' : 'bl' },
-      pickBallot: { rep: set({ ballot: 'rep', pick: null, sealed: false }), law: set({ ballot: 'law', pick: null, sealed: false }) },
-      paper,
+      crownForm: view === 'crown' && poll.stage === 'none',
+      crownCount: view === 'crown' && poll.stage !== 'none',
+      crownOpen: poll.stage === 'open',
+      closedWin: poll.stage === 'closed' && !isTie,
+      closedTie: isTie,
+      closedHeld: poll.stage === 'closed' && heldN > 0,
+      differ,
+      heldOpts: [lvBtn(String(held), '0', 'None', set({ held: 0 })), lvBtn(String(held), '2', 'Two', set({ held: 2 }))],
+      canLogout: crownViewer && poll.stage === 'open' && kings === 'one',
+      showLogout: !!st.logout && crownViewer && poll.stage === 'open' && kings === 'one',
+      tryLogout: set({ logout: true }),
+      stayOnline: set({ logout: false }),
+      logoutAnyway: set({ logout: false, viewer: 'citizen', kings: 'none', view: view === 'crown' ? 'ballot' : view }),
+
+      poll: { ...poll, kindLabel: KIND[poll.kind] },
       options,
-      sealed,
-      hint: sealed ? 'Sealed and sent to the Crown.' : (pick ? 'Ready to seal.' : 'Mark your choice, then seal it.'),
-      seal: () => { if (pick) this.setState({ sealed: true }); }
+      kingRows,
+      deliveryNote,
+      sent,
+      waiting,
+      canSeal: !sealed,
+      noPick: !pick,
+      hint: sent ? 'Sealed and sent to the Crown.' : waiting ? 'Sealed, waiting for the Crown.' : pick ? 'Ready to seal.' : 'Mark your choice, then seal it.',
+      hintSub: sent ? 'Receipt from the Crown · 8:31 pm' : waiting ? 'It goes when a King logs in.' : pick ? 'Once sealed, it cannot be changed.' : 'One name only.',
+      seal: () => { if (pick && !sealed && poll.stage === 'open') this.setState({ sealed: true, delivered: kings !== 'none' }); },
+      closedVoteNote: sent ? 'Your ballot was received.' : waiting ? 'Your sealed ballot is still held. It counts if it reaches a King before the result is declared.' : 'You did not vote in this election.',
+
+      form,
+      formCands,
+      kinds,
+      cantOpen,
+      formFull: form.cands.length >= 4,
+      formNote: cantOpen ? 'Give the election a name and at least two candidates.' : 'Polls stay open 2 hours, until 10:30 pm realm time.',
+      addCand: () => updForm({ cands: [...form.cands, { id: 'c' + Date.now(), name: '', party: 'ind' }] }),
+      openPolls: () => {
+        if (cantOpen) return;
+        this.setState({ ...resetBallot, poll: { stage: 'open', name: form.name.trim(), kind: form.kind, cands: named.map((c) => ({ ...c, name: c.name.trim() })), closes: '10:30 pm', left: '2 h 0 min', fresh: true } });
+      },
+      count,
+      kingCounts,
+      status,
+      closePolls: () => this.setState({ poll: { ...poll, stage: 'closed' } }),
+      declare: () => this.setState({ ...resetBallot, history: [record(false), ...history], poll: { ...poll, stage: 'none' }, form: BLANK_FORM, view: 'results' }),
+      runoff: () => this.setState({ ...resetBallot, history: [record(true), ...history], poll: { ...poll, stage: 'none' },
+        form: { name: poll.name.replace(/ run-off$/, '') + ' run-off', kind: 'runoff', cands: leaders.map((c) => ({ ...c })) }, view: 'crown' }),
+
+      res,
+      records
     };
   }
 }
