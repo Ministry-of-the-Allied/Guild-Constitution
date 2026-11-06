@@ -41,6 +41,7 @@ local STYLES = {
   kitRibbon = { "cinzel", 11 },             -- .ribbon
   kitStage = { "cinzel", 17 },              -- the event plate's stage
   kitName = { "cinzel", 14 },               -- .h-name at 14
+  kitNameSmall = { "cinzel", 12 },          -- a full character name in a narrow place
   kitVersus = { "decoBold", 11.5 },         -- .next-bout .vs
   kitAwaiting = { "decoBold", 22 },         -- .h-page at 22
   kitLaurel = { "decoBold", 10.5 },         -- .laurel
