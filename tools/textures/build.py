@@ -79,7 +79,7 @@ ICONS = {
 }
 
 # Herald buttons drawn ready-made: the label and the style ("blue" is .btn, "quiet" is .btn.quiet).
-HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss"]
+HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss", "Stop", "Restart"]
 
 # Slots: places where the add-on draws live text or buttons, by root.
 SLOTS = {

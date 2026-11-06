@@ -34,6 +34,10 @@ local STYLES = {
   heraldBody = { "garamond", 16 },          -- .herald p
   setLabel = { "cinzel", 12.5 },            -- .setrow label (spaced out)
   setSmall = { "garamond", 14 },            -- .setrow label small
+  constitutionPart = { "decoBold", 17 },    -- The Constitution page
+  constitutionSection = { "cinzel", 12.5 },
+  constitutionSmall = { "garamond", 12 },
+  constitutionAction = { "cinzel", 11 },
 }
 
 function MOTA:FontSize(name)

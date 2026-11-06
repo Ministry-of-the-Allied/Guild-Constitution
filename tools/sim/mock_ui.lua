@@ -146,6 +146,36 @@ function Methods:GetStringWidth() return #(self.text or "") * 6 end
 function Methods:SetMaxLines() end
 function Methods:SetWordWrap() end
 
+-- scroll frames and sliders
+function Methods:SetScrollChild(c) self.scrollChild = c end
+function Methods:SetVerticalScroll(v) self.vscroll = v end
+function Methods:GetVerticalScroll() return self.vscroll or 0 end
+function Methods:EnableMouseWheel() end
+function Methods:SetOrientation() end
+function Methods:SetThumbTexture() end
+function Methods:SetValueStep() end
+function Methods:SetObeyStepOnDrag() end
+function Methods:SetMinMaxValues(a, b) self.minV, self.maxV = a, b end
+function Methods:SetValue(v)
+  self.value = math.max(self.minV or v, math.min(self.maxV or v, v))
+  if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, self.value) end
+end
+function Methods:GetValue() return self.value or 0 end
+function Methods:SetEnabled(v) self.enabled = v end
+function Methods:GetStringHeight() return 16 end
+
+-- sounds
+VOICE_PLAYED, VOICE_STOPPED = {}, 0
+local nextHandle = 100
+function PlaySoundFile(path, channel)
+  assert(type(path) == "string" and channel == "Master", "bad PlaySoundFile")
+  TEXTURES_USED[path] = true
+  VOICE_PLAYED[#VOICE_PLAYED + 1] = path
+  nextHandle = nextHandle + 1
+  return true, nextHandle
+end
+function StopSound(h) assert(type(h) == "number") VOICE_STOPPED = VOICE_STOPPED + 1 end
+
 -- tooltip
 function Methods:SetOwner() end
 function Methods:AddLine() end

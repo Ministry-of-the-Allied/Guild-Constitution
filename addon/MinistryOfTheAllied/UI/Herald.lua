@@ -6,7 +6,10 @@
 --   MOTA.Herald:Announce{ seal = "official" | "crown" | "exchange" | "silverhand",
 --     eyebrow = "...", title = "...", text = "...",
 --     button = { label = "Vote now" | "Read it" | "Open" | "Dismiss",
---                style = "blue" | "quiet", page = <window page number> } }
+--                style = "blue" | "quiet", page = <window page number>,
+--                onPress = function, keep = true to stay open after a press },
+--     stay = seconds on screen, or false to stay until closed; noFanfare = true;
+--     closeX = true for a corner close button; onShow, onGone = functions }
 --
 -- /mota herald [1-3] shows the board's examples; /mota fanfare picks the sound.
 
@@ -112,6 +115,20 @@ local function build()
     end
   end
 
+  -- The corner close button, for heralds whose main button does something else.
+  local x = CreateFrame("Button", nil, frame)
+  x:SetSize(24, 24)
+  x:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -10)
+  x:SetFrameLevel(frame:GetFrameLevel() + 6)
+  local mark = x:CreateFontString(nil, "OVERLAY")
+  mark:SetFontObject(MOTA:Font("setLabel"))
+  mark:SetTextColor(MOTA:RGB("7A5719"))
+  mark:SetText("X")
+  mark:SetPoint("CENTER")
+  x:SetScript("OnClick", function() if current then Herald:Close(current) end end)
+  x:Hide()
+  frame.closeX = x
+
   -- Unrolling (Royal) or fading in (Modest), and fading out.
   frame.unroll = frame:CreateAnimationGroup()
   local grow = frame.unroll:CreateAnimation("Scale")
@@ -140,13 +157,17 @@ local function build()
   out:SetDuration(0.3)
   frame.fadeOut:SetScript("OnFinished", function()
     frame:Hide()
+    local gone = current
     current = nil
+    if gone and gone.onGone then gone.onGone(gone) end
     Herald:Next()
   end)
 
   -- Hovering keeps it on screen.
   frame:SetScript("OnEnter", function() if hideTimer then hideTimer:Cancel() hideTimer = nil end end)
-  frame:SetScript("OnLeave", function() Herald:HideLater(3) end)
+  frame:SetScript("OnLeave", function()
+    if current and current.stay ~= false then Herald:HideLater(3) end
+  end)
 end
 
 ---------------------------------------------------------------------------
@@ -166,6 +187,7 @@ local function fit(h)
   local width = chosen.left - 16 - M.slots.htext.x
   frame.title:SetWidth(width)
   frame.body:SetWidth(width)
+  frame.closeX:SetShown(h.closeX and true or false)
 end
 
 function Herald:HideLater(seconds)
@@ -187,13 +209,17 @@ function Herald:Next()
   frame:SetAlpha(1)
   frame:Show()
   if size == "full" then frame.unroll:Play() else frame.fadeIn:Play() end
-  if MOTA.db.settings.fanfare then self:PlayFanfare() end
-  self:HideLater(STAY[size])
+  if MOTA.db.settings.fanfare and not current.noFanfare then self:PlayFanfare() end
+  if current.stay ~= false then self:HideLater(current.stay or STAY[size]) end
+  if current.onShow then current.onShow(current) end
 end
 
 -- What the herald's button does: open its page, then the herald goes.
 function Herald:Press()
-  local page = current and current.button and current.button.page
+  local button = current and current.button
+  if button and button.onPress then button.onPress() end
+  if button and button.keep then return end
+  local page = button and button.page
   if page then
     UI:Build()
     UI:SelectPage(page)
@@ -209,6 +235,30 @@ function Herald:Announce(h, force)
   queue[#queue + 1] = h
   self:Next()
   return true
+end
+
+-- Redraws a herald after its text or button changed; it then stays until
+-- closed or until HideLater is called.
+function Herald:Update(h)
+  if h ~= current then return end
+  if hideTimer then hideTimer:Cancel() hideTimer = nil end
+  fit(h)
+end
+
+-- Takes one herald away, whether it's showing or still waiting its turn.
+function Herald:Close(h)
+  if h == current then
+    if hideTimer then hideTimer:Cancel() hideTimer = nil end
+    frame.fadeOut:Play()
+    return
+  end
+  for i, waiting in ipairs(queue) do
+    if waiting == h then
+      table.remove(queue, i)
+      if h.onGone then h.onGone(h) end
+      return
+    end
+  end
 end
 
 function Herald:Waiting()

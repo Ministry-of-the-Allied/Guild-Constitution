@@ -46,7 +46,7 @@ clock = [0.0]
 
 
 class Client:
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False):
         self.name = name
         self.full = name + "-" + REALM
         self.log = []
@@ -78,6 +78,7 @@ class Client:
             ns.PROTOCOL = protocol
         g.mock_fire("ADDON_LOADED", "SomeOtherAddon")
         g.mock_fire("ADDON_LOADED", "MinistryOfTheAllied")
+        ns.db.settings.voice = voice  # the narration has its own checks (section 12)
         g.mock_fire("PLAYER_LOGIN")
         g.mock_fire("PLAYER_ENTERING_WORLD", True, False)
 
@@ -407,6 +408,71 @@ run(8)
 max4.slash("test Hear ye from Max")
 run(2)
 check("A test record from another member arrives as a herald", hf.shown and hf.title.text == "A test from Max")
+print("== 12. the Charter narration and the Constitution page")
+vc = Client("Mira", voice=True)
+clients.append(vc)
+VL = vc.lua.globals()
+vns = VL.MinistryOfTheAllied
+V = vns.Voice
+played = lambda: len(list(VL.VOICE_PLAYED.values()))
+last = lambda: VL.VOICE_PLAYED[played()]
+vh = lambda: VL.MinistryOfTheAlliedHerald
+run(8)
+check("The introduction starts by itself on first login", played() == 1 and last().endswith("voice_01.ogg"))
+check("Its scroll has no Stop button", vh().shown and vh().title.text == "Introduction" and not vh().closeX.shown and vh().buttons["quiet:Dismiss"].shown)
+check("No fanfare over the narration", VL.LAST_SOUND != 888)
+vc.slash("voice stop")
+check("The introduction can't be stopped", VL.VOICE_STOPPED == 0 and V.Locked(V))
+vc.slash("voice off")
+check("...or switched off", vns.db.settings.voice)
+vc.slash("constitution")
+check("/mota constitution opens the Statute Book", VL.MinistryOfTheAlliedFrame.shown and vns.UI.heading.text == "The Statute Book")
+check("The Charter text is there", any(b[2] == "Preamble" for b in vns.Charter.values()))
+vns.ConstitutionPage.Press(vns.ConstitutionPage, 3)
+check("The page can't interrupt the introduction", played() == 1)
+run(21)
+check("Its scroll closes after a while", not vh().shown)
+check("...while the voice plays on", V.Playing(V) is not None and VL.VOICE_STOPPED == 0)
+run(55)
+check("The introduction finishes", V.Playing(V) is None and V.State(V).nextClip == 2)
+run(135)
+check("No second clip before the gap is up", played() == 1)
+run(12)
+check("Part 1 comes after about two and a half minutes", played() == 2 and last().endswith("voice_02.ogg"))
+check("Its scroll has Stop and a close button", vh().shown and vh().title.text == "The Crown" and vh().closeX.shown)
+run(30)
+check("...and stays while the clip plays", vh().shown)
+vns.Herald.Press(vns.Herald)
+check("Stop stops the sound", VL.VOICE_STOPPED == 1 and V.Playing(V) is None)
+check("...and offers Restart", vh().shown and vh().buttons["blue:Restart"].shown)
+vns.Herald.Press(vns.Herald)
+check("Restart plays from the beginning", played() == 3 and last().endswith("voice_02.ogg") and vh().buttons["quiet:Stop"].shown)
+vh().closeX.scripts.OnClick(vh().closeX)
+check("The X closes the scroll, the voice plays on", not vh().shown and V.Playing(V) is not None)
+V.Stop(V)
+vns.ConstitutionPage.Press(vns.ConstitutionPage, 5)
+check("The page replays any clip", last().endswith("voice_05.ogg"))
+vns.ConstitutionPage.Press(vns.ConstitutionPage, 5)
+check("...and stops it", V.Playing(V) is None)
+VL.COMBAT = True
+V.PlayNext(V)
+n = played()
+check("A clip waits during combat", played() == n and not vh().shown)
+VL.COMBAT = False
+VL.mock_fire("PLAYER_REGEN_ENABLED")
+run(16)
+check("...and plays after combat ends", played() == n + 1 and last().endswith("voice_03.ogg"))
+V.Stop(V)
+vh().closeX.scripts.OnClick(vh().closeX)
+state = V.State(V)
+state.nextClip = 10
+V.PlayNext(V)
+run(26)
+check("After the last clip the sequence is complete", state.complete)
+run(200)
+check("...and nothing more plays", V.Playing(V) is None and not vh().shown)
+clients.remove(vc)
+
 print("  Methods the pretend game didn't know:", HL.mock_unknown())
 missing = []
 for path in HL.mock_textures().split("\n"):

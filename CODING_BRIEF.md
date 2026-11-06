@@ -31,7 +31,7 @@ MOTA.CONST = {
     SYNC_AMBER_SECONDS       = 1800,       -- footer sync indicator turns amber after 30 min
     BROADCAST_MIN_INTERVAL   = 3,          -- seconds between routine GUILD broadcasts
     VOICE_CLIP_COUNT         = 10,         -- total onboarding voice clips
-    VOICE_CLIP_INTERVAL      = 240,        -- ~4 min between staged clips (seconds)
+    VOICE_CLIP_GAP           = 150,        -- seconds from the end of one staged clip to the next
 }
 ```
 
@@ -42,7 +42,7 @@ MOTA.CONST = {
 | Phase | Files | Notes |
 |---|---|---|
 | **Built** | Libs/ (AceComm-3.0), Core.lua, Data.lua, Roster.lua, Comm.lua, Book.lua, Hello.lua, Probe.lua, Media.lua, Fonts.lua, UI/MainWindow.lua, UI/Minimap.lua, UI/Crests.lua, UI/Herald.lua, UI/Settings.lua, Commands.lua | Milestones 1–3 and the spec renames (ADDON_SPEC.md 16.4): sync skeleton on AceComm, window, minimap seal, heralds, settings |
-| **v1.0** | UI/Skin.lua, UI/ThroneRoom.lua, UI/BallotHall.lua, UI/VoicePlayer.lua | Skins, voting, onboarding |
+| **v1.0** | UI/Skin.lua, UI/ThroneRoom.lua, UI/BallotHall.lua | Skins, voting (voice onboarding is built: Voice.lua, UI/Constitution.lua) |
 | **v1.1** | UI/StatuteBook.lua, UI/Treasury.lua | Law registry + ledger |
 | **v1.2** | UI/Districts.lua | Citizen roll + regional map |
 | **v1.3** | UI/Parties.lua, UI/Court.lua | Parties with the Party Chamber + the Court |
@@ -111,7 +111,7 @@ if MOTA.voice.handle then
 end
 ```
 
-Controls: ▶ Play, ■ Stop (resets to start), ↺ Restart, ✕ Dismiss. No pause. UI iconography must reflect this.
+Controls: Stop and Restart (from the beginning). No pause. See ADDON_SPEC.md section 12.
 
 ---
 

@@ -24,9 +24,12 @@ Hello.lua
 Probe.lua
 Media.lua
 Fonts.lua
+Charter.lua
+Voice.lua
 UI\MainWindow.lua
 UI\Minimap.lua
 UI\Crests.lua
 UI\Herald.lua
 UI\Settings.lua
+UI\Constitution.lua
 Commands.lua

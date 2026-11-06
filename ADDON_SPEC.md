@@ -749,125 +749,42 @@ Prize pool = total entry fees collected. Guild cut is deducted and retained in T
 
 ## 12. Voice Onboarding System
 
-Ten pre-generated ElevenLabs voice clips narrate the Royal Charter on first use. Clips play automatically in a staged sequence during early play sessions, and are available on-demand from within the addon at any time.
+Ten pre-generated ElevenLabs clips narrate the Royal Charter, 12.5 minutes in all, from `CHARTER_VOICESCRIPT.md`. *Built 2026-11-06, to test in game: `Voice.lua`, `UI/Constitution.lua`, `Charter.lua`.*
 
-**Voice rules:** the voice must be an original AI voice, not a copy of a Blizzard character or a real actor, and the voice tool's licence must allow shipping the files inside the addon (check ElevenLabs' terms before generating). Voice has an on/off switch and volume in settings.
+**Voice rules:** the voice must be an original AI voice, not a copy of a Blizzard character or a real actor, and the voice tool's licence must allow shipping the files inside the addon.
 
-### 12.1 Clip List
+### 12.1 Clips
 
-| # | Title | Charter section |
-|---|---|---|
-| 1 | Hear Ye | Preamble / intro |
-| 2 | The Crown | Part I |
-| 3 | The Government | Part II |
-| 4 | The Parties | Part III |
-| 5 | Legislation | Part IV |
-| 6 | The Vote of No Confidence | Part V |
-| 7 | The High Judiciary | Part VI |
-| 8 | Punishment | Part VII |
-| 9 | Citizenship and the Districts | Part VIII |
-| 10 | Welcome to the Realm | Closing |
+`Media/Voice/voice_01.ogg` to `voice_10.ogg`: Introduction, The Crown, The Government, The Parties, Legislation, The Vote of No Confidence, The High Judiciary, Punitive Measures, Citizenship and the Districts, Welcome to the Realm. Titles and lengths are in `MOTA.CONST.VOICE_CLIPS` (the game can't report a sound's length). `tools/voice/build.py audio <folder>` converts the narrator's MP3s.
 
-Clips are generated from `CHARTER_VOICESCRIPT.md` (not written yet) using ElevenLabs. Delivered as `.ogg` files at `Media/Voice/voice_01.ogg` through `voice_10.ogg`.
+### 12.2 Staged playback
 
-### 12.2 Staged Playback (Onboarding Mode)
-
-On a citizen's first login with the addon active, the onboarding sequence begins automatically:
-
-1. Clip 1 plays immediately via the notification frame
-2. Subsequent clips play at approximately 4-minute intervals while the player remains online
-3. The sequence resumes on future logins if not completed — it does not restart from clip 1
-4. Citizens who dismiss or stop clips are not forced to continue; they can resume from the on-demand library at any time
-5. Once all 10 clips have been heard (or skipped), the onboarding flag is set and the automatic sequence does not replay
-
-Clips wait until the player is out of combat. Interval constant: `MOTA.CONST.VOICE_CLIP_INTERVAL = 240` (seconds).
+1. A few seconds after a guild member's first login, the introduction plays.
+2. Each later clip plays `VOICE_CLIP_GAP` (150 seconds) after the previous one ended or was stopped. Clips wait until the player is out of combat, and until any clip they replayed has finished.
+3. The sequence resumes on later logins, after one gap. A clip cut off by logging out plays again from its start.
+4. Once clip 10 has ended or been stopped, the sequence is finished. `/mota voice off` switches it off for the account, except during the introduction.
 
 ### 12.3 Onboarding state
 
-```lua
--- MOTADB.onboarding["PlayerName"] = {
---     started     = 0,        -- Unix timestamp of first clip play
---     lastClip    = 0,        -- Index of last clip played (0 = none)
---     heard       = {},       -- [clipIndex] = true for each clip heard/skipped
---     complete    = false,    -- true when all 10 clips heard or sequence dismissed
--- }
-```
+`MOTADB.onboarding[characterGUID] = { started, nextClip, heard = { [clip] = true }, complete }`. Per character, local, never synced.
 
-Onboarding state is per-character and stored locally. It is not part of the synced citizen record; nobody else sees it.
+### 12.4 Sound API
 
-### 12.4 Sound API and Playback Constraints
+WoW can't pause or seek. A stopped clip can only start again from the beginning. Clips play with `PlaySoundFile(path, "Master")` and stop with `StopSound(handle)`. New sound files only load after the game is fully restarted, not on `/reload`.
 
-WoW's sound API does not support pause with position tracking. The addon uses stop/restart semantics only.
+### 12.5 Herald pop-ups
 
-```lua
--- Play a clip:
-local path = string.format(
-    "Interface\\AddOns\\MinistryOfTheAllied\\Media\\Voice\\voice_%02d.ogg", index)
-local _, handle = PlaySoundFile(path, "Master")
-MOTA.voice.handle = handle
-MOTA.voice.currentClip = index
+Clips use the herald scroll (10.2), without the fanfare, even when other heralds are switched off.
 
--- Stop (resets to start):
-if MOTA.voice.handle then
-    StopSound(MOTA.voice.handle)
-    MOTA.voice.handle = nil
-end
-```
+| Clip | Button | Scroll | Audio |
+|---|---|---|---|
+| Introduction | Dismiss | Closes on Dismiss or after `VOICE_INTRO_HERALD_SECONDS` (20) | Always plays to the end |
+| Others, playing | Stop, plus a corner X | Stays for the whole clip; X closes it | X leaves it playing; Stop ends it |
+| Others, stopped | Restart, plus a corner X | Closes after `VOICE_STOPPED_HERALD_SECONDS` (20) | Restart plays from the beginning |
 
-**There is no pause.** The control set is stop/restart. UI must reflect this — see 12.5.
+### 12.6 The Constitution, in the Statute Book
 
-### 12.5 Notification Frame (VoicePlayer)
-
-A small persistent notification frame slides in from the bottom-right corner when a clip begins playing (like WoW's achievement toast, styled to the player's active skin). It remains visible until dismissed. Its design goes on the canvas before it's built.
-
-**Controls:**
-
-| Button | Icon | Behaviour |
-|---|---|---|
-| Play | ▶ | Starts or restarts current clip |
-| Stop | ■ | Stops playback, resets to start of clip |
-| Restart | ↺ | Stops and immediately replays from start |
-| Dismiss | ✕ | Closes frame, stops audio, marks clip as heard |
-
-No pause button is shown. The ■ icon (not ⏸) makes clear that stopping resets position.
-
-**Frame contents:**
-- Clip number and title (e.g. "2 of 10 — The Crown")
-- Progress bar (time-approximated, visual reference only — not seekable). The game can't report a clip's length, so each clip's length is written into the code.
-- Control buttons in a row
-- "Open Library" link — opens the Charter Library panel
-
-The frame is `UI/VoicePlayer.lua`. It is non-blocking — the player can interact with the world normally while audio plays.
-
-### 12.6 Charter Library (On-Demand)
-
-A sub-panel accessible from the main addon window (and from the "Open Library" link in the notification frame) listing all 10 clips. Players can replay any clip at any time regardless of onboarding status.
-
-- List of 10 clips with title and duration label
-- ▶ / ↺ button per row (play if stopped, restart if playing)
-- Heard indicator per clip (subtle checkmark or dimmed style)
-- Currently playing clip highlighted
-
-Part of `UI/VoicePlayer.lua`, or a separate `UI/CharterLibrary.lua` depending on complexity at build time.
-
-### 12.7 Asset Specification
-
-```
-Media/
-└── Voice/
-    ├── voice_01.ogg    -- Preamble
-    ├── voice_02.ogg    -- The Crown
-    ├── voice_03.ogg    -- The Government
-    ├── voice_04.ogg    -- The Parties
-    ├── voice_05.ogg    -- Legislation
-    ├── voice_06.ogg    -- No Confidence
-    ├── voice_07.ogg    -- The Judiciary
-    ├── voice_08.ogg    -- Punishment
-    ├── voice_09.ogg    -- Citizenship & Districts
-    └── voice_10.ogg    -- Welcome to the Realm
-```
-
-Format: `.ogg`, mono or stereo, 44.1kHz. Forever supports `.ogg` via `PlaySoundFile()`; only files that ship inside the addon's folder can be played.
+On the Statute Book tab. The whole Charter scrolls on the left, generated from `CHARTER.md` by `tools/voice/build.py charter` (rerun it whenever the Charter changes). On the right, ten rows with title, length, "heard" and Play or Stop. Any clip can be replayed any time, except during the staged introduction, which locks the list. Also opened with `/mota constitution`.
 
 ---
 
@@ -903,7 +820,7 @@ MinistryOfTheAllied/
 │   ├── Districts.lua           Tab 6
 │   ├── Ring.lua                Tab 7
 │   ├── WorldMap.lua            World map skins
-│   └── VoicePlayer.lua         Notification frame + Charter Library
+│   └── Constitution.lua        The Charter and its narration (Voice.lua plays it)
 ├── Commands.lua        (built) Slash commands — loaded last
 ├── Libs/               (built)
 │   ├── LibStub/
@@ -964,7 +881,7 @@ UI\Treasury.lua
 UI\Districts.lua
 UI\Ring.lua
 UI\WorldMap.lua
-UI\VoicePlayer.lua
+UI\Constitution.lua
 
 # Commands last
 Commands.lua
@@ -992,7 +909,7 @@ Commands.lua
 
 | Phase | Scope |
 |---|---|
-| **v1.0** | Core framework, sync, window, heralds, settings, Throne Room, Ballot Hall (secret ballot by whisper), VoicePlayer |
+| **v1.0** | Core framework, sync, window, heralds, settings, Throne Room, Ballot Hall (secret ballot by whisper), voice onboarding |
 | **v1.1** | Statute Book, Treasury Ledger |
 | **v1.2** | Districts tab with map, Citizen Roll |
 | **v1.3** | Parties tab with the Party Chamber, the Court |
@@ -1075,7 +992,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 | `SYNC_AMBER_SECONDS` | 1800 | Footer sync indicator turns amber after 30 minutes |
 | `BROADCAST_MIN_INTERVAL` | 3 | Seconds between routine GUILD broadcasts |
 | `VOICE_CLIP_COUNT` | 10 | Onboarding voice clips |
-| `VOICE_CLIP_INTERVAL` | 240 | About 4 minutes between staged clips |
+| `VOICE_CLIP_GAP` | 150 | Seconds from the end of one staged clip to the next |
 
 ---
 
@@ -1100,7 +1017,8 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 
 - **The real map:** district shapes need tracing against the live Stormwind map after launch.
 - **Herald voice lines:** a town crier calling "Hear ye! The polls are open!" with heralds. Fixed lines only (lines with names or numbers stay as text). Same voice rules as section 12. The game's own text-to-speech is a possible flat-voiced fallback.
-- **`CHARTER_VOICESCRIPT.md`** needs writing before the clips can be generated.
+- **Clip 4 is out of date:** The Parties narration says polls open for forty-eight hours; Charter 3.3 has said 2 hours since 2026-11-06. It needs regenerating.
+- **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
 - **Party leader votes:** how the vote inside the Party Chamber is counted (open among members, or secret like the elections) is still to decide when Parties is planned in detail.
 
@@ -1134,6 +1052,7 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
   - Everything else follows the brief (19.2 lists what that set aside).
 - **2026-11-06** The treasury goes back to the old plan's automatic ledger, read from the guild bank money log by every member's addon (10.7). Ring entry fees are counted from the bank log, not at sign-up (11.5).
 - **2026-11-06** Parties: joining follows the brief (join button, the Crown records membership); the Party Chamber, leader elections inside it, Chamber privacy by whisper and the 14-day crossing-the-floor rule follow the old plan (10.16). The Court follows the old plan: accusation, summons, Justices' ruling, punishment applied, appeal to the Crown (10.10).
+- **2026-11-06** Voice onboarding: 2.5 minutes between clips rather than 4; the introduction can't be stopped; clips use herald scrolls rather than a separate notification frame; the readable Charter and its audio live in the Statute Book.
 
 ---
 

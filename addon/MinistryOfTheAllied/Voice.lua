@@ -1,0 +1,228 @@
+-- Ministry of the Allied: the Charter narration (ADDON_SPEC.md, section 12).
+-- On first login, the introduction plays and can't be stopped. The other clips
+-- follow one at a time, VOICE_CLIP_GAP seconds after the last one ended, and
+-- pick up where they left off on the next login. WoW can't pause or seek a
+-- sound, so a stopped clip can only start again from the beginning.
+
+local _, MOTA = ...
+local Voice = {}
+MOTA.Voice = Voice
+
+local PATH = "Interface\\AddOns\\MinistryOfTheAllied\\Media\\Voice\\voice_%02d.ogg"
+local START_DELAY = 6  -- seconds after the guild is known, so the loading screen has gone
+local RETRY_DELAY = 15 -- when a clip came due while another was playing
+
+local playing, handle, endTimer, gapTimer, herald
+local begun, due
+
+local function CONST() return MOTA.CONST end
+function Voice:Clips() return CONST().VOICE_CLIPS end
+function Voice:Playing() return playing end -- { index, onboarding, locked }
+
+local function characterId()
+  return UnitGUID("player") or UnitName("player")
+end
+
+function Voice:State()
+  local all = MOTA.db.onboarding
+  local id = characterId()
+  all[id] = all[id] or { started = 0, nextClip = 1, heard = {}, complete = false }
+  return all[id]
+end
+
+function Voice:Enabled() return MOTA.db.settings.voice end
+
+-- The Statute Book and /mota voice can't interrupt the introduction.
+function Voice:Locked() return playing ~= nil and playing.locked end
+
+function Voice:Length(seconds)
+  local whole = math.floor(seconds + 0.5)
+  return ("%d:%02d"):format(math.floor(whole / 60), whole % 60)
+end
+
+---------------------------------------------------------------------------
+-- Playing one clip
+---------------------------------------------------------------------------
+
+local function silence()
+  if handle then StopSound(handle) end
+  handle = nil
+  if endTimer then endTimer:Cancel() endTimer = nil end
+end
+
+-- Moves the staged sequence on, once a clip has ended or been stopped.
+local function clipDone(index)
+  local state = Voice:State()
+  if state.nextClip == index then state.nextClip = index + 1 end
+  if state.nextClip > #Voice:Clips() then state.complete = true end
+  if not state.complete then Voice:ScheduleNext(CONST().VOICE_CLIP_GAP) end
+end
+
+local function onEnded()
+  local p = playing
+  playing, handle, endTimer = nil, nil, nil
+  Voice:State().heard[p.index] = true
+  if p.onboarding then clipDone(p.index) end
+  if herald then MOTA.Herald:Close(herald) end
+  MOTA:Fire("VOICE_CHANGED")
+  if due then
+    due = nil
+    Voice:ScheduleNext(RETRY_DELAY)
+  end
+end
+
+local function begin(index, onboarding, locked)
+  silence()
+  local willPlay, h = PlaySoundFile(PATH:format(index), "Master")
+  handle = h
+  if not willPlay then
+    MOTA:Print("The narration couldn't play. Check that the game's sound is on. You can replay it in the Statute Book.")
+  end
+  playing = { index = index, onboarding = onboarding, locked = locked }
+  endTimer = C_Timer.NewTimer(Voice:Clips()[index].length, onEnded)
+  MOTA:Fire("VOICE_CHANGED")
+end
+
+---------------------------------------------------------------------------
+-- The pop-ups
+---------------------------------------------------------------------------
+
+local PLAYING_TEXT = "Stop it if you wish. It can only restart from the beginning."
+local STOPPED_TEXT = "Stopped. Restarting begins again from the beginning."
+
+local function stopButton(index)
+  return { label = "Stop", style = "quiet", keep = true, onPress = function() Voice:HeraldStop(index) end }
+end
+
+local function restartButton(index)
+  return { label = "Restart", style = "blue", keep = true, onPress = function() Voice:HeraldRestart(index) end }
+end
+
+local function announce(index)
+  local clip = Voice:Clips()[index]
+  local isIntro = index == 1
+  herald = {
+    seal = "official",
+    eyebrow = isIntro and "Hear ye · the Royal Charter" or ("The Royal Charter · %d of %d"):format(index, #Voice:Clips()),
+    title = clip.title,
+    text = isIntro and "Listen well, citizen. You may close this scroll; the narration plays on." or PLAYING_TEXT,
+    noFanfare = true,
+    stay = isIntro and CONST().VOICE_INTRO_HERALD_SECONDS or false,
+    closeX = not isIntro,
+    button = isIntro and { label = "Dismiss", style = "quiet" } or stopButton(index),
+    onShow = function()
+      local state = Voice:State()
+      if state.started == 0 then state.started = GetServerTime() end
+      begin(index, true, isIntro)
+    end,
+    onGone = function(h) if herald == h then herald = nil end end,
+  }
+  MOTA.Herald:Announce(herald, true)
+end
+
+function Voice:HeraldStop(index)
+  if not playing or playing.index ~= index then return end
+  self:Stop()
+  herald.text = STOPPED_TEXT
+  herald.button = restartButton(index)
+  herald.stay = CONST().VOICE_STOPPED_HERALD_SECONDS
+  MOTA.Herald:Update(herald)
+  MOTA.Herald:HideLater(CONST().VOICE_STOPPED_HERALD_SECONDS)
+end
+
+-- A restart is a replay: the sequence already moved on when the clip was stopped.
+function Voice:HeraldRestart(index)
+  begin(index, false, false)
+  herald.text = PLAYING_TEXT
+  herald.button = stopButton(index)
+  herald.stay = false
+  MOTA.Herald:Update(herald)
+end
+
+---------------------------------------------------------------------------
+-- The staged sequence
+---------------------------------------------------------------------------
+
+function Voice:ScheduleNext(seconds)
+  if gapTimer then gapTimer:Cancel() end
+  gapTimer = C_Timer.NewTimer(seconds, function()
+    gapTimer = nil
+    Voice:Due()
+  end)
+end
+
+function Voice:Due()
+  if not self:Enabled() or not MOTA.guild then return end
+  local state = self:State()
+  if state.complete then return end
+  if playing or herald or InCombatLockdown() then
+    due = true
+    return
+  end
+  announce(state.nextClip)
+end
+
+function Voice:Begin()
+  if begun or not self:Enabled() then return end
+  local state = self:State()
+  if state.complete then return end
+  begun = true
+  self:ScheduleNext(state.nextClip == 1 and START_DELAY or CONST().VOICE_CLIP_GAP)
+end
+
+MOTA:Listen("GUILD_READY", function() Voice:Begin() end)
+MOTA:On("PLAYER_REGEN_ENABLED", function()
+  if due and not playing then
+    due = nil
+    Voice:ScheduleNext(RETRY_DELAY)
+  end
+end)
+
+---------------------------------------------------------------------------
+-- The Statute Book and /mota voice
+---------------------------------------------------------------------------
+
+-- Plays a clip again. Refused only while the introduction is playing.
+function Voice:Replay(index)
+  if self:Locked() then return false end
+  if herald then MOTA.Herald:Close(herald) end
+  herald = nil
+  if playing and playing.onboarding then clipDone(playing.index) end
+  begin(index, false, false)
+  return true
+end
+
+function Voice:Stop()
+  if not playing or playing.locked then return false end
+  local p = playing
+  silence()
+  playing = nil
+  if p.onboarding then clipDone(p.index) end
+  MOTA:Fire("VOICE_CHANGED")
+  return true
+end
+
+function Voice:SetEnabled(on)
+  if not on and self:Locked() then return false end
+  MOTA.db.settings.voice = on
+  begun, due = nil, nil
+  if gapTimer then gapTimer:Cancel() gapTimer = nil end
+  if on then self:Begin() end
+  return true
+end
+
+-- For testing: start the sequence over, or bring the next clip forward.
+function Voice:Reset()
+  if self:Locked() then return false end
+  self:Stop()
+  if gapTimer then gapTimer:Cancel() gapTimer = nil end
+  MOTA.db.onboarding[characterId()] = nil
+  begun = nil
+  self:Begin()
+  return true
+end
+
+function Voice:PlayNext()
+  if gapTimer then gapTimer:Cancel() gapTimer = nil end
+  self:Due()
+end

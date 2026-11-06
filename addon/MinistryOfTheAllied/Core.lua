@@ -200,9 +200,11 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       glow = true,         -- district glow (comes with the Districts page)
       cards = false,       -- citizen cards (come later)
       heraldSize = "full", -- "full" (Royal) or "small" (Modest)
+      voice = true,        -- the Charter narration on first login (/mota voice off)
     },
     guilds = {},  -- one book per guild, see CheckGuild
     window = {},  -- where the window was left, its size and page (UI/MainWindow.lua)
+    onboarding = {}, -- [character ID] = how far the Charter narration has got (Voice.lua)
     minimap = { angle = 200, hide = false }, -- the minimap seal (UI/Minimap.lua)
   })
 end)

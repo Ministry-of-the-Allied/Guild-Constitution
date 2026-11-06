@@ -102,6 +102,33 @@ add("book", "", "the last 10 records in your book", function()
   end
 end)
 
+add("constitution", "", "read and hear the Charter", function()
+  MOTA.UI:Build()
+  for i, page in ipairs(MOTA.Media.pages) do
+    if page.id == "statute" then MOTA.UI:SelectPage(i) end
+  end
+  MOTA.UI.window:Show()
+end)
+
+add("voice", "[on|off|stop|next|reset]", "the Charter narration: how far it's got, or control it", function(arg)
+  local V = MOTA.Voice
+  local busy = "Not while the introduction is being read."
+  if arg == "on" or arg == "off" then
+    if not V:SetEnabled(arg == "on") then return MOTA:Print(busy) end
+    MOTA:Print("The Charter narration is", arg == "on" and "on." or "off. You can still play it in the Statute Book.")
+  elseif arg == "stop" then
+    if V:Locked() then MOTA:Print(busy) else V:Stop() end
+  elseif arg == "next" then
+    V:PlayNext()
+  elseif arg == "reset" then
+    if V:Reset() then MOTA:Print("The narration starts again from the introduction.") else MOTA:Print(busy) end
+  else
+    local s = V:State()
+    MOTA:Print("Charter narration:", V:Enabled() and "on" or "off", "·",
+      s.complete and "finished" or ("next is " .. s.nextClip .. " of " .. #V:Clips()))
+  end
+end)
+
 add("probe", "[limits]", "client facts for the add-on plan; 'limits' measures message limits", function(arg)
   if arg == "limits" then
     MOTA.Probe:Limits()

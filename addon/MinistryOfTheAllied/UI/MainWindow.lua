@@ -308,6 +308,11 @@ function UI:SelectPage(i)
   local page = M.pages[i]
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
+  -- A page with its own contents replaces the note about what it will hold.
+  local built = page.id == "statute"
+  self.note:SetShown(not built)
+  self.note2:SetShown(not built)
+  MOTA:Fire("PAGE_SHOWN", page.id)
 end
 
 local function weekday()

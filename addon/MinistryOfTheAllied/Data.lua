@@ -17,5 +17,20 @@ MOTA.CONST = {
   SYNC_AMBER_SECONDS      = 1800,     -- footer sync indicator turns amber after 30 min
   BROADCAST_MIN_INTERVAL  = 3,        -- seconds between routine GUILD broadcasts
   VOICE_CLIP_COUNT        = 10,       -- onboarding voice clips
-  VOICE_CLIP_INTERVAL     = 240,      -- about 4 min between staged clips
+  VOICE_CLIP_GAP          = 150,      -- 2.5 min from the end of one staged clip to the next
+  VOICE_INTRO_HERALD_SECONDS = 20,    -- the introduction's scroll closes itself, the voice plays on
+  VOICE_STOPPED_HERALD_SECONDS = 20,  -- how long a stopped clip's scroll offers Restart
+  -- Lengths come from the files: the game can't report a sound's length.
+  VOICE_CLIPS = {
+    { title = "Introduction", length = 73.6 },
+    { title = "The Crown", length = 92.0 },
+    { title = "The Government", length = 70.7 },
+    { title = "The Parties", length = 142.1 },
+    { title = "Legislation", length = 56.0 },
+    { title = "The Vote of No Confidence", length = 50.3 },
+    { title = "The High Judiciary", length = 52.0 },
+    { title = "Punitive Measures", length = 70.8 },
+    { title = "Citizenship and the Districts", length = 118.9 },
+    { title = "Welcome to the Realm", length = 25.5 },
+  },
 }
