@@ -192,6 +192,20 @@ add("scale", "<size>", "the window's size, such as 0.8 (blank for the default)",
   MOTA:Print(("Window size %.2f%s."):format(used, n and used < n and " (as big as fits your screen)" or ""))
 end)
 
+add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your own screen until /reload; blank goes back to yours", function(arg)
+  local S = MOTA.Skin
+  if not S:Preview(arg) then
+    return MOTA:Print("There's no skin called \"" .. arg .. "\". Try crown, silverhand, exchange or ministry.")
+  end
+  MOTA.UI:Build()
+  MOTA.UI.window:Show()
+  if S.preview then
+    MOTA:Print("Trying the skin of " .. S.titles[S.preview] .. ". /mota skin goes back to yours; /reload does too.")
+  else
+    MOTA:Print("Back to your own skin: " .. S.titles[MOTA.skin.KEY] .. ".")
+  end
+end)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)

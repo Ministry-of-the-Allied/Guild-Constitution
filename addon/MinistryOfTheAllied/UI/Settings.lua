@@ -12,7 +12,12 @@ local ROWS = {
   { key = "fanfare", label = "Fanfare", small = "Play the game's own trumpet with each herald" },
   { key = "glow", label = "District glow", small = "Light your district on the world map", later = true },
   { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members", later = true },
-  { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear", choice = true },
+  { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear", box = "segBox",
+    choice = { { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } } },
+  -- Window skins (ADDON_SPEC.md 9.1): Party is the Crown's or your party's skin.
+  { key = "windowSkin", label = "Window skin", small = "Your party's colours, or the Ministry's", box = "segSkinBox",
+    choice = { { "party", "seg-party", "segParty" }, { "ministry", "seg-ministry", "segMinistry" } },
+    changed = function() MOTA.Skin:Refresh(true) end },
 }
 
 local panel, page
@@ -51,11 +56,11 @@ local function buildSwitch(i, row)
   return b
 end
 
--- Modest or Royal.
-local function buildChoice()
-  piece("segBox", "BORDER")
+-- A choice of two: Modest or Royal, Party or Ministry.
+local function buildChoice(row)
+  piece(row.box, "BORDER")
   local buttons = {}
-  for _, opt in ipairs({ { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } }) do
+  for _, opt in ipairs(row.choice) do
     local value, slotName, prefix = opt[1], opt[2], opt[3]
     local b = CreateFrame("Button", nil, page)
     local s = UI:AtSlot(b, slotName, 0, 0, page)
@@ -63,14 +68,15 @@ local function buildChoice()
     b.on = piece(prefix .. "On", "ARTWORK")
     b.off = piece(prefix .. "Off", "ARTWORK")
     function b:Update()
-      local chosen = MOTA.db.settings.heraldSize == value
+      local chosen = MOTA.db.settings[row.key] == value
       self.on:SetShown(chosen)
       self.off:SetShown(not chosen)
     end
     b:SetScript("OnClick", function()
-      MOTA.db.settings.heraldSize = value
+      MOTA.db.settings[row.key] = value
       play("IG_MAINMENU_OPTION_CHECKBOX_ON")
       for _, other in ipairs(buttons) do other:Update() end
+      if row.changed then row.changed() end
     end)
     buttons[#buttons + 1] = b
   end
@@ -103,7 +109,7 @@ local function build()
       small:SetAlpha(0.6)
     end
     if row.choice then
-      for _, b in ipairs(buildChoice()) do panel.controls[#panel.controls + 1] = b end
+      for _, b in ipairs(buildChoice(row)) do panel.controls[#panel.controls + 1] = b end
     else
       panel.controls[#panel.controls + 1] = buildSwitch(i, row)
     end

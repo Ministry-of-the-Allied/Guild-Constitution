@@ -5,7 +5,9 @@
   build.py renders it in Edge one piece at a time and turns the pieces into
   game textures. Every element with an id is a piece or a slot for in-game text.
   The window's top-left corner sits at (140, 140) on this page, leaving room
-  for the crest and its glow above and to the left.
+  for the crest and its glow above and to the left. {{skin}} is the window
+  skin's class from the Window skins board (ws-sh, ws-ex, ws-cr; none for the
+  Ministry), and {{crest}} its corner emblem.
 -->
 <html>
 <head>
@@ -15,10 +17,10 @@
 </style>
 </head>
 <body>
-<div class="win" id="win" style="left: 140px; top: 140px">
+<div class="win {{skin}}" id="win" style="left: 140px; top: 140px">
   <div class="win-rim" id="rim"><div class="win-leather" id="leather"></div></div>
-  <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-  <img class="crest" id="crest" src="{{crest}}" alt="">
+  <span class="corner tr" id="corner-tr"></span><span class="corner bl" id="corner-bl"></span><span class="corner br" id="corner-br"></span>
+  <img class="crest {{crest_class}}" id="crest" src="{{crest}}" alt="">
   <div class="win-head">
     <h1 class="title" id="title">Ministry of the Allied</h1>
     <div class="subtitle" id="subtitle">{{subtitle}}</div>

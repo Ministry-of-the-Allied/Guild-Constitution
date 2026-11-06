@@ -490,13 +490,15 @@ Each skin defines tokens for the parts drawn as game text or coloured in the gam
 |---|---|---|---|---|---|
 | `METAL` | which metal set (9.7) | gold | silver | gold | gold |
 | `TAB_INK` | resting tab label and icon | `#F3D98A` | `#DCE3EE` | `#F3D98A` | `#E5CF92` |
+| `TAB_INK_HOVER` | the same, under the mouse | `#FBEFC4` | `#FFFFFF` | `#FBEFC4` | `#FBEFC4` |
 | `TAB_SMALL` | resting tab's second line | `#E8C6DC` | `#AEB9CC` | `#F0C9BC` | `#EBC3B2` |
 | `TAB_INK_ON` | lit tab label and icon | `#3E0A2F` | `#1F4290` | `#5A0E13` | `#0E1F45` |
 | `TAB_SMALL_ON` | lit tab's second line | `#3A2A0A` | `#2B3445` | `#3A2A0A` | `#3A2A0A` |
-| `PALE_INK` | page name, rail foot second line, status strip | `#EBCBDF` | `#C6D2EA` (page name `#D5DEF0`) | `#F2CDBE` | `#B9C9EE` (rail and strip `#AFC0E6`) |
+| `SUBTITLE` | the page's name under the title | `#EBCBDF` | `#D5DEF0` | `#F2CDBE` | `#B9C9EE` |
+| `PALE_INK` | rail foot second line, status strip | `#EBCBDF` | `#C6D2EA` | `#F2CDBE` | `#AFC0E6` |
 | `NAME_INK` | name at the foot of the rail | `#FBEFC4` | `#FFFFFF` | `#FBEFC4` | `#FBEFC4` |
-| `PIP` | the sync pip | `#F3D98A` | `#FFFFFF` | `#F3D98A` | `#F3D98A` |
-| `RULE` | thin line above the rail foot | gold at 35% | `#D6DEE9` at 35% | gold at 35% | gold at 35% |
+
+The sync pip, the line above the rail foot, the portrait ring and the rules beside the page's name are pictures that come with the metal (9.7), so they need no token.
 
 Reference mid tones (for swatches, not used in code): leather `#3D0B2D` / `#1F4290` / `#8E1A21` / `#1E3B7C`; tab wax `#5A1645` / `#2E3E62` / `#7A151C` / `#6E1712`; metal `#C9A24A` / `#AEB8C6`.
 
@@ -564,11 +566,11 @@ Today the whole window background (rim, leather, corners, title and parchment pa
 |---|---|---|---|
 | `parch.tga` | 1, shared | 1024 × 1024, 4 MB | The parchment page alone, at 1.3× (it's soft vellum, so slightly below the window's 1.46× is fine) |
 | `frame_gold.tga`, `frame_silver.tga` | 1 per metal | 1024 × 512, 2 MB each | The rim, double rule, stitching, filigree corners and the page's metal rim, cut into corners and edge strips (like the shadow's nine pieces), drawn with the leather hidden; the title; the lit tab and its tooled border |
-| `skin_crown.tga`, `skin_silverhand.tga`, `skin_exchange.tga`, `skin_ministry.tga` | 1 per skin | 1024 × 512, 2 MB each | The leather drawn small (512 × 512) and stretched, since it's a soft gradient; the resting and hover tab; the two knobs; the corner emblem |
+| `skin_crown.tga`, `skin_silverhand.tga`, `skin_exchange.tga`, `skin_ministry.tga` | 1 per skin | 1024 × 512, 2 MB each | The leather drawn small (0.4×, 400 × 272) and stretched, since it's a soft gradient; the resting and hover tab; the two knobs; the corner emblem at 1.6× (it shows about 130 px wide) |
 | `grain.tga` | 1, shared | 256 × 256, 0.25 MB | The leather grain, tiled over the stretched leather so it stays crisp |
 
 - **What each skin adds:** 2 MB. The silver metal adds 2 MB once, for Silverhand.
-- **In total:** the window's pictures go from 9 MB (chrome and crest) to about 16.25 MB, so **the add-on grows by about 7 MB** for all four skins. The textures today come to about 29.5 MB (the Ballot Hall's `ballot.tga` and `papers.tga` are 8 MB of it); the whole add-on folder, with fonts and voice clips, is about 39 MB.
+- **In total (as built):** the textures went from 29.5 MB to **34.75 MB, about 5.25 MB more** for all four skins. That is less than the 7 MB planned, because the tabs, knobs and crest moving out also halved `atlas.tga` (4 MB to 2 MB). The whole add-on folder, with fonts and voice clips, is about 44 MB.
 - **Memory:** the game loads a texture only when it's shown, so a player's memory holds just their own skin; the others only cost download size.
 - **How the build gets the skins:** `layout.html` takes the skin's class (`ws-sh`, `ws-ex`, `ws-cr`, or none for the Ministry) and its emblem; the per-skin styles come from the Window skins board's `<helmet>` styles, read the same way as the Extras and Ballot Hall boards. The script draws the per-skin pieces once per skin, the metal pieces once with a gold skin and once with Silverhand, and the shared pieces once. `Media.lua` gains a `skins` table: per skin, its texture, its metal and where each piece sits.
 - **Coloured in the game, not drawn per skin:** tab labels and icons are already drawn in white; the page names under the title change from blue-grey pictures to white ones, so the 9.3 tokens can colour all of them.
@@ -950,7 +952,7 @@ Commands.lua
 - **Live design canvas:** https://claude.ai/artifact/V6ZmxpJtw85SrWT9S87acJ (private until shared from its Share menu). It has the style guide, the pages as a clickable prototype, the Extras board (settings, heralds) and the world map skins board. **It is the source of truth for the look.** `design/canvas-source/` is a copy, refreshed from the live canvas before each texture build. Style brief: `design/STYLE_BRIEF.md`.
 - **Theme:** regal Stormwind/Alliance. Parchment, wax seals, royal blue and gold. Premium and ceremonial, not basic.
 - **Textures:** `design/textures/` holds the parchment, leather, filigree, divider, wax seals and crests. `tools/textures/build.py` lays the window out with the canvas's own stylesheet, draws each piece in Microsoft Edge and packs the pieces into game textures (`Media/*.tga`), with their positions in `Media.lua`. The settings page and herald come from a second layout, `tools/textures/extras.html`, and the Ballot Hall's pieces from a third, `tools/textures/ballot.html`. When the design changes, run the script again.
-- **Sizes:** one large background (frame, title, parchment page) at 1.46× the canvas size; small pieces (tabs, labels, icons, buttons, seals) at 2×, so they stay sharp. The add-on folder is about 39 MB (textures about 29.5 MB, the rest fonts and voice clips); the window skins add about 7 MB (9.7).
+- **Sizes:** one large background (frame, title, parchment page) at 1.46× the canvas size; small pieces (tabs, labels, icons, buttons, seals) at 2×, so they stay sharp. The add-on folder is about 44 MB (textures 34.75 MB with the window skins, 9.7; the rest fonts and voice clips).
 - **Fixed-text labels are pictures, live text is game text.** Tab labels, page names and eyebrows are drawn from the canvas, since the game can't space letters like the canvas. Headings, notes and the status strip are game text. Spaced-out capitals in game text are drawn one letter per text piece (`MotA:Tracked`).
 - **Shadow:** a soft picture stretched in nine pieces, so its corners stay round.
 - **Fonts:** Cinzel, Cinzel Decorative and EB Garamond from Google Fonts ship inside the addon with their SIL Open Font License files. If the game can't load them, the addon uses the game's own font.
@@ -1004,7 +1006,7 @@ Each phase is built in small milestones that each load in the game and can be te
 
 ### 16.3 Commands
 
-`/mota` (open the window), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`, `/mota scale [n]`, `/mota minimap`, `/mota crests`, `/mota crest <n|ours>`, `/mota settings`, `/mota herald [1|2|3]`, `/mota fanfare [n]`, `/mota constitution`, `/mota voice [on|off|stop|next|reset]`, `/mota ballot` (opens the Ballot Hall and says where the vote stands and where your ballot is), `/mota ballot count` (the two Crown ranks only: the count, held and refused ballots, and whether the two Kings' counts agree). `/ministry` works the same.
+`/mota` (open the window), `/mota sync`, `/mota who`, `/mota test <text>`, `/mota book`, `/mota probe`, `/mota probe limits`, `/mota debug`, `/mota scale [n]`, `/mota minimap`, `/mota crests`, `/mota crest <n|ours>`, `/mota settings`, `/mota herald [1|2|3]`, `/mota fanfare [n]`, `/mota constitution`, `/mota voice [on|off|stop|next|reset]`, `/mota ballot` (opens the Ballot Hall and says where the vote stands and where your ballot is), `/mota ballot count` (the two Crown ranks only: the count, held and refused ballots, and whether the two Kings' counts agree), `/mota skin [crown|silverhand|exchange|ministry]` (try a window skin until `/reload`; blank goes back). `/ministry` works the same.
 
 ### 16.4 The code brought in line with this spec *(built 2026-11-06, to test in game)*
 
@@ -1055,6 +1057,25 @@ Each member votes once per election, so the two ways a ballot travels get an ele
 4. **Election 2, held:** Max opens new polls, then starts to log out: the "last King online" warning should appear. Try **Stay online** (does the logout stop? section 18), then log out for real. The member seals: "Sealed, waiting for the Crown". The member `/reload`s: still waiting. Max logs back in: the member gets the receipt and Max's count shows it.
 5. **Mid-poll login:** with polls open, the member logs out and back in: "You haven't voted yet" is not shown (they voted). A member who hasn't voted, logging in, gets it.
 6. Max closes and declares election 2 (or sets up the run-off if it's a tie). Note anything that looks off against the canvas board.
+
+**Milestone 5 — window skins** *(designed and approved 2026-11-06; built 2026-11-06, to test in game)*
+
+Design: the Window skins board on the live canvas (9.2, 9.3, 9.7).
+
+**Built:**
+- `tools/textures/build.py` draws the window in layers (9.7): `parch.tga` and `grain.tga` shared; `frame_gold.tga` and `frame_silver.tga` (rim, rules and stitching cut into bands, the page's metal rim, the filigree corner, the title, the lit tab, the subtitle's rule, the rail line, pip and portrait ring); `skin_crown`, `skin_silverhand`, `skin_exchange`, `skin_ministry` (leather, resting and hover tabs, the two knobs, the emblem). `chrome.tga` and `crest.tga` are gone. The page names under the title are now drawn in white and coloured in the game. With `--preview` it saves a picture of the window in each skin to the temp folder.
+- `UI/Skin.lua`: the tokens (9.3), `MOTA.ApplySkin`, the choice (9.1) and `/mota skin`. It fires `SKIN_CHANGED`, and `UI/MainWindow.lua` puts the new skin's pieces, crest and colours on at once.
+- Who gets which: the two Crown ranks get the Crown skin, everyone else the Ministry's, until the Parties page keeps a roll of members (v1.3), which gives Silverhand and Exchange members their party's skin. `/mota skin silverhand` or `exchange` shows those meanwhile.
+- Settings: a sixth row, "Window skin: Party / Ministry" (the switch from the Window skins board; the Extras board still shows five rows).
+- Textures: 34.75 MB in all, 5.25 MB more than before (9.7). Every skin texture is 1024 × 512.
+- Checked in the pretend client (`tools/sim/sim.py`, section 9b): the Ministry skin for a citizen, `/mota skin` crown, silverhand and exchange (textures, emblem, label colours, gold or silver metal), an unknown name refused, `/mota skin` going back, the Crown skin for a Crown rank, and the setting switching it to Ministry and back. The pretend game now accepts tiled and mirrored textures. **222 checks passed, 0 Lua errors.**
+
+**To test in game:**
+1. `/reload`, `/mota`. Max (a Crown rank) should see the purple Crown window; a citizen the blue Ministry one, as before.
+2. `/mota skin silverhand`, `/mota skin exchange`, `/mota skin ministry`, `/mota skin crown`: each changes the window at once. Check the leather, the tabs (rest, hover, lit), the knobs, the corner emblem, the title, the corners and the page rim against the board. `/mota skin` goes back.
+3. Look closely at: the leather grain (tiled over the leather; no seams or squares), the rim's bands (no gaps or lines where they meet), the corners at the bottom (mirror images of the top-right one), the two rules beside the page name on each page.
+4. Settings (the window's gear): Window skin → Ministry turns Max's window blue at once; Party turns it back.
+5. `/reload` after `/mota skin exchange`: back to your own skin.
 
 ### 16.5 How to test
 

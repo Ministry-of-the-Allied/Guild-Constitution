@@ -329,6 +329,39 @@ ui_client.slash("crest 11")
 ui_client.slash("crest 99")
 ui_client.slash("crest ours")
 check("Back to our crest", ns.db.crest is None)
+
+print("== 9b. window skins (Milestone 5)")
+def rgb255(t):
+    return tuple(round(t.color[i] * 255) for i in (1, 2, 3))
+def skin_tex(t):
+    return (t.texture or "").rsplit("\\", 1)[-1]
+tab2 = ns.UI.tabs[2]
+check("A citizen in no party wears the Ministry skin", ns.skin.KEY == "UNREGISTERED"
+      and skin_tex(tab2.bgRest) == "skin_ministry.tga" and skin_tex(ns.UI.tabs[1].bgOn) == "frame_gold.tga")
+check("The crest is the lion crest from the Ministry skin", skin_tex(ns.UI.crest) == "skin_ministry.tga")
+ui_client.slash("skin crown")
+check("/mota skin crown puts the Crown skin on at once", ns.skin.KEY == "CROWN"
+      and skin_tex(tab2.bgRest) == "skin_crown.tga" and skin_tex(ns.UI.crest) == "skin_crown.tga")
+check("...and says so", ui_client.said(r"Trying the skin of the Crown"))
+check("The resting tab's label takes the Crown's ink", rgb255(tab2.label) == (0xF3, 0xD9, 0x8A))
+ui_client.slash("skin silverhand")
+check("Silverhand's skin brings the silver metal", skin_tex(ns.UI.tabs[1].bgOn) == "frame_silver.tga"
+      and skin_tex(tab2.bgRest) == "skin_silverhand.tga")
+check("The lit tab's label takes the party blue", rgb255(ns.UI.tabs[ns.UI.page].label) == (0x1F, 0x42, 0x90))
+ui_client.slash("skin exchange")
+check("The Exchange's skin is gold again", ns.skin.KEY == "AZEROTH_EXCHANGE" and skin_tex(ns.UI.tabs[1].bgOn) == "frame_gold.tga")
+ui_client.slash("skin bogus")
+check("An unknown skin is refused", ui_client.said(r'There\'s no skin called "bogus"') and ns.skin.KEY == "AZEROTH_EXCHANGE")
+ui_client.slash("skin")
+check("/mota skin alone goes back to your own", ns.skin.KEY == "UNREGISTERED" and ui_client.said(r"Back to your own skin: the Ministry"))
+crown_ns = max3.lua.globals().MinistryOfTheAllied
+check("The Crown wears the Crown skin", crown_ns.skin.KEY == "CROWN")
+crown_ns.db.settings.windowSkin = "ministry"
+crown_ns.Skin.Refresh(crown_ns.Skin, True)
+check("The setting Ministry gives the Crown the blue and gold", crown_ns.skin.KEY == "UNREGISTERED")
+crown_ns.db.settings.windowSkin = "party"
+crown_ns.Skin.Refresh(crown_ns.Skin, True)
+check("The setting Party gives the Crown skin back", crown_ns.skin.KEY == "CROWN")
 ui_client.slash("probe")
 check("Probe reports the fonts", ui_client.said(r"Add-on fonts \(Cinzel, EB Garamond\): loaded"))
 ui_client.slash("help")

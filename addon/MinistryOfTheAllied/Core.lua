@@ -200,6 +200,7 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       glow = true,         -- district glow (comes with the Districts page)
       cards = false,       -- citizen cards (come later)
       heraldSize = "full", -- "full" (Royal) or "small" (Modest)
+      windowSkin = "party", -- "party" (your party's or the Crown's) or "ministry" (UI/Skin.lua)
       voice = true,        -- the Charter narration on first login (/mota voice off)
     },
     guilds = {},  -- one book per guild, see CheckGuild
