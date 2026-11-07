@@ -35,7 +35,7 @@ rules["party.remove"] = crown
 local cache
 
 local function build()
-  local roll = { members = {}, pending = {}, left = {}, floor = {}, paid = {}, funds = { sh = 0, ex = 0 } }
+  local roll = { joined = {}, members = {}, pending = {}, left = {}, floor = {}, paid = {}, funds = { sh = 0, ex = 0 } }
   local list = MOTA.Book:Latest()
   for i = #list, 1, -1 do
     local r = list[i]
@@ -50,6 +50,7 @@ local function build()
       local waited = not left or left.p == p or r.t - left.t >= Party.WAIT
       if asked and asked.p == p and not roll.members[v] and not MOTA:IsCrown(v) and waited then
         roll.members[v] = p
+        roll.joined[v] = r.t
         roll.pending[v] = nil
       end
     elseif (r.k == "party.leave" or r.k == "party.remove") then

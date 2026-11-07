@@ -51,6 +51,7 @@ local PARTIES = {
 local root, tabs, public, member, outsider, crownView
 local view, lastParty = "sh", "sh"
 local confirmLeave = false
+Page.showContest = {}
 
 local function panel(parent, kind, x, y, w, h)
   local f = CreateFrame("Frame", nil, parent)
@@ -117,7 +118,8 @@ local function buildPublic(key)
 
   local banner = panel(v, nil, 0, 0, WIDTH, BANNER_H)
   Kit:Art(banner, party.banner, "BACKGROUND"):SetPoint("CENTER", banner, "CENTER", 0, 0)
-  Kit:Label(banner, "kitTiny", "E3D3A6", 0.32, "Awaiting the election"):SetPoint("TOPLEFT", banner, "TOPLEFT", 150, -20)
+  v.bannerLabel = Kit:Label(banner, "kitTiny", "E3D3A6", 0.32, "Awaiting the election")
+  v.bannerLabel:SetPoint("TOPLEFT", banner, "TOPLEFT", 150, -20)
   local name = Kit:Text(banner, "heading", "F3D98A")
   name:SetPoint("TOPLEFT", banner, "TOPLEFT", 150, -36)
   name:SetText(party.name)
@@ -128,9 +130,10 @@ local function buildPublic(key)
 
   local y = BANNER_H + 14
   local leftW = 368
-  Kit:Label(v, "kitSection", "1B3570", 0.22, "What we stand for"):SetPoint("TOPLEFT", v, "TOPLEFT", 0, -y)
+  v.standsFor = panel(v, nil, 0, y, leftW, 22 + #party.pillars * 34)
+  Kit:Label(v.standsFor, "kitSection", "1B3570", 0.22, "What we stand for"):SetPoint("TOPLEFT", v.standsFor, "TOPLEFT", 0, 0)
   for i, p in ipairs(party.pillars) do
-    local row = panel(v, nil, 0, y + 22 + (i - 1) * 34, leftW, 34)
+    local row = panel(v.standsFor, nil, 0, 22 + (i - 1) * 34, leftW, 34)
     local dots = row:CreateTexture(nil, "BORDER")
     Kit:Solid(dots, "6E4F17", 0.3)
     dots:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
@@ -144,6 +147,32 @@ local function buildPublic(key)
     text:SetText(hex("2A1F14") .. p[1] .. "|r " .. hex("5E4B33") .. p[2] .. "|r")
   end
 
+  -- The contest, public to the whole guild.
+  v.contest = panel(v, nil, 0, y, leftW, BODY_H - y)
+  v.contestTitle = Kit:Label(v.contest, "kitSection", "1B3570", 0.22, "The contest")
+  v.contestTitle:SetPoint("TOPLEFT", v.contest, "TOPLEFT", 0, 0)
+  v.names = {}
+  for i = 1, 5 do
+    local b = CreateFrame("Button", nil, v.contest)
+    b:SetSize(leftW, 22)
+    b:SetPoint("TOPLEFT", v.contest, "TOPLEFT", 0, -20 - (i - 1) * 22)
+    b.text = Kit:Text(b, "kitSmall", "1B3570")
+    b.text:SetPoint("LEFT", b, "LEFT", 0, 0)
+    b:SetScript("OnClick", function()
+      Page.picked = b.name
+      Page:Refresh()
+    end)
+    v.names[i] = b
+  end
+  v.detail = Kit:Text(v.contest, "kitSmall")
+  v.detail:SetPoint("TOPLEFT", v.contest, "TOPLEFT", 0, -136)
+  v.detail:SetWidth(leftW)
+  v.switch = Kit:Button(v, 130, 22, "The contest", "quiet", function()
+    Page.showContest[key] = not Page.showContest[key]
+    Page:Refresh()
+  end)
+  v.switch:SetPoint("TOPRIGHT", v, "TOPLEFT", leftW, -(y - 3))
+
   local plateX = leftW + 20
   local plateW = WIDTH - plateX
   local plate = panel(v, "plain", plateX, y, plateW, BODY_H - y)
@@ -153,11 +182,13 @@ local function buildPublic(key)
   local initials = Kit:Text(plate, "initials", "F3D98A", "CENTER")
   initials:SetPoint("CENTER", portrait, "CENTER", 0, 0)
   initials:SetText("—")
+  v.initials = initials
   Kit:Label(plate, "kitTiny", "7A5719", 0.2, "Party Leader"):SetPoint("TOPLEFT", plate, "TOPLEFT", 74, -20)
   local leader = Kit:Text(plate, "kitName")
   leader:SetPoint("TOPLEFT", plate, "TOPLEFT", 74, -34)
   leader:SetWidth(plateW - 90)
   leader:SetText("Not yet chosen")
+  v.leader = leader
 
   v.values = {}
   for i, row in ipairs({ { "Funds", "0g" }, { "Members", "None yet" }, { "Strongholds", party.home } }) do
@@ -216,10 +247,51 @@ local function buildMember()
   v.title = Kit:Text(v, "kitChamber", "1B3570")
   v.title:SetPoint("TOPLEFT", v, "TOPLEFT", 66, -24)
 
-  notice(v, 66, leftW, 88, false, "Chamber business",
-    "Nothing has been posted yet. Notices and the leadership contest come next.")
-  local post = waiting(v, 200, "Post to the chamber", "quiet")
-  post:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -168)
+  local stage = panel(v, "plain", 0, 66, leftW, 330)
+  v.stage = stage
+  v.stageHead = Kit:Label(stage, "kitSection", "1B3570", 0.22, "The contest")
+  v.stageHead:SetPoint("TOPLEFT", stage, "TOPLEFT", 16, -14)
+  v.stageLine = Kit:Text(stage, "kitSmall")
+  v.stageLine:SetPoint("TOPLEFT", stage, "TOPLEFT", 16, -34)
+  v.stageLine:SetWidth(leftW - 32)
+  local function field(y, label)
+    Kit:Label(stage, "kitTiny", "7A5719", 0.14, label):SetPoint("TOPLEFT", stage, "TOPLEFT", 16, -y)
+    local e = CreateFrame("EditBox", nil, stage)
+    e:SetSize(leftW - 32, 26)
+    e:SetPoint("TOPLEFT", stage, "TOPLEFT", 16, -(y + 14))
+    e:SetAutoFocus(false)
+    e:SetMaxLetters(120)
+    e:SetFontObject(MOTA:Font("kitSmall"))
+    e:SetTextColor(MOTA:RGB("2A1F14"))
+    e:SetTextInsets(7, 7, 0, 0)
+    Kit:Fill(e, "FBF4E1", "F0E2BE")
+    Kit:Outline(e, "6E4F17", 0.6)
+    e:SetScript("OnEscapePressed", e.ClearFocus)
+    e:SetScript("OnEnterPressed", e.ClearFocus)
+    return e
+  end
+  v.fields = { field(76, "Laws I campaign on"), field(124, "Laws I intend to remove"), field(172, "Proposals to the party") }
+  v.standBtn = Kit:Button(stage, 200, 36, "Stand for leader", "gold", function()
+    local Co = MOTA.Contest
+    local standing = Co:Current() and Co:Current().parties[MOTA.Party:Of(MOTA.me)].cands[MOTA.me]
+    local rec, err
+    if standing then rec, err = Co:Unstand()
+    else rec, err = Co:Stand(v.fields[1]:GetText(), v.fields[2]:GetText(), v.fields[3]:GetText()) end
+    if err then MOTA:Print(err) end
+  end)
+  v.standBtn:SetPoint("BOTTOMLEFT", stage, "BOTTOMLEFT", 16, 16)
+  v.votes = {}
+  for i = 1, 5 do
+    local r = panel(stage, nil, 16, 70 + (i - 1) * 38, leftW - 32, 34)
+    r.name = Kit:Text(r, "kitName")
+    r.name:SetPoint("LEFT", r, "LEFT", 0, 0)
+    r.button = Kit:Button(r, 90, 30, "Vote", "blue", function()
+      local _, err = MOTA.Contest:Vote(r.who)
+      if err then MOTA:Print(err) end
+    end)
+    r.button:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+    v.votes[i] = r
+  end
 
   local x = leftW + 18
   local w = WIDTH - x
@@ -239,7 +311,7 @@ end
 
 -- The Crown belongs to no party: its chamber ribbon is the desk where
 -- requests are decided.
-local CROWN_ROWS = 6
+local CROWN_ROWS = 3
 local function buildCrown()
   local v = panel(root, nil, 0, BODY_TOP, WIDTH, BODY_H)
   Kit:Label(v, "kitTiny", "7A5719", 0.22, "The Crown's desk"):SetPoint("TOPLEFT", v, "TOPLEFT", 0, -8)
@@ -271,6 +343,39 @@ local function buildCrown()
     r.decline:SetPoint("RIGHT", r, "RIGHT", -12, 0)
     v.rows[i] = r
   end
+
+  local desk = panel(v, "plain", 0, 56 + CROWN_ROWS * 62 + 4, WIDTH, BODY_H - (56 + CROWN_ROWS * 62 + 4))
+  Kit:Label(desk, "kitSection", "1B3570", 0.22, "The election and the contests"):SetPoint("TOPLEFT", desk, "TOPLEFT", 16, -14)
+  v.electionLine = Kit:Text(desk, "kitSmall")
+  v.electionLine:SetPoint("TOPLEFT", desk, "TOPLEFT", 16, -34)
+  v.electionLine:SetWidth(WIDTH - 32)
+  v.contestLine = Kit:Text(desk, "kitSmall")
+  v.contestLine:SetPoint("TOPLEFT", desk, "TOPLEFT", 16, -56)
+  v.contestLine:SetWidth(WIDTH - 32)
+  local days = CreateFrame("EditBox", nil, desk)
+  days:SetSize(60, 30)
+  days:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 16, 16)
+  days:SetAutoFocus(false)
+  days:SetFontObject(MOTA:Font("kitSmall"))
+  days:SetTextColor(MOTA:RGB("2A1F14"))
+  days:SetTextInsets(7, 7, 0, 0)
+  days:SetText("28")
+  Kit:Fill(days, "FBF4E1", "F0E2BE")
+  Kit:Outline(days, "6E4F17", 0.6)
+  days:SetScript("OnEscapePressed", days.ClearFocus)
+  days:SetScript("OnEnterPressed", days.ClearFocus)
+  local function act(x, w, label, style, fn)
+    local b = Kit:Button(desk, w, 30, label, style, function()
+      local _, err = fn()
+      if err then MOTA:Print(err) end
+    end)
+    b:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", x, 16)
+    return b
+  end
+  act(82, 132, "Set: days away", "quiet", function() return MOTA.Contest:SetDate(days:GetText()) end)
+  v.openBtn = act(220, 132, "Open contests", "gold", function() return MOTA.Contest:Open() end)
+  act(358, 166, "Ratify Silverhand", "blue", function() return MOTA.Contest:Ratify("sh") end)
+  act(530, 162, "Ratify Exchange", "blue", function() return MOTA.Contest:Ratify("ex") end)
   return v
 end
 
@@ -313,7 +418,103 @@ local function floorLine(e)
   return ("%s left %s on %s."):format(MOTA:Short(e.name), MOTA.Party.NAMES[e.p] or "a party", date("%d %b", e.t))
 end
 
+local function refreshContest(key, v)
+  local Co = MOTA.Contest
+  local stage = Co:Stage(key)
+  v.bannerLabel:SetText(Co:Banner(key))
+  local leader = Co:Leader(key)
+  v.leader:SetText(leader and MOTA:Short(leader.name) or "Not yet chosen")
+  v.initials:SetText(leader and MOTA:Short(leader.name):sub(1, 2) or "—")
+  local cands = Co:Candidates(key)
+  local active = stage ~= "none" or leader ~= nil
+  v.switch:SetShown(active)
+  Page.showContest = Page.showContest or {}
+  local showing = active and Page.showContest[key]
+  v.switch:SetLabel(showing and "What we stand for" or (leader and stage == "done" and "Current platform" or "The contest"))
+  v.standsFor:SetShown(not showing)
+  v.contest:SetShown(showing and true or false)
+  if not showing then return end
+  v.contestTitle:SetText(stage == "done" and "Current platform" or "The contest")
+  for i, b in ipairs(v.names) do
+    local c = stage ~= "done" and cands[i]
+    b:SetShown(c and true or false)
+    if c then
+      b.name = c.name
+      b.text:SetText((Page.picked == c.name and "> " or "") .. MOTA:Short(c.name))
+    end
+  end
+  local picked
+  for _, c in ipairs(cands) do if c.name == Page.picked then picked = c end end
+  picked = picked or cands[1]
+  local function platform(c)
+    return ("|cff7A5719Campaigning on:|r %s\n|cff7A5719Will remove:|r %s\n|cff7A5719Proposals:|r %s"):format(
+      c.on ~= "" and c.on or "—", c.off ~= "" and c.off or "—", c.prop ~= "" and c.prop or "—")
+  end
+  if stage == "done" and leader then
+    local lines = { platform(leader), "" }
+    local counts = {}
+    for _, cand in pairs(leader.votes) do counts[cand] = (counts[cand] or 0) + 1 end
+    for cand, n in pairs(counts) do lines[#lines + 1] = MOTA:Short(cand) .. ": " .. n end
+    local voters = {}
+    for voter, cand in pairs(leader.votes) do voters[#voters + 1] = MOTA:Short(voter) .. " for " .. MOTA:Short(cand) end
+    table.sort(voters)
+    lines[#lines + 1] = table.concat(voters, ", ")
+    v.detail:ClearAllPoints()
+    v.detail:SetPoint("TOPLEFT", v.contest, "TOPLEFT", 0, -22)
+    v.detail:SetText(table.concat(lines, "\n"))
+  else
+    v.detail:ClearAllPoints()
+    v.detail:SetPoint("TOPLEFT", v.contest, "TOPLEFT", 0, -136)
+    v.detail:SetText(picked and platform(picked) or "Nobody has stood yet.")
+  end
+end
+
+local function refreshStage(mine)
+  local Co = MOTA.Contest
+  local stage = Co:Stage(mine)
+  local cur = Co:Current()
+  local me = MOTA.me
+  local standing = cur and cur.parties[mine].cands[me]
+  local ok, why = Co:Eligible(me, mine)
+  local standOpen = stage == "standing"
+  for _, e in ipairs(member.fields) do e:SetShown(standOpen and not standing and ok) end
+  member.standBtn:SetShown(standOpen and ok)
+  member.standBtn:SetLabel(standing and "Drop out" or "Stand for leader")
+  local voteOpen = stage == "voting"
+  local cands = Co:Candidates(mine)
+  local myVote = Co:MyVote(mine)
+  for i, r in ipairs(member.votes) do
+    local c = voteOpen and cands[i]
+    r:SetShown(c and true or false)
+    if c then
+      r.who = c.name
+      r.name:SetText(MOTA:Short(c.name) .. (myVote and myVote.cand == c.name and " (your vote)" or ""))
+      r.button:SetShown(not myVote and ok)
+    end
+  end
+  local line
+  if not cur then line = "No election has been called yet."
+  elseif stage == "none" then line = "The election is on " .. date("%d %b", cur.at) .. ". Contests open 28 days before it."
+  elseif stage == "standing" then line = ok and (standing and "You are standing. Your platform is public on your party's page." or "Stand, and tell the guild where you stand. It's all public.") or why
+  elseif stage == "voting" then line = not ok and why or (myVote and (myVote.delivered and "Your vote has reached the Crown." or "Your vote is held until a King comes online.") or "Choose your leader. Your vote can't be changed, and is published after the count.")
+  elseif stage == "counting" then line = "The Crown is counting."
+  else line = "The contest is over. The results are on your party's page." end
+  member.stageLine:SetText(MOTA.Contest:Banner(mine) .. "\n" .. line)
+end
+
 local function refreshCrown()
+  local Co = MOTA.Contest
+  local cur = Co:Current()
+  crownView.electionLine:SetText(cur and ("The election is on " .. date("%d %b %Y", cur.at) .. ".") or "No election has been called. Enter how many days away, at least 28.")
+  local function state(p)
+    local counts, _, total = Co:Count(p)
+    local bits = {}
+    for name, n in pairs(counts) do bits[#bits + 1] = MOTA:Short(name) .. " " .. n end
+    table.sort(bits)
+    return Co:Stage(p) .. (#bits > 0 and (": " .. table.concat(bits, ", ")) or "")
+  end
+  crownView.contestLine:SetText("Silverhand · " .. state("sh") .. "\nExchange · " .. state("ex"))
+  crownView.openBtn:SetShown(cur ~= nil and not cur.openedAt)
   local requests = MOTA.Party:Requests()
   crownView.empty:SetShown(#requests == 0)
   for i, r in ipairs(crownView.rows) do
@@ -353,11 +554,13 @@ function Page:Refresh()
     v.values.Funds:SetText(gold(Party:Funds(key)))
     v.values.Members:SetText(namesLine(Party:Members(key)))
     setJoin(v.ask, key, v.joinNote)
+    refreshContest(key, v)
   end
   if mine then
     for key, s in pairs(member.seals) do s:SetShown(key == mine) end
     member.title:SetText(("The %s Chamber"):format(mine == "sh" and "Silverhand" or "Exchange"))
     member.members:SetText(namesLine(Party:Members(mine)))
+    refreshStage(mine)
     local lines = {}
     for _, e in ipairs(Party:Roll().floor) do
       if e.p == mine then lines[#lines + 1] = floorLine(e) end
@@ -409,3 +612,4 @@ end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
 MOTA:Listen("PARTY_CHANGED", function() Page:Refresh() end)
+MOTA:Listen("CONTEST_CHANGED", function() Page:Refresh() end)

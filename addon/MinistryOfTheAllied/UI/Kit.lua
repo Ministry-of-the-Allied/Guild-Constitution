@@ -209,6 +209,9 @@ local BUTTONS = {
   quiet = { top = "FFFAEB", bottom = "FFFAEB", alpha = 0.35, text = "1B3570", ring = "1B3570" },
 }
 
+-- On Silverhand's skin the gold button is silver (the blue ones follow the accent, below).
+local SILVER_BUTTON = { "F6F8FB", "A9B4C4" }
+
 -- .btn, .btn.gold and .btn.quiet
 function Kit:Button(parent, width, height, label, style, onClick)
   local look = BUTTONS[style or "blue"]
@@ -227,6 +230,8 @@ function Kit:Button(parent, width, height, label, style, onClick)
       self:Gradient(bg, a.TOP, a.BOT)
     elseif style == "gold" then
       b.label:SetColor(a.ON)
+      local silver = MOTA.skin and MOTA.skin.KEY == "SILVERHAND"
+      self:Gradient(bg, silver and SILVER_BUTTON[1] or look.top, silver and SILVER_BUTTON[2] or look.bottom)
     else
       recolor(ring, a.INK, 0.8)
     end
