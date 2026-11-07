@@ -817,6 +817,40 @@ P(crownP, 'for i = 1, 25 do M.Book:Write("bank.move", { io = "w", amt = 1, r = "
 check("Ledger: long ledgers page without errors", P(crownP, 'local p, n = M.Ledger:Page(11, 10) return #p == 10 and n == 27') is True)
 clients[:] = others
 
+print("== 12e. catching up")
+others = clients[:]
+kingC = Client("Max")
+citC = Client("Bram")
+clients[:] = [kingC, citC]
+run(12)
+def Q(c, code):
+    return c.lua.eval("(function() local M = MinistryOfTheAllied " + code + " end)()")
+Q(kingC, 'M.Book:Write("test.note", { text = "one" }); M.Book:Write("party.join", { p = "sh" })')
+Q(citC, 'M.Book:Write("test.note", { text = "two" })')
+run(1)
+late = Client("Mira")
+clients.append(late)
+late.log.clear()
+run(20)
+check("Catch-up: a late arrival gets records from before they came", Q(late, 'return (M.Book:Count())') == Q(kingC, 'return (M.Book:Count())') and Q(late, 'return (M.Book:Count())') == 3)
+check("Catch-up: old records raise no test messages", not late.said(r"Test record"))
+Q(kingC, 'M.guild.records.Bram[1] = nil; M.Sync:Send()')
+run(10)
+check("Catch-up: a gap gets filled", Q(kingC, 'return M.guild.records.Bram[1] ~= nil') is True)
+Q(citC, 'M.Book:Write("bank.open", { bal = 999 })')
+run(1)
+clients.remove(late)
+saved_late = late.saved()
+Q(citC, 'M.guild.records.Max = M.guild.records.Max or {}; M.guild.records.Max[99] = nil; return 1')
+Q(kingC, 'M.guild.records.Bram[2] = { t = 1, k = "bank.open", d = { bal = 999 } }')
+late2 = Client("Mira", saved=saved_late)
+clients.append(late2)
+run(20)
+check("Catch-up: a passed-on record still needs permission", Q(late2, 'return M.guild.records.Bram[2] == nil and M.Ledger:Get().open == nil') is True)
+check("Catch-up: a refused record is noted", Q(late2, 'return M.guild.refused.Bram[2]') is True)
+check("Catch-up: and doesn't leave a gap to ask for again", Q(late2, 'return M.Sync:Upto("Bram")') == 2)
+clients[:] = others
+
 print("== 13. the Ring")
 clients[:] = [max4, hc]  # earlier clients share these names, and would muddle the record numbers
 rk = Client("Kael")

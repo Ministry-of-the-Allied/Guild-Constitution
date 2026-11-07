@@ -209,7 +209,7 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   if before ~= after and self.Skin then self.Skin:Refresh(true) end
   self:Fire("PARTY_CHANGED")
   local H = self.Herald
-  if not H then return end
+  if not H or self.Book.replaying then return end
   if rec.k == "party.leave" or rec.k == "party.remove" then
     local who = rec.k == "party.leave" and rec.a or d.v
     H:Announce({ seal = SEALS[d.p] or "official", eyebrow = "Crossing the floor",

@@ -299,7 +299,7 @@ function Herald:ShowSamples(n)
 end
 
 MOTA:Listen("RECORD_ADDED", function(self, rec)
-  if rec.k ~= "test.note" or rec.a == self.me then return end
+  if rec.k ~= "test.note" or rec.a == self.me or self.Book.replaying then return end
   Herald:Announce({
     seal = "official",
     eyebrow = "Hear ye · a test record",

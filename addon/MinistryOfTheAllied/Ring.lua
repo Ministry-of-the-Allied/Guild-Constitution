@@ -317,7 +317,7 @@ MOTA:Listen("RECORD_ADDED", function(_, rec)
   if not rec.k:find("^ring%.") then return end
   built = false
   MOTA:Fire("RING_CHANGED")
-  if (rec.k == "ring.bout" or rec.k == "ring.result") and not callPending then
+  if (rec.k == "ring.bout" or rec.k == "ring.result") and not callPending and not MOTA.Book.replaying then
     callPending = true
     C_Timer.After(CALL_DELAY, callOut)
   end

@@ -144,7 +144,7 @@ end)
 
 -- Test records are announced in chat, so two testers can see them arrive.
 MOTA:Listen("RECORD_ADDED", function(self, rec)
-  if rec.k ~= "test.note" then return end
+  if rec.k ~= "test.note" or Book.replaying then return end
   if rec.a == self.me then
     self:Print("Test record", self:Color("leaf", "#" .. rec.n), "written and sent to the guild:", Book:Describe(rec))
   else

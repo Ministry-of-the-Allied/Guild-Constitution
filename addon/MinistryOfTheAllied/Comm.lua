@@ -80,7 +80,11 @@ function Comm:EncodeRecord(rec)
 end
 
 function Comm:DecodeRecord(f)
-  local rec = f[1] and self:Decode(f[1])
+  return self:CheckRecord(f[1] and self:Decode(f[1]))
+end
+
+-- A record from another copy: well formed, with names in the guild's form.
+function Comm:CheckRecord(rec)
   if type(rec) ~= "table" then return nil end
   if type(rec.a) ~= "string" or type(rec.k) ~= "string" or rec.a == "" or rec.k == "" then return nil end
   if type(rec.n) ~= "number" or type(rec.t) ~= "number" then return nil end

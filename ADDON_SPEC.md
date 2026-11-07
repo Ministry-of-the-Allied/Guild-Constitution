@@ -317,7 +317,8 @@ Addon messages always carry the real name of the sender, which can't be faked.
 - **Records sent by their own author** are accepted if the author was allowed to write that type at that time (section 4).
 - **Records passed on by someone else** (during catch-up) are held as **unconfirmed** until the author sends them, or two different members pass on identical copies. Unconfirmed records are greyed out where it matters.
 - **Record types a copy doesn't know are kept but never acted on**, so a newer copy's records survive in an older one's book.
-- *Built so far:* only records sent by their own author are taken; passed-on records wait for catch-up. One exception since Milestone 4: a Crown member's add-on may pass on the open ballot's records (`BO`, 7.5), and those are taken because the Crown is trusted with the count anyway.
+- **Decided 2026-11-07 (Duncan), replacing "unconfirmed" above:** passed-on records are taken straight away, under the usual permission rules. The guild is small, so the risk of a modified addon forging a record is accepted. A refused record is noted so nobody asks for it again. A summary gives the number up to which every record is held, so gaps are filled too. A record is checked against ranks as they are when it arrives, so one from someone who has since lost a Crown rank is refused.
+- *Built (0.4.0, `Sync.lua`):* catch-up as above. The progress line isn't built yet. One exception since Milestone 4: a Crown member's add-on may pass on the open ballot's records (`BO`, 7.5), and those are taken because the Crown is trusted with the count anyway.
 
 **Honest limits:** strong protection against ordinary mischief, not bank-level security. Someone who rewrote the addon could send odd records under their own name, but couldn't pretend to be someone else or use an office they don't hold.
 
