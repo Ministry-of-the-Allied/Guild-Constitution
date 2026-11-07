@@ -81,7 +81,7 @@ The Crown is held by two co-monarchs. **Each King has their own guild rank: "The
 - The Minister of War is whoever holds that guild rank, and runs The Ring (section 11).
 - No citizen can write to canonical state. Every record says who wrote it, and each addon checks that the writer was allowed to write that type of record at that time (section 7.4). Records from anyone else are ignored.
 - Office holders (PM, Cabinet, Justices, Representatives) see their duties (section 10.9), but in v1.x the Crown makes most writes. The exceptions:
-  - **Treasury (10.7):** every member's addon may write guild bank readings; the Minister of the Treasury may add reasons to ledger entries.
+  - **Treasury (10.7):** every member's addon may write guild bank readings; the depositor gives each deposit's reason; the Minister of the Treasury may fill in unlabelled general deposits (10.7).
   - **Court (10.10):** any citizen may file an accusation; the accused may write a statement and appeal; the Justices seal rulings.
   - **Parties (10.16):** party members may write Chamber business and vote for their leader; a citizen may leave their own party.
 
@@ -595,7 +595,7 @@ One window with **seven tabs** matching the canvas. Tab availability is the same
 
 **Ballot Hall scope:** Elections only (General, Snap, run-off, district). No law votes. No-confidence is tracked manually by the Crown via in-game mail.
 
-**The Parties scope:** each party page has a public face and a private Party Chamber (10.16). Joining follows the brief: the join button sends the request, and the Crown records membership in the citizen registry once the 5g has been paid to the party's designated officer (Charter 3.2). At the close of each campaign period the Parties page shows each party's published donation total.
+**The Parties scope:** each party page has a public face and a private Party Chamber (10.16). Joining follows the brief: the join button sends the request, and the Crown records membership in the citizen registry once a 5g deposit tagged for that party shows in the guild bank (10.7; Charter 3.2 to be amended). Each party's funds are public on the ledger as they change.
 
 **Small extras:**
 - **Minimap seal:** a wax-seal button that opens the addon (right-click opens settings).
@@ -645,7 +645,11 @@ On login: any ballot you haven't cast, with the time left. Shortly before your d
 - **Balance check.** Every reader also reports the bank's gold. Money in minus money out must equal the change in the balance. If it doesn't, an entry is missing and the Treasury page says so.
 - **Missed entries.** The log is short, so entries drop off if nobody opens the bank during a busy spell. More readers make this rarer, and the balance check flags any gap.
 - **Rank permissions.** Some ranks may not be able to see the money log at all, so they can't help read it (to test, section 18).
-- **The Minister of the Treasury adds the reasons.** The log shows who moved how much, never why. Only the Minister can add a note such as "raid repairs".
+- **The depositor gives the reason** (decided 2026-11-07, not yet built). The log shows who moved how much, never why, so a deposit or withdrawal raises a herald-style prompt on that player's screen with a list: Tax, Ring entry fee, Treasury fine, Donation, Silverhand donation, Exchange donation, Other (with a short note). It stays until answered and comes back after a reload or login; answering is the only way to dismiss it. It blocks only itself and steps aside in combat. Without the addon there's no prompt, and the entry shows "No reason given".
+- **Reasons are checked.** An entry is confirmed against the money log. Ring fees and fines also check the amount, then mark the fee or fine paid.
+- **The Minister of the Treasury** can fill in unlabelled general deposits, but never relabels party money: only the depositor, that party's leader or the Crown can assign a party donation.
+- **Party accounts.** One bank, with the ledger keeping totals: Guild Treasury, Silverhand Funds, Exchange Funds, all public as they change. The addon can't block a withdrawal, so the ledger exposes misuse and the Charter makes it an offence.
+- **The Crown is the neutral paymaster.** A party leader requests an amount and reason in the Chamber; a King is notified, withdraws it and hands it over, tagged to that party's account. No extra guild rank is used.
 - The Minister of the Treasury is appointed by the PM (Charter 2.2), not elected.
 - **Fully public:** every line shows the member's name, withdrawals included. *(Decided 2026-11-04.)*
 
@@ -714,10 +718,27 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
 *Decided 2026-11-06: joining follows the brief; everything else follows the old plan (agreed with Max 2026-11-04, matched to Charter 3.2).* The goal is that neither party can see the other's private chamber, and joining a party to spy and quickly switching back isn't possible.
 
 - **Party membership is public, party business is private.** Who belongs to which party is visible to all. The Party Chamber is not.
-- **Joining:** the citizen clicks join; the Crown records them as a member once the 5g is paid (the brief's way).
+- **Joining:** the citizen clicks join and deposits 5g in the guild bank, tagged for that party; the Crown records them as a member once the deposit is confirmed.
 - **The Party Chamber** holds the party's plans, notes and whip notices. Only that party's members can see it.
 - **Chamber data never goes on the guild channel.** It's sent only by private addon whisper to characters on that party's roster, so members of the other party never receive it at all.
-- **The party leader is elected by its members,** in a vote inside the Party Chamber, so only that party's members see it. The winner is the party's candidate for PM (Charter 3.2) and is registered with the Crown.
+- **The party leader is elected by its members,** in a vote inside the Party Chamber. The winner is the party's candidate for PM (Charter 3.2). Decided by Duncan, 2026-11-07, not yet built, and needing the party roll first:
+  - **Not a guild rank.** The leader is held in the addon's records, so guild ranks stay free for other uses.
+  - **Built into the cycle.** Terms run three months. Every General Election has a contest for each party; a Snap Election doesn't. Day 0 is the General Election:
+
+    | Day | What happens |
+    |---|---|
+    | About -28 | The system reminds both Crown ranks, repeating until a King ceremonially opens the contests. The opening is theatre, not a fault line: after 2 days' grace the system opens them itself |
+    | -28 to -24 | Any member of that party may stand; the system notifies the members |
+    | -24 to -17 | Members vote: a 7-day window that always includes a weekend, voting whenever they log in. A vote can't be changed. Non-voters are reminded at login, more firmly in the last 48 hours. A vote waits on the voter's copy until a King is online |
+    | By -14 | The Kings ratify the count, the leader is inaugurated and the full results go to the whole guild |
+    | -14 to 0 | Campaign. It never resets if someone drops out |
+
+  - **Winning:** most votes wins. One candidate wins unopposed.
+  - **Ties:** a 48-hour run-off between the tied candidates, in which every member votes afresh and may change their mind. A second tie is settled by a King's public `/roll` in guild chat.
+  - **The ballot is open, after the count:** how each member voted stays hidden until the count is ratified, then is published to the whole guild, for the drama and so people can see it was fair. Every addon accepts results only from a Crown rank.
+  - **Deputy leader:** a leadership decision, not a runner-up. The leader names them publicly. If the leader goes, the deputy takes over with the clock still running and no vote.
+  - **No leader or deputy at day -14** (also mid-campaign, or at a Snap Election): election day moves back 14 days, with a 7-day emergency contest (2 to stand, 5 to vote), then a full 14-day campaign. **Only one delay per election**, so a governing party can't stay in power by leaving its seat empty; after that the election goes ahead and the party sits it out.
+- **The Crown is apolitical.** A character on a Crown rank can't join, hold office in or fund a party, and shouldn't campaign for one, but still votes in General Elections. Decided by Duncan, 2026-11-07. The Charter doesn't say this yet (`CHARTER_AMENDMENTS_DRAFT.md`).
 - **Crossing the floor is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a **14-day** cooling-off period before the other party can accept that person; the Crown's addon refuses to record the new membership until it's over. A citizen can leave their own party themselves, or the Crown records it.
 - **Roster changes** are only accepted from the Crown. WoW tells the receiver the real sender of every addon message, so every client can check who issued each change.
 - **Honest limits.** A real defector keeps whatever they already read, which is a spy, and good roleplay. Someone skilled enough to rewrite the addon could still cause trouble, so this is strong guild-level security, not bank-level.
@@ -1117,6 +1138,7 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 ## 18. To test after launch
 
 - **Addon message limits:** size and rate throttle, and whether Midnight-era rules block addon messages in instances or combat. `/mota probe limits` measures it; run `/mota probe` in a dungeon too.
+- **Guild bank (10.7):** `/mota probe bank`, then a small deposit and withdrawal with the bank open: can the addon detect them, read the balance and read the money log, and at which ranks? The automatic ledger, deposit prompts and party accounts depend on this.
 - **Whispered ballots:** that an addon whisper reaches a King on the same realm reliably, and what happens when the King is offline (the send should fail cleanly so the ballot is held).
 - **The last King's logout warning (8.2):** that the addon hears a logout starting (the `PLAYER_CAMPING` event) and that **Stay online** can cancel it (`CancelLogout`). If not, the warning shows when polls are open and the other King is offline, without stopping the logout. Quitting the game outright (rather than logging out) isn't caught yet.
 - **Last-online times and active citizens:** that `GetGuildRosterLastOnline` gives offline members' times, and that the roster lists offline members even with "Show offline members" unticked; otherwise the active-citizen count (turnout) only counts who is online.
@@ -1143,7 +1165,6 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
 - **Encrypted ballots (v2.0):** the voter's addon locks the ballot so only the Kings can open it and posts it into the shared book, so it reaches the Kings even if the voter is never online with one. Needs encryption written in Lua and a key handed out by each King. Agreed for later on 2026-11-06; until then held ballots follow 8.2, step 4.
-- **Party leader votes:** how the vote inside the Party Chamber is counted (open among members, or secret like the elections) is still to decide when Parties is planned in detail.
 
 ### 19.2 Old-plan ideas set aside for the brief's simpler version
 
@@ -1152,7 +1173,6 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
 - **Independent count check:** every member's addon counted ballots on the guild channel ("Count agreed by 31 of 31"). Replaced by the secret ballot (8.2).
 - **Self-running elections:** the addon followed the Charter timeline without anyone driving it, called run-offs automatically, with nominations and a **candidacy check** (good standing, two weeks as a citizen, later level 60, raids led, treasury contributions; stage set by the Crown).
 - **No-confidence petition signed in the addon,** with progress towards 40% and the days left.
-- **Joining a party through its officer:** the party's designated officer's addon records the 5g automatically from trade or mail, and the officer (or leader) accepts the citizen; roster changes accepted from them rather than the Crown.
 - **Office-based writing:** PM, ministers and Representatives writing their own records (appointments, renewals, assignments, transfers, Ring results) rather than the Crown doing those writes.
 - **Several Ring level brackets** at once (20–29, 30–39 … 60), each with its own champion.
 - **Universal crest:** the lion crest on every window regardless of party.
@@ -1176,6 +1196,7 @@ Kept here so they can be brought back later. Each was agreed in the old plan and
 - **2026-11-06** The treasury goes back to the old plan's automatic ledger, read from the guild bank money log by every member's addon (10.7). Ring entry fees are counted from the bank log, not at sign-up (11.5).
 - **2026-11-06** Milestone 4 is the secret ballot; window skins after it. Held ballots: a public `ballot.sealed` record, held ballots sealed before the close count until the result is declared, and the last King online is warned before logging out (8.2, 8.3). Encrypted ballots later, with v2.0 (19.1). The law vote was taken off every board.
 - **2026-11-06** Parties: joining follows the brief (join button, the Crown records membership); the Party Chamber, leader elections inside it, Chamber privacy by whisper and the 14-day crossing-the-floor rule follow the old plan (10.16). The Court follows the old plan: accusation, summons, Justices' ruling, punishment applied, appeal to the Crown (10.10).
+- **2026-11-07** (Duncan, proposed; Max to agree the Charter side) Party leaders are held in addon records, not guild ranks, with built-in contests, an open ballot published after the count, and leader-chosen deputies (10.16). The Crown is apolitical. Party donations go to the guild bank with public party accounts, and the designated officer goes (10.7). Deposits carry a compulsory reason prompt.
 - **2026-11-06** Milestone 4 build: `ballot.close` and `ballot.result` are separate records (held ballots count until the declaration); a King refuses only voters it counted itself; a Crown member may pass on the open ballot's records to members logging in; members tell a King logging in who sealed while the Kings were away, for the count of ballots still to come only; the logout warning uses the game's pop-up for now; the Petition ribbon waits for a later milestone.
 - **2026-11-06** Window skins designed and approved by Max: the parchment page stays the same in every skin; the metal is gold except Silverhand's silver; resting tabs take each skin's wax; a "Window skin: Party / Ministry" setting and a `/mota skin` test command; the textures are split into shared, per-metal and per-skin layers, about 2 MB per skin and 7 MB in all (9.1, 9.2, 9.3, 9.7).
 - **2026-11-06** Skins locked to rank (done): only the two Crown ranks can switch window skin, by `/mota skin` or the "Window skin" setting; for everyone else both are hidden (the command also refuses politely if typed) and the skin follows their guild rank. A saved Ministry choice or a tried skin is ignored for non-Crown players (9.1, 16.2, 16.3).

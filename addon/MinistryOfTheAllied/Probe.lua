@@ -5,6 +5,7 @@
 --
 -- /mota probe         client facts, printed in chat
 -- /mota probe limits  measures the message limits (about 45 hidden guild messages)
+-- /mota probe bank    what the game lets us see of the guild bank (open it first)
 --
 -- Both also save their results in the add-on's saved file (written on logout
 -- or /reload), so they can be read straight from
@@ -98,6 +99,106 @@ function Probe:Report()
 
   MOTA.db.probe = MOTA.db.probe or {}
   MOTA.db.probe.report = out
+end
+
+---------------------------------------------------------------------------
+-- /mota probe bank: can the ledger and deposit prompts work on Forever (10.7)?
+-- Only watches and reads. It never moves money.
+---------------------------------------------------------------------------
+
+local BANK_APIS = { "GetGuildBankMoney", "DepositGuildBankMoney", "WithdrawGuildBankMoney", "CanWithdrawGuildBankMoney",
+  "GetGuildBankWithdrawMoney", "QueryGuildBankLog", "GetNumGuildBankMoneyTransactions", "GetGuildBankMoneyTransaction" }
+
+local function gold(copper)
+  return ("%.4fg"):format((copper or 0) / 10000)
+end
+
+local function bankResults()
+  MOTA.db.probe = MOTA.db.probe or {}
+  MOTA.db.probe.bank = MOTA.db.probe.bank or {}
+  return MOTA.db.probe.bank
+end
+
+function Probe:ReadBankLog()
+  if not GetNumGuildBankMoneyTransactions or not GetGuildBankMoneyTransaction then return end
+  local total = GetNumGuildBankMoneyTransactions() or 0
+  local entries = {}
+  for i = total, 1, -1 do
+    local kind, name, amount, years, months, days, hours = GetGuildBankMoneyTransaction(i)
+    entries[#entries + 1] = { kind = kind, name = name, amount = amount, ago = { years, months, days, hours } }
+  end
+  bankResults().log = { at = GetServerTime(), total = total, entries = entries }
+  P("Bank money log:", total, "entries readable")
+  for i = 1, math.min(5, #entries) do
+    local e = entries[i]
+    P("  " .. tostring(e.kind), tostring(e.name), gold(e.amount))
+  end
+end
+
+function Probe:QueryBankLog()
+  if QueryGuildBankLog then QueryGuildBankLog((MAX_GUILDBANK_TABS or 8) + 1) end
+end
+
+function Probe:WatchBank()
+  if self.bankWatch then return end
+  self.bankWatch = CreateFrame("Frame")
+  local heard = {}
+  for _, event in ipairs({ "GUILDBANKFRAME_OPENED", "GUILDBANKFRAME_CLOSED", "GUILDBANK_UPDATE_MONEY", "GUILDBANKLOG_UPDATE" }) do
+    -- A client without this event would raise an error on registering it.
+    heard[event] = pcall(self.bankWatch.RegisterEvent, self.bankWatch, event)
+  end
+  bankResults().events = heard
+  self.bankWatch:SetScript("OnEvent", function(_, event)
+    if event == "GUILDBANKLOG_UPDATE" then
+      if self.bankLogWanted then
+        self.bankLogWanted = false
+        self:ReadBankLog()
+      end
+      return
+    end
+    if event == "GUILDBANK_UPDATE_MONEY" then
+      local now = GetGuildBankMoney and GetGuildBankMoney()
+      P("Bank balance changed:", gold(now))
+      bankResults().moneyEvent = true
+      self.bankLogWanted = true
+      self:QueryBankLog()
+    else
+      P("Bank event:", event)
+      if event == "GUILDBANKFRAME_OPENED" then
+        self.bankLogWanted = true
+        self:QueryBankLog()
+      end
+    end
+  end)
+  local function hook(name, key, label)
+    if _G[name] then
+      hooksecurefunc(name, function(amount)
+        P(label, gold(amount))
+        bankResults()[key] = true
+      end)
+    end
+  end
+  hook("DepositGuildBankMoney", "depositSeen", "Saw a deposit of")
+  hook("WithdrawGuildBankMoney", "withdrawSeen", "Saw a withdrawal of")
+end
+
+function Probe:Bank()
+  local out = bankResults()
+  out.at = GetServerTime()
+  out.apis = {}
+  local missing = {}
+  for _, name in ipairs(BANK_APIS) do
+    out.apis[name] = _G[name] ~= nil
+    if not _G[name] then missing[#missing + 1] = name end
+  end
+  P(MOTA:Color("leaf", "Bank probe") .. ":", #missing == 0 and "every bank function is present" or ("missing: " .. table.concat(missing, ", ")))
+  local _, rankName = GetGuildInfo("player")
+  out.rank = rankName
+  P("Your rank:", tostring(rankName), "· balance the game reports:", GetGuildBankMoney and gold(GetGuildBankMoney()) or "unknown")
+  self:WatchBank()
+  self.bankLogWanted = true
+  self:QueryBankLog()
+  P("Watching. With the bank open, deposit and withdraw a little. Your results save on /reload.")
 end
 
 ---------------------------------------------------------------------------

@@ -177,9 +177,11 @@ add("ring", "", "who holds the Minister of War rank", function()
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits]", "client facts for the add-on plan; 'limits' measures message limits", function(arg)
+add("probe", "[limits|bank]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows", function(arg)
   if arg == "limits" then
     MOTA.Probe:Limits()
+  elseif arg == "bank" then
+    MOTA.Probe:Bank()
   else
     MOTA.Probe:Report()
   end

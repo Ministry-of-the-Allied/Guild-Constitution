@@ -230,6 +230,27 @@ check("Realm tags: names are kept without a tag",
       and kael.lua.eval('MinistryOfTheAllied:IsGuildMember("Bram") and MinistryOfTheAllied:IsOnline("Bram")') is True)
 clients.remove(kael)
 
+print("== 1d2. The guild bank probe")
+kael = Client("Kael")
+kael.slash("probe bank")
+check("Bank probe: a client without the bank functions says so, without errors", kael.said(r"missing: GetGuildBankMoney"))
+kael = Client("Kael")
+kael.lua.execute("""
+  BANK = 5000000
+  GetGuildBankMoney = function() return BANK end
+  DepositGuildBankMoney = function(a) BANK = BANK + a end
+  WithdrawGuildBankMoney = function(a) BANK = BANK - a end
+  CanWithdrawGuildBankMoney = function() return true end
+  GetGuildBankWithdrawMoney = function() return 0 end
+  QueryGuildBankLog = function() end
+  GetNumGuildBankMoneyTransactions = function() return 1 end
+  GetGuildBankMoneyTransaction = function() return "deposit", "Bram", 50000, 0, 0, 0, 3 end
+""")
+kael.slash("probe bank")
+kael.lua.execute('DepositGuildBankMoney(50000)')
+check("Bank probe: every function found", kael.said(r"every bank function is present"))
+check("Bank probe: a deposit is seen", kael.said(r"Saw a deposit of 5\.0000g"))
+
 print("== 1e. Two players whose UnitName is the same short name")
 OLD_BOOK = """MOTADB = { schema = 1, guilds = { ["Ministry of the Allied-Realm"] = { names = 2,
   records = { ["Kíng"] = { { t = 1, k = "test.note", d = { text = "old" } } } },
