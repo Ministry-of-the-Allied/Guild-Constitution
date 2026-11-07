@@ -291,7 +291,7 @@ local function buildSignup()
     r.you:SetPoint("RIGHT", r, "RIGHT", -62, 0)
     r:SetScript("OnClick", function()
       local cur = Ring:Current()
-      if cur and r.entrant and Ring:CanOrganise() then Ring:SetPaid(r.entrant, not cur.paid[r.entrant]) end
+      if cur and r.entrant and Ring:CanOrganise() then Ring:SetPaid(r.entrant, not cur.paidAt[r.entrant]) end
     end)
     sheet.rows[i] = r
   end
@@ -337,7 +337,7 @@ local function refreshSheet(s, cur, open)
     or (open and ("Sign-ups open until %s."):format(day(cur.closes)) or "Closed. See the bracket for the draw.")))
   s.draw:SetShown((open and Ring:CanOrganise()) or false)
   for i, r in ipairs(s.rows) do
-    local entrant = cur and cur.stage ~= "done" and cur.entrants[i]
+    local entrant = cur and cur.stage ~= "done" and (cur.sheet or cur.entrants)[i]
     r.entrant = entrant and entrant.name or nil
     local you = entrant and entrant.name == MOTA.me
     r.you:SetShown(you or false)
@@ -348,7 +348,7 @@ local function refreshSheet(s, cur, open)
       Kit:Gradient(r.bg, "C9A24A", "C9A24A", you and 0.3 or 0, you and 0.04 or 0, true)
       Kit:Tint(r.gem, "5E4B33")
       local paid = cur.paid[entrant.name]
-      r.state:SetText(paid and "Paid" or "Unpaid")
+      r.state:SetText(paid and "Paid" or (cur.paidAt[entrant.name] and "No place" or "Unpaid"))
       r.state:SetColor(paid and "1F6B4A" or "8E1B1B")
     else
       r.name:SetText("Place open")
@@ -376,7 +376,7 @@ local function refreshSignup(v, cur)
   e.fee:SetText("")
   e.feeCoin:SetGold(cur.fee)
   e.places:SetText(("%d of %d"):format(math.min(#cur.entrants, Ring.MAX_ENTRANTS), Ring.MAX_ENTRANTS))
-  e.pay:SetText(not entered and "—" or (cur.paid[MOTA.me] and "Paid" or "Unpaid"))
+  e.pay:SetText(not entered and "—" or (cur.paid[MOTA.me] and "Paid" or "Deposit the fee"))
   e.enter:SetShown(open and not entered)
   e.withdraw:SetShown(open and entered)
   e.note:SetText(open and ("Sign-ups close on %s."):format(day(cur.closes)) or "Sign-ups have closed.")

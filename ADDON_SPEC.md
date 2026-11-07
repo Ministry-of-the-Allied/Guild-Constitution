@@ -816,7 +816,7 @@ Crown (or delegated Minister of War) can:
 
 ### 11.5 Treasury Integration
 
-Citizens pay the entry fee into the guild bank. The automatic ledger (10.7) picks up the deposit from the money log, so the fee is never typed in or logged at sign-up (that would count it twice). When a deposit from a signed-up citizen matches the entry fee during the sign-up window, the addon marks them paid (`participants[name].paid = true`) and gives the ledger entry its reason automatically:
+Citizens pay the entry fee into the guild bank. The automatic ledger (10.7) picks up the deposit from the money log, so the fee is never typed in or logged at sign-up (that would count it twice). *Built in 0.5.0 (decided 2026-11-07):* a deposit tagged Ring entry fee counts, and deposits add up. Nobody holds a place until paid, first paid first in, so unpaid entrants aren't in the draw. Overpayment stays with the Guild Treasury. Anyone who paid and withdrew before the draw or found no place is owed a refund (`/mota refunds`). The Minister of War and the Crown can both pay prizes and refunds, which needs bank rights on the Minister's rank. Manual ticks stay, for anyone paying without the addon. The older wording follows. When a deposit from a signed-up citizen matches the entry fee during the sign-up window, the addon marks them paid (`participants[name].paid = true`) and gives the ledger entry its reason automatically:
 
 ```lua
 description = "Ring entry fee — " .. playerName .. " (" .. ring.season .. ")"

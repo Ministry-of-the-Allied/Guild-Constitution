@@ -227,6 +227,18 @@ add("books", "open", "Crown: restart the ledger at the balance last counted at t
   if rec then MOTA:Print("The books are open at", MOTA:Money(rec.d.bal) .. ".") else MOTA:Print(err) end
 end, isCrown)
 
+add("refunds", "[name]", "Ring organisers: who's owed an entry fee back; a name marks theirs as refunded", function(arg)
+  local Ring = MOTA.Ring
+  local cur = Ring:Current()
+  if not Ring:CanOrganise() then return MOTA:Print("Only the Minister of War or the Crown handle refunds.") end
+  if arg and arg ~= "" then
+    if not Ring:Refunded(arg) then MOTA:Print("Nobody by that exact name is owed a refund.") end
+    return
+  end
+  local list = cur and cur.refunds or {}
+  MOTA:Print(#list > 0 and ("Owed a refund: " .. table.concat(list, ", ")) or "Nobody is owed a refund.")
+end, function() return MOTA.Ring:CanOrganise() end)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)

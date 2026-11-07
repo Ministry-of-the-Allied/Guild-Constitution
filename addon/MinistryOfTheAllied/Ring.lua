@@ -11,7 +11,12 @@
 -- until someone holds that rank.
 --   ring.enter    anyone   { id }            signing yourself up
 --   ring.withdraw anyone   { id }            before the draw
---   ring.paid     organiser   { id, p, paid }   ticked by hand until the ledger exists
+--   ring.paid     organiser   { id, p, paid }   by hand, for anyone paying without the add-on;
+--                                               paid = false also marks a refund as given
+--
+-- A fee is paid by depositing it in the guild bank and choosing "Ring entry
+-- fee" (Bank.lua). Nobody holds a place until they've paid: the first eight paid
+-- are in, and anyone else who paid and has no place is owed a refund.
 --   ring.bout     organiser   { id, s, x, y }   one per quarter-final (y empty is a bye)
 --   ring.result   organiser   { id, s, w }      the first result for a bout stands
 --
@@ -89,7 +94,7 @@ local function build()
     if r.k == "ring.create" then
       local d = r.d or {}
       local t = { id = r.a .. "#" .. r.n, season = d.season, bracket = d.bracket, fee = d.fee or 0, closes = d.closes,
-        entrants = {}, draw = {}, results = {}, drawn = false, paid = {}, lastT = r.t }
+        entrants = {}, draw = {}, results = {}, drawn = false, paid = {}, fees = {}, paidAt = {}, lastT = r.t }
       byId[t.id] = t
       order[#order + 1] = t
     end
@@ -107,22 +112,36 @@ local function build()
     end
   end
 
+  local running -- the latest tournament, which fee deposits go towards
   for i = #list, 1, -1 do
     local r = list[i]
     local d = r.d or {}
+    if r.k == "ring.create" then running = byId[r.a .. "#" .. r.n] end
+    if (r.k == "bank.move" or r.k == "bank.fill") and d.r == "ring_fee" and d.io == "d" and running
+      and type(d.amt) == "number" and (not running.drawn or (d.at or r.t) <= running.drawnAt) then
+      local who = r.k == "bank.fill" and MOTA:Bare(d.who) or r.a
+      if who then
+        running.fees[who] = (running.fees[who] or 0) + d.amt
+        if running.fees[who] >= running.fee * 10000 and not running.paidAt[who] then running.paidAt[who] = r.t end
+      end
+    end
     local t = d.id and byId[d.id]
     if t then
       local open = not t.drawn or r.t <= t.drawnAt
       if r.k == "ring.enter" and open then
         local known = false
         for _, e in ipairs(t.entrants) do known = known or e.name == r.a end
-        if not known then t.entrants[#t.entrants + 1] = { name = r.a } end
+        if not known then t.entrants[#t.entrants + 1] = { name = r.a, t = r.t } end
       elseif r.k == "ring.withdraw" and open then
         for n, e in ipairs(t.entrants) do
           if e.name == r.a then table.remove(t.entrants, n) break end
         end
       elseif r.k == "ring.paid" and d.p then
-        t.paid[d.p] = d.paid and true or nil
+        if d.paid then
+          t.paidAt[d.p] = t.paidAt[d.p] or r.t
+        else
+          t.paidAt[d.p], t.fees[d.p] = nil, nil
+        end
       elseif r.k == "ring.result" and d.s and not t.results[d.s] then
         -- The first result that names someone actually in the bout stands.
         settleBouts(t)
@@ -135,6 +154,42 @@ local function build()
 
   local hall = {}
   for _, t in ipairs(order) do
+    -- Only the paid hold a place, first paid first; the sheet also lists the rest.
+    local signed = t.entrants
+    local paidList, waiting = {}, {}
+    for _, e in ipairs(signed) do
+      local at = t.fee == 0 and e.t or t.paidAt[e.name]
+      if at then
+        e.at = at
+        paidList[#paidList + 1] = e
+      else
+        waiting[#waiting + 1] = e
+      end
+    end
+    table.sort(paidList, function(a, b)
+      if a.at ~= b.at then return a.at < b.at end
+      return a.name < b.name
+    end)
+    t.entrants, t.sheet, t.refunds = {}, {}, {}
+    local placed = {}
+    for i, e in ipairs(paidList) do
+      if i <= Ring.MAX_ENTRANTS then
+        t.entrants[i] = e
+        t.sheet[i] = e
+        t.paid[e.name] = true
+        placed[e.name] = true
+      end
+    end
+    for i = Ring.MAX_ENTRANTS + 1, #paidList do t.sheet[#t.sheet + 1] = paidList[i] end
+    for _, e in ipairs(waiting) do t.sheet[#t.sheet + 1] = e end
+    if t.fee > 0 then
+      for name in pairs(t.paidAt) do
+        local inDraw = false
+        for _, q in pairs(t.draw) do inDraw = inDraw or q.x == name or q.y == name end
+        if not placed[name] and not inDraw then t.refunds[#t.refunds + 1] = name end
+      end
+      table.sort(t.refunds)
+    end
     -- Anyone in the draw is an entrant, whatever order the records came in.
     for _, q in pairs(t.draw) do
       for _, name in ipairs({ q.x, q.y }) do
@@ -193,7 +248,7 @@ function Ring:Purse(cur)
 end
 
 function Ring:IsEntered(cur)
-  for i, e in ipairs(cur.entrants) do
+  for i, e in ipairs(cur.sheet or cur.entrants) do
     if e.name == MOTA.me then return true, i end
   end
   return false
@@ -248,6 +303,16 @@ function Ring:Withdraw()
   return write("ring.withdraw", { id = cur.id }) ~= nil
 end
 
+-- Marks a refund as given: the entrant no longer counts as having paid.
+function Ring:Refunded(name)
+  local cur = self:Current()
+  if not cur or not self:CanOrganise() then return false end
+  for _, n in ipairs(cur.refunds or {}) do
+    if n == name then return write("ring.paid", { id = cur.id, p = name, paid = false }) ~= nil end
+  end
+  return false
+end
+
 function Ring:SetPaid(name, paid)
   local cur = self:Current()
   if not cur or not self:CanOrganise() then return false end
@@ -261,7 +326,11 @@ function Ring:Draw()
   if not self:CanOrganise() then return false, "Only the Minister of War or the Crown can make the draw." end
   if not cur or cur.stage ~= "signup" then return false, "There's nothing to draw." end
   local n = math.min(#cur.entrants, self.MAX_ENTRANTS)
-  if n < 2 then return false, "The draw needs at least two entrants." end
+  if n < 2 then return false, "The draw needs at least two entrants who have paid." end
+  local unpaid = #cur.sheet - #cur.entrants
+  if unpaid > 0 then
+    MOTA:Print("The Ring:", unpaid, unpaid == 1 and "entrant hasn't" or "entrants haven't", "paid or has no place, and won't be in the draw.")
+  end
   local names = {}
   for i = 1, n do names[i] = cur.entrants[i].name end
   for i = n, 2, -1 do
@@ -314,7 +383,7 @@ local function callOut()
 end
 
 MOTA:Listen("RECORD_ADDED", function(_, rec)
-  if not rec.k:find("^ring%.") then return end
+  if not rec.k:find("^ring%.") and not rec.k:find("^bank%.") then return end
   built = false
   MOTA:Fire("RING_CHANGED")
   if (rec.k == "ring.bout" or rec.k == "ring.result") and not callPending and not MOTA.Book.replaying then

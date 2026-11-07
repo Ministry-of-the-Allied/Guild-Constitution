@@ -16,7 +16,7 @@ local REASONS = {
     { "party_sh", "Silverhand donation" }, { "party_ex", "Exchange donation" }, { "other", "Other" },
   },
   w = {
-    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" },
+    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" }, { "ring_refund", "Ring refund" },
     { "party_sh", "Silverhand funds" }, { "party_ex", "Exchange funds" }, { "other", "Other" },
   },
 }
@@ -25,7 +25,7 @@ Prompt.REASONS = REASONS
 local SCALE = 0.8 -- as a Royal herald
 local SEAL_FOR = { party_sh = "silverhand", party_ex = "exchange" }
 local ROW_H = 26
-local MAX_ROWS = 7
+local MAX_ROWS = 8
 
 local frame, chooser, chooserText, list, rows, noteBox, confirm, seals, eyebrow, title
 local chosen
@@ -157,6 +157,15 @@ function Prompt:Update()
   eyebrow:SetText(((move.who and (MOTA:Short(move.who) .. "'s entry · ") or "The Treasury asks · ") .. MOTA:Money(move.amt) .. (left > 0 and (" · " .. left .. " more after this") or "")):upper())
   title:SetText(move.io == "d" and "Why this deposit?" or "Why this withdrawal?")
   local options = REASONS[move.io] or REASONS.d
+  -- Entered in the Ring and not yet paid: the fee comes first.
+  local cur = MOTA.Ring and MOTA.Ring:Current()
+  if move.io == "d" and not move.who and cur and cur.stage == "signup" and MOTA.Ring:IsEntered(cur) and not cur.paid[MOTA.me] then
+    local first = { { "ring_fee", "Ring entry fee" } }
+    for _, r in ipairs(options) do
+      if r[1] ~= "ring_fee" then first[#first + 1] = r end
+    end
+    options = first
+  end
   for i, b in ipairs(rows) do
     local reason = options[i]
     b:SetShown(reason ~= nil)
