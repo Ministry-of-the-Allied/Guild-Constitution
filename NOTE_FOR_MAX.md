@@ -28,5 +28,11 @@ Apolitical: Kings can't join, lead, fund or campaign for a party, but they do vo
 ## Also recently
 `2bd68e0` fixed each copy of the addon thinking it was plain "Kíng". You've both since tested the handshake and a live ballot, and they work.
 
+## Built since this note was first written
+- **0.2.0:** the party roll (`Party.lua`) and the bank reason prompt (`Bank.lua`, `UI/BankPrompt.lua`). Joining hasn't been tried in game: test it with Duncan, using a citizen-rank character.
+- **0.3.0:** the Treasury page and ledger (`Ledger.lua`, `UI/Treasury.lua`). Duncan simplified the plan in spec 10.7: the ledger is the reasons people give, with exact times, and the money log and balance only check it. The books are already open on Duncan's copy, but you won't have that record if you were offline, so the Treasury may say they aren't open. Catch-up is the fix.
+
+Both need a full WoW restart after pulling. Every bank deposit or withdrawal now raises a prompt.
+
 ## Next to build
-The party membership roll comes first, as voting, Chamber access and party skins all depend on it. Please tell Duncan if you disagree with any of this before building starts.
+Catch-up, so offline members don't miss records, then automatic Ring fees and leader contests. Please tell Duncan if you disagree with any of this.

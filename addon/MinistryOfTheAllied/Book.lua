@@ -115,7 +115,7 @@ end
 -- A short one-line description of a record's details.
 function Book:Describe(rec)
   if rec.k == "test.note" then return "\"" .. tostring(rec.d.text or "") .. "\"" end
-  if rec.k == "bank.move" and MOTA.BankPrompt then
+  if (rec.k == "bank.move" or rec.k == "bank.fill") and MOTA.BankPrompt then
     return MOTA:Money(rec.d.amt) .. " " .. (rec.d.io == "w" and "withdrawn" or "deposited") .. ": "
       .. tostring(rec.d.note or MOTA.BankPrompt:LabelFor(rec.d.io, rec.d.r))
   end

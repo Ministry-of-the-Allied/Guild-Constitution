@@ -61,14 +61,21 @@ local function build()
         roll.paid[who] = nil
         roll.floor[#roll.floor + 1] = { name = who, p = from, t = r.t }
       end
-    elseif r.k == "bank.move" then
+    elseif r.k == "bank.open" then
+      -- Party funds count from when the books opened, as the ledger does.
+      roll.funds = { sh = 0, ex = 0 }
+      roll.openT = r.t
+    elseif r.k == "bank.move" or r.k == "bank.fill" then
       for key, reason in pairs(Party.FUND_REASON) do
         if d.r == reason and type(d.amt) == "number" then
           local sign = d.io == "w" and -1 or 1
-          roll.funds[key] = roll.funds[key] + sign * d.amt
-          if d.io == "d" then
-            roll.paid[r.a] = roll.paid[r.a] or {}
-            roll.paid[r.a][key] = (roll.paid[r.a][key] or 0) + d.amt
+          if not roll.openT or (d.at or r.t) >= roll.openT then
+            roll.funds[key] = roll.funds[key] + sign * d.amt
+          end
+          local who = r.k == "bank.fill" and d.who or r.a
+          if d.io == "d" and who then
+            roll.paid[who] = roll.paid[who] or {}
+            roll.paid[who][key] = (roll.paid[who][key] or 0) + d.amt
           end
         end
       end
@@ -194,7 +201,7 @@ MOTA:Listen("GUILD_READY", changed)
 MOTA:Listen("ROSTER_UPDATED", changed)
 MOTA:Listen("RECORD_ADDED", function(self, rec)
   local d = rec.d or {}
-  if rec.k == "bank.move" then return changed() end
+  if rec.k:sub(1, 5) == "bank." then return changed() end
   if rec.k:sub(1, 6) ~= "party." then return end
   local before = Party:Of(self.me)
   cache = nil

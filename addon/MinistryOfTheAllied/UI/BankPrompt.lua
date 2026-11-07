@@ -16,7 +16,7 @@ local REASONS = {
     { "party_sh", "Silverhand donation" }, { "party_ex", "Exchange donation" }, { "other", "Other" },
   },
   w = {
-    { "supplies", "Guild supplies" }, { "ring_prize", "Ring prize" },
+    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" },
     { "party_sh", "Silverhand funds" }, { "party_ex", "Exchange funds" }, { "other", "Other" },
   },
 }
@@ -84,6 +84,7 @@ local function build()
   title:SetTextColor(MOTA:RGB("1B3570"))
   title:SetJustifyH("LEFT")
   title:SetWidth(377)
+  title:SetMaxLines(1)
   UI:AtSlot(title, "htitle", 0, 0, frame)
 
   local rowY = M.slots.hbody.y + 2
@@ -153,8 +154,8 @@ function Prompt:Update()
   end
   if not frame then build() end
   local left = #MOTA.Bank:Pending() - 1
-  eyebrow:SetText(("The Treasury asks · " .. MOTA:Money(move.amt) .. (left > 0 and (" · " .. left .. " more after this") or "")):upper())
-  title:SetText(move.io == "d" and "What was this deposit for?" or "What was this withdrawal for?")
+  eyebrow:SetText(((move.who and (MOTA:Short(move.who) .. "'s entry · ") or "The Treasury asks · ") .. MOTA:Money(move.amt) .. (left > 0 and (" · " .. left .. " more after this") or "")):upper())
+  title:SetText(move.io == "d" and "Why this deposit?" or "Why this withdrawal?")
   local options = REASONS[move.io] or REASONS.d
   for i, b in ipairs(rows) do
     local reason = options[i]
@@ -181,7 +182,7 @@ function Prompt:Answer(reason, note)
     return nil
   end
   MOTA:Print("Recorded in the guild's book:", MOTA:Money(rec.d.amt), rec.d.io == "d" and "deposit" or "withdrawal",
-    "· " .. (note or self:LabelFor(rec.d.io, reason)) .. ". The Treasury page will list these; /mota book shows them for now.")
+    "· " .. (note or self:LabelFor(rec.d.io, reason)) .. ". It's on the Treasury page.")
   chosen = nil
   self:Update()
   return rec

@@ -2,7 +2,7 @@
 -- When this player deposits or withdraws gold, the reason prompt asks why
 -- (UI/BankPrompt.lua) and the answer becomes a public record:
 --
---   bank.move  anyone  { io = "d" | "w", amt = copper, r = reason, note }
+--   bank.move  anyone  { io = "d" | "w", amt = copper, r = reason, note, at = when it moved }
 --
 -- The move only counts once the game reports the balance changed, so a refused
 -- withdrawal raises no prompt. Unanswered prompts are saved, and come back
@@ -42,11 +42,24 @@ function Bank:Answer(reason, note)
   local list = self:Pending()
   local move = list[1]
   if not move then return nil end
-  local rec, err = MOTA.Book:Write("bank.move", { io = move.io, amt = move.amt, r = reason, note = note })
+  local rec, err
+  if move.who then
+    rec, err = MOTA.Book:Write("bank.fill", { who = move.who, io = move.io, amt = move.amt, r = reason, note = note })
+  else
+    rec, err = MOTA.Book:Write("bank.move", { io = move.io, amt = move.amt, r = reason, note = note, at = move.t })
+  end
   if not rec then return nil, err end
   table.remove(list, 1)
   MOTA:Fire("BANK_PROMPT")
   return rec
+end
+
+-- The Crown gives the reason for a log entry nobody explained.
+function Bank:AskFor(entry)
+  local list = self:Pending()
+  list[#list + 1] = { io = entry.kind == "deposit" and "d" or "w", amt = entry.amount, who = entry.name,
+    repair = entry.kind == "repair" or nil, t = GetServerTime() }
+  MOTA:Fire("BANK_PROMPT")
 end
 
 local function query()
@@ -57,11 +70,20 @@ function Bank:ReadLog()
   if not MOTA.guild or not GetNumGuildBankMoneyTransactions or not GetGuildBankMoneyTransaction then return end
   local entries = {}
   for i = 1, GetNumGuildBankMoneyTransactions() or 0 do
-    local kind, name, amount = GetGuildBankMoneyTransaction(i)
-    entries[#entries + 1] = { kind = kind, name = MOTA:Bare(name), amount = amount }
+    local kind, name, amount, years, months, days, hours = GetGuildBankMoneyTransaction(i)
+    local age = (years or 0) * 31536000 + (months or 0) * 2592000 + (days or 0) * 86400 + (hours or 0) * 3600
+    entries[#entries + 1] = { kind = kind, name = MOTA:Bare(name), amount = amount, latest = GetServerTime() - age }
   end
   MOTA.guild.bankLog = entries
-  MOTA:Fire("PARTY_CHANGED")
+  self:SeeBalance()
+  MOTA:Fire("BANK_LOG_READ")
+end
+
+-- The balance is only trusted once the bank has answered, not as it opens.
+function Bank:SeeBalance()
+  if not GetGuildBankMoney then return end
+  self.seenBalance = GetGuildBankMoney()
+  if MOTA.Ledger then MOTA.Ledger:SawBalance(self.seenBalance) end
 end
 
 -- Is there a deposit of at least this much by this person in the last log read?
@@ -95,6 +117,7 @@ watcher:SetScript("OnEvent", function(_, event)
     query()
   elseif event == "GUILDBANK_UPDATE_MONEY" then
     query()
+    Bank:SeeBalance()
     if awaiting then
       local list = Bank:Pending()
       list[#list + 1] = { io = awaiting.io, amt = awaiting.amt, t = GetServerTime() }

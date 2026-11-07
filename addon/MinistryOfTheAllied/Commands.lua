@@ -221,6 +221,12 @@ add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your o
   end
 end, isCrown)
 
+add("books", "open", "Crown: restart the ledger at the balance last counted at the guild bank", function(arg)
+  if arg ~= "open" then return MOTA:Print("/mota books open restarts the ledger at the balance last counted at the guild bank.") end
+  local rec, err = MOTA.Ledger:OpenBooks()
+  if rec then MOTA:Print("The books are open at", MOTA:Money(rec.d.bal) .. ".") else MOTA:Print(err) end
+end, isCrown)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)

@@ -453,7 +453,7 @@ function UI:SelectPage(i)
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
   -- A page with its own contents replaces the note about what it will hold.
-  local built = page.id == "statute" or page.id == "ring" or page.id == "parties" or full
+  local built = page.id == "statute" or page.id == "ring" or page.id == "parties" or page.id == "treasury" or full
   self.note:SetShown(not built)
   self.note2:SetShown(not built)
   -- The built pages run from the parchment's top, as their boards do.

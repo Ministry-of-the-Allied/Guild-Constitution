@@ -639,15 +639,14 @@ On login: any ballot you haven't cast, with the time left. Shortly before your d
 
 *Decided 2026-11-06: the old plan's automatic ledger, in place of the brief's hand-typed one.* The game keeps a money log of every guild bank deposit, withdrawal and repair.
 
-- **Everyone's addon reads the log.** Whenever any member opens the guild bank, their addon reads the money log and shares any entries the guild doesn't have yet.
-- **Entries are confirmed, not just trusted.** An entry counts as confirmed once two different members' addons have reported it, or once it matches the change in the bank's balance. Until then it shows as "awaiting confirmation". This stops one member's addon inventing entries.
-- **No double counting.** The log only gives rough times ("3 hours ago"), so two readings of the same entry won't match exactly. Readings are lined up by their order in the log, so each deposit is counted once.
-- **Balance check.** Every reader also reports the bank's gold. Money in minus money out must equal the change in the balance. If it doesn't, an entry is missing and the Treasury page says so.
-- **Missed entries.** The log is short, so entries drop off if nobody opens the bank during a busy spell. More readers make this rarer, and the balance check flags any gap.
-- **Rank permissions.** Some ranks may not be able to see the money log at all, so they can't help read it (to test, section 18).
+- **Simplified 2026-11-07 (Duncan), replacing shared log entries, two-member confirmation and lining up by order.** The ledger is the reason records, with their exact times. The money log and balance only check it.
+- **Opening the books.** A King records the opening balance (`bank.open`), counted when the guild bank is open. The latest opening stands, and only what follows it counts, so test money stays out.
+- **The balance check.** A member at the bank shares the balance if it has changed (`bank.balance`). The Treasury page compares it with the opening balance plus money in minus money out, and shows any difference as "Unexplained, or not yet synced".
+- **Entries with no reason.** On opening the bank, the addon checks the recent log against the ledger by name, type and amount, and lists what has no line, on that viewer's screen only. Log entries from before the books opened are left out using their rough age, so one can show for up to an hour.
+- **Rank permissions.** Some ranks may not be able to see the money log (to test, section 18). The balance check still works from any rank that can open the bank.
 - **The depositor gives the reason** (decided 2026-11-07, not yet built). The log shows who moved how much, never why, so a deposit or withdrawal raises a herald-style prompt on that player's screen with a list: Tax, Ring entry fee, Treasury fine, Donation, Silverhand donation, Exchange donation, Other (with a short note). It stays until answered and comes back after a reload or login; answering is the only way to dismiss it. It blocks only itself and steps aside in combat. Without the addon there's no prompt, and the entry shows "No reason given".
 - **Reasons are checked.** An entry is confirmed against the money log. Ring fees and fines also check the amount, then mark the fee or fine paid.
-- **The Minister of the Treasury** can fill in unlabelled general deposits, but never relabels party money: only the depositor, that party's leader or the Crown can assign a party donation.
+- **Filling in reasons.** A King can add a reason for someone else's log entry (`bank.fill`), marked as entered by the Crown, which clears it from the unexplained figure. The Minister of the Treasury will be able to do so for general deposits once ministers can be appointed, but never for party money.
 - **Party accounts.** One bank, with the ledger keeping totals: Guild Treasury, Silverhand Funds, Exchange Funds, all public as they change. The addon can't block a withdrawal, so the ledger exposes misuse and the Charter makes it an offence.
 - **The Crown is the neutral paymaster.** A party leader requests an amount and reason in the Chamber; a King is notified, withdraws it and hands it over, tagged to that party's account. No extra guild rank is used.
 - The Minister of the Treasury is appointed by the PM (Charter 2.2), not elected.
@@ -741,7 +740,7 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
 - **The Crown is apolitical.** A character on a Crown rank can't join, hold office in or fund a party, and shouldn't campaign for one, but still votes in General Elections. Decided by Duncan, 2026-11-07. The Charter doesn't say this yet (`CHARTER_AMENDMENTS_DRAFT.md`).
 - **Crossing the floor is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a **14-day** cooling-off period before the other party can accept that person; the Crown's addon refuses to record the new membership until it's over. A citizen can leave their own party themselves, or the Crown records it.
 - **Roster changes** are only accepted from the Crown. WoW tells the receiver the real sender of every addon message, so every client can check who issued each change.
-- **Built so far (0.2.0, 2026-11-07, to test in game):** `Party.lua` (the roll), `Bank.lua` and `UI/BankPrompt.lua` (deposit and withdrawal reasons), and The Parties page with real members, funds, join and leave, the Crown's desk on the Chamber ribbon, and party skins. Reasons are buttons rather than a dropdown. Not yet built: leaders, deputies, contests, chamber notices, the Treasury page. Offline members miss roll changes until catch-up is built (section 7).
+- **Built so far (0.2.0, 2026-11-07, to test in game):** `Party.lua` (the roll), `Bank.lua` and `UI/BankPrompt.lua` (deposit and withdrawal reasons), and The Parties page with real members, funds, join and leave, the Crown's desk on the Chamber ribbon, and party skins. Reasons are buttons rather than a dropdown. The Treasury page's ledger follows in 0.3.0 (`Ledger.lua`, `UI/Treasury.lua`). Not yet built: leaders, deputies, contests, chamber notices, Taxes & budget. Offline members miss roll changes until catch-up is built (section 7).
 - **Honest limits.** A real defector keeps whatever they already read, which is a spy, and good roleplay. Someone skilled enough to rewrite the addon could still cause trouble, so this is strong guild-level security, not bank-level.
 
 ---
@@ -1166,6 +1165,8 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 - **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
 - **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
 - **Encrypted ballots (v2.0):** the voter's addon locks the ballot so only the Kings can open it and posts it into the shared book, so it reaches the Kings even if the voter is never online with one. Needs encryption written in Lua and a key handed out by each King. Agreed for later on 2026-11-06; until then held ballots follow 8.2, step 4.
+
+- **Hide and seek (Duncan, 2026-11-07; parked, untested):** a guild game for those who enter: names hidden, a play area on the map, the minimap covered, countdowns for hiding and the game, and a tag macro. To check first: whether Forever's layers let entrants see each other, and whether name settings can be hidden and always restored, even after a crash. Cheating can only be limited (`/target Name`, the roster's zones), so partly an honour-system game. Start with a small test without the map work.
 
 ### 19.2 Old-plan ideas set aside for the brief's simpler version
 
