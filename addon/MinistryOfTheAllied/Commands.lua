@@ -239,6 +239,22 @@ add("refunds", "[name]", "Ring organisers: who's owed an entry fee back; a name 
   MOTA:Print(#list > 0 and ("Owed a refund: " .. table.concat(list, ", ")) or "Nobody is owed a refund.")
 end, function() return MOTA.Ring:CanOrganise() end)
 
+add("contest", "[advance|ratify sh|ratify ex|declare sh <name>]", "Crown: where the leadership contests stand, or move them on", function(arg)
+  local Co = MOTA.Contest
+  local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
+  local rec, err
+  if word == "advance" then rec, err = Co:Advance()
+  elseif word == "ratify" then rec, err = Co:Ratify(rest)
+  elseif word == "declare" then
+    local p, name = rest:match("^(%a+)%s+(.+)$")
+    rec, err = Co:Ratify(p, name)
+  else
+    for _, p in ipairs({ "sh", "ex" }) do MOTA:Print(MOTA.Party.NAMES[p], "·", Co:Stage(p), "·", Co:Banner(p)) end
+    return
+  end
+  if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
+end, isCrown)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)

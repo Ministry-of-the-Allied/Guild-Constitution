@@ -164,12 +164,40 @@ local BUTTONS = {
   quiet = { top = "FFFAEB", bottom = "FFFAEB", alpha = 0.35, text = "1B3570", ring = "1B3570" },
 }
 
+-- The main buttons take the colours of the window's skin.
+local SKINNED = {
+  blue = {
+    CROWN = { "6E2A8C", "351048" },
+    AZEROTH_EXCHANGE = { "A82830", "5A0F14" },
+  },
+  gold = {
+    SILVERHAND = { "F6F8FB", "A9B4C4" },
+  },
+}
+local painted = {}
+
+local function paint(entry)
+  local key = MOTA.skin and MOTA.skin.KEY
+  local look = BUTTONS[entry.style]
+  local c = SKINNED[entry.style] and SKINNED[entry.style][key]
+  Kit:Gradient(entry.fill, c and c[1] or look.top, c and c[2] or look.bottom, look.alpha, look.alpha)
+end
+
+MOTA:Listen("SKIN_CHANGED", function()
+  for _, entry in ipairs(painted) do paint(entry) end
+end)
+
 -- .btn, .btn.gold and .btn.quiet
 function Kit:Button(parent, width, height, label, style, onClick)
   local look = BUTTONS[style or "blue"]
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(width, height)
-  self:Fill(b, look.top, look.bottom, look.alpha)
+  local fill = self:Fill(b, look.top, look.bottom, look.alpha)
+  if SKINNED[style or "blue"] then
+    local entry = { fill = fill, style = style or "blue" }
+    painted[#painted + 1] = entry
+    paint(entry)
+  end
   self:Outline(b, look.ring, 0.8)
   local glow = b:CreateTexture(nil, "HIGHLIGHT")
   glow:SetColorTexture(1, 0.95, 0.7, 0.18)
