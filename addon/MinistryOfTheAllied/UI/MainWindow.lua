@@ -69,7 +69,9 @@ end
 -- metal ("gold:tabOn").
 function UI:SkinName(base, kind)
   local s = MOTA.skin
-  return (kind == "metal" and s.METAL or s.FILE) .. ":" .. base
+  local name = (kind == "metal" and s.METAL or s.FILE) .. ":" .. base
+  -- a blue part drawn again in the skin's accent (the initials bubble): "gold:portrait~cr"
+  return M.pieces[name .. MOTA:Accent().SUFFIX] and (name .. MOTA:Accent().SUFFIX) or name
 end
 
 -- A piece that changes with the skin. place(t) may put it somewhere of its
@@ -85,6 +87,10 @@ function UI:SkinPiece(parent, base, kind, layer, sublevel, dx, dy, place, anchor
 end
 
 function UI:ApplySkinPiece(e)
+  if e.base == "cornerGem" then
+    local g = MOTA.skin.GEM
+    e.t:SetVertexColor(g.r, g.g, g.b)
+  end
   if e.anchor and e.applied then
     local p = M.pieces[self:SkinName(e.base, e.kind)]
     e.t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
@@ -169,14 +175,15 @@ end
 ---------------------------------------------------------------------------
 
 -- The filigree corner is drawn once (top right); the bottom two are mirror images.
-local function placeCorner(corner)
+local function placeCorner(corner, base)
+  base = base or "corner"
   return function(t, p)
     local tr, s = M.slots["corner-tr"], M.slots["corner-" .. corner]
     local ox, oy = p.x - tr.x, p.y - tr.y
     if corner == "bl" then
-      UI:SetPiece(t, UI:SkinName("corner", "metal"), 0, 0, nil, { s.x + s.w - ox - p.w, s.y + s.h - oy - p.h }, true, true)
+      UI:SetPiece(t, UI:SkinName(base, "metal"), 0, 0, nil, { s.x + s.w - ox - p.w, s.y + s.h - oy - p.h }, true, true)
     else
-      UI:SetPiece(t, UI:SkinName("corner", "metal"), 0, 0, nil, { s.x + ox, s.y + s.h - oy - p.h }, false, true)
+      UI:SetPiece(t, UI:SkinName(base, "metal"), 0, 0, nil, { s.x + ox, s.y + s.h - oy - p.h }, false, true)
     end
   end
 end
@@ -196,6 +203,10 @@ function UI:BuildFrame(f)
   self:SkinPiece(f, "corner", "metal", "BORDER", 0)
   self:SkinPiece(f, "corner", "metal", "BORDER", 0, 0, 0, placeCorner("bl"))
   self:SkinPiece(f, "corner", "metal", "BORDER", 0, 0, 0, placeCorner("br"))
+  -- The jewels sit on top of the corners, tinted for the skin (Skin.lua: GEM).
+  self:SkinPiece(f, "cornerGem", "metal", "BORDER", 1)
+  self:SkinPiece(f, "cornerGem", "metal", "BORDER", 1, 0, 0, placeCorner("bl", "cornerGem"))
+  self:SkinPiece(f, "cornerGem", "metal", "BORDER", 1, 0, 0, placeCorner("br", "cornerGem"))
 end
 
 -- The two rules either side of the page's name, which is a different width on each page.
@@ -213,6 +224,7 @@ end
 function UI:InkWindow()
   for i, tab in ipairs(self.tabs) do setTabLook(tab, tab.look or "rest") end
   for _, sub in ipairs(self.subtitles) do ink(sub, "SUBTITLE") end
+  if self.heading then self.heading:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end
   ink(self.who, "NAME_INK")
   ink(self.whoSmall, "PALE_INK")
   ink(self.footLeft, "PALE_INK")
@@ -225,6 +237,16 @@ function UI:ReSkin()
   for _, e in ipairs(skinned) do self:ApplySkinPiece(e) end
   self:ApplyCrest()
   self:InkWindow()
+  self:WearDivider()
+end
+
+-- The divider under the page's name has a jewel in the skin's accent.
+function UI:WearDivider()
+  local t = self.divider
+  if not t then return end
+  local p = M.pieces["divider" .. MOTA:Accent().SUFFIX] or M.pieces.divider
+  t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
+  t:SetTexCoord(p.l, p.r, p.t, p.b)
 end
 
 MOTA:Listen("SKIN_CHANGED", function() UI:ReSkin() end)
@@ -383,8 +405,10 @@ function UI:Build()
 
   -- The page: heading, divider and a note about what the page will hold.
   self.divider = self:Piece(f, "divider", "ARTWORK")
+  self:WearDivider()
   local note = M.slots.note
   self.heading = text(f, "heading", "1B3570")
+  self.heading:SetTextColor(MOTA:RGB(MOTA:Accent().INK))
   self:AtSlot(self.heading, "heading")
   self.heading:SetWidth(M.slots.heading.w)
   self.note = text(f, "body", "2A1F14")

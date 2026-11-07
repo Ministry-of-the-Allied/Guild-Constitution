@@ -441,6 +441,15 @@ crown_tab2 = lambda: crown_ns.UI.tabs[2]
 check("The Crown wears the Crown skin", crown_ns.skin.KEY == "CROWN")
 max3.slash("skin crown")
 check("The Crown can try its own skin", max3.said(r"Trying the skin of the Crown"))
+def accent_of(ns):
+    a = ns.Accent(ns)
+    g = ns.skin.GEM
+    return a.INK, a.SUFFIX, round(g.r * 255), round(g.g * 255), round(g.b * 255)
+check("The Crown skin's accent is plum with a jade jewel", accent_of(crown_ns) == ("58143F", "~cr", 0x0B, 0x7A, 0x38))
+max3.slash("skin silverhand")
+check("Silverhand's accent is blue with a sapphire jewel", accent_of(crown_ns) == ("1B3570", "", 0x2F, 0x5F, 0xD0))
+max3.slash("skin exchange")
+check("The Exchange skin's accent is crimson with an amethyst jewel", accent_of(crown_ns) == ("7A1219", "~ex", 0x9B, 0x5B, 0xD6))
 max3.slash("skin silverhand")
 check("/mota skin silverhand puts Silverhand's skin on the Crown's screen at once", crown_ns.skin.KEY == "SILVERHAND"
       and skin_tex(crown_tab2().bgRest) == "skin_silverhand.tga" and skin_tex(crown_ns.UI.crest) == "skin_silverhand.tga")

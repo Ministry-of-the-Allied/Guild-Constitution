@@ -74,6 +74,10 @@ local function buildChoice(row)
     local s = UI:AtSlot(b, slotName, 0, 0, page)
     b:SetSize(s.w, s.h)
     b.on = piece(prefix .. "On", "ARTWORK")
+    MOTA.Kit:Track(function() -- the lit half is blue in the canvas: it follows the skin's accent
+      local drawn = prefix .. "On" .. MOTA:Accent().SUFFIX
+      MOTA.Kit:Look(b.on, M.pieces[drawn] and drawn or (prefix .. "On"))
+    end)
     b.off = piece(prefix .. "Off", "ARTWORK")
     function b:Update()
       local chosen = MOTA.db.settings[row.key] == value

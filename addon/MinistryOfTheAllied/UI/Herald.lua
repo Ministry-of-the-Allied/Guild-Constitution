@@ -77,7 +77,7 @@ local function build()
   UI:AtSlot(frame.eyebrow, "heyebrow", 0, 1, frame)
   frame.title = frame:CreateFontString(nil, "OVERLAY")
   frame.title:SetFontObject(MOTA:Font("heraldTitle"))
-  frame.title:SetTextColor(MOTA:RGB("1B3570"))
+  MOTA.Kit:Track(function() frame.title:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end)
   frame.title:SetJustifyH("LEFT")
   UI:AtSlot(frame.title, "htitle", 0, 0, frame)
   frame.body = frame:CreateFontString(nil, "OVERLAY")
@@ -108,6 +108,13 @@ local function build()
       glow:SetAllPoints()
       glow:SetBlendMode("ADD")
       glow:SetAlpha(0.25)
+      MOTA.Kit:Track(function() -- the blue buttons follow the skin's accent
+        local q = M.pieces[name .. MOTA:Accent().SUFFIX] or p
+        for _, tex in ipairs({ t, glow }) do
+          tex:SetTexture(M.dir .. M.textures[q.tex], "CLAMP", "CLAMP", "TRILINEAR")
+          tex:SetTexCoord(q.l, q.r, q.t, q.b)
+        end
+      end)
       b:SetScript("OnClick", function() Herald:Press() end)
       b:Hide()
       b.left = p.x

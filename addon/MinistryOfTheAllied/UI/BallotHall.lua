@@ -36,6 +36,28 @@ local BAR = { sh = "2E59AC", ex = "AC2D2C", ind = "74603F" }
 
 local root, views, ribbons, topNote
 local built = false
+local CAND_ROW, CAND_VIEW = 80, 164 -- the Open the polls form: one candidate's height, and the list's window
+
+-- The accent (UI/Skin.lua): the blue the board draws in is the window skin's
+-- accent here, so ink, plates and the lit ribbons follow it. Party colours
+-- (CHIP, BAR) stay as they are. What is drawn in the accent is remembered, so
+-- a new skin recolours it at once.
+local ACCENT_FIELD = { ["1B3570"] = "INK", ["142B5E"] = "DARK", ["1D3B7C"] = "FILL" }
+local inked, wearing = {}, {}
+local function accentHex(hex) return MOTA:Accent()[ACCENT_FIELD[hex]] end
+local function inkIt(apply)
+  inked[#inked + 1] = apply
+  apply()
+end
+local function wear(t) -- a blue picture, in the accent's drawn copy
+  local p = M.pieces["b_" .. t.name .. MOTA:Accent().SUFFIX] or M.pieces["b_" .. t.name]
+  t:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
+  t:SetTexCoord(p.l, p.r, p.t, p.b)
+end
+MOTA:Listen("SKIN_CHANGED", function()
+  for _, apply in ipairs(inked) do apply() end
+  for _, t in ipairs(wearing) do wear(t) end
+end)
 
 ---------------------------------------------------------------------------
 -- Drawing helpers
@@ -50,6 +72,11 @@ local function art(parent, name, layer, sub)
   t:SetTexCoord(p.l, p.r, p.t, p.b)
   t:SetSize(p.w, p.h)
   t.piece, t.slot, t.k = p, s, 1
+  if M.pieces["b_" .. name .. "~cr"] then
+    t.name = name
+    wearing[#wearing + 1] = t
+    wear(t)
+  end
   return t
 end
 
@@ -87,12 +114,20 @@ local function text(parent, font, color, justify, width)
   fs:SetJustifyH(justify or "LEFT")
   fs:SetJustifyV("TOP")
   if width then fs:SetWidth(width) end
+  if ACCENT_FIELD[color] then inkIt(function() fs:SetTextColor(MOTA:RGB(accentHex(color))) end) end
   return fs
 end
 
 local function color(t, hex, alpha)
   local r, g, b = MOTA:RGB(hex)
   t:SetColorTexture(r, g, b, alpha or 1)
+  if ACCENT_FIELD[hex] and not t.accented then
+    t.accented = true
+    inkIt(function()
+      local r2, g2, b2 = MOTA:RGB(accentHex(hex))
+      t:SetColorTexture(r2, g2, b2, alpha or 1)
+    end)
+  end
   return t
 end
 
@@ -150,7 +185,11 @@ local function caps(parent, font, hex, tracking)
     for w in tostring(str):upper():gmatch("%S+") do words[#words + 1] = w end
     local n, cur = 0, nil
     local function lineObj(i)
-      if not self.lines[i] then self.lines[i] = MOTA:Tracked(self.parent, font, hex, tracking) end
+      if not self.lines[i] then
+        local l = MOTA:Tracked(self.parent, font, hex, tracking)
+        self.lines[i] = l
+        if ACCENT_FIELD[hex] then inkIt(function() l:SetColor(accentHex(hex)) end) end
+      end
       return self.lines[i]
     end
     local texts = {}
@@ -789,18 +828,36 @@ local function buildForm(v)
   caps(paper, "bEyebrow", C.inkGold, 0.24):Set("Candidates", x, 182)
   F.cands = {}
   local xw = boxOf("xbtn").w
-  local partyW = 140
-  local nameW = w - partyW - xw - 12
+  local nameW = w - xw - 6
+  -- Each candidate has two rows: the name, then their party beneath it. Room
+  -- for two shows at once; the list scrolls for a third and fourth.
+  local scroll = CreateFrame("ScrollFrame", nil, paper)
+  scroll:SetSize(w, CAND_VIEW)
+  at(scroll, paper, x, 198)
+  local list = CreateFrame("Frame", nil, scroll)
+  list:SetSize(w, CAND_ROW * Ballot.MAX_CANDS)
+  scroll:SetScrollChild(list)
+  scroll:EnableMouseWheel(true)
+  scroll:SetScript("OnMouseWheel", function(self, delta)
+    local top = math.max(0, CAND_ROW * #Page.form.cands - CAND_VIEW)
+    self:SetVerticalScroll(math.max(0, math.min(top, self:GetVerticalScroll() - delta * 40)))
+  end)
+  F.scroll = scroll
   for i = 1, Ballot.MAX_CANDS do
-    local row = frame(paper, x, 198 + (i - 1) * 40, w, 34)
+    local row = frame(list, 0, (i - 1) * CAND_ROW, w, 72)
     row.name = input(row, nameW, "Name", function(t)
       if Page.form.cands[i] then Page.form.cands[i].n = t end
       updateFormButtons()
     end)
     at(row.name, row, 0, 0)
+    row.remove = pieceButton(row, "xbtn", function()
+      table.remove(Page.form.cands, i)
+      Page:Refresh()
+    end)
+    at(row.remove, row, w - xw, 2)
     local pb = panel(CreateFrame("Button", nil, row), { "FFFAEB", 0.78 }, { { 0, 1, C.brown, 0.6 } })
-    pb:SetSize(partyW, 34)
-    at(pb, row, nameW + 6, 0)
+    pb:SetSize(nameW, 34)
+    at(pb, row, 0, 38)
     pb.label = text(pb, "bProse", C.ink)
     pb.label:SetPoint("LEFT", pb, "LEFT", 8, 0)
     pb.caret = text(pb, "bSmall13", C.ink2, "RIGHT")
@@ -818,11 +875,6 @@ local function buildForm(v)
       Page:Refresh()
     end)
     row.party = pb
-    row.remove = pieceButton(row, "xbtn", function()
-      table.remove(Page.form.cands, i)
-      Page:Refresh()
-    end)
-    at(row.remove, row, w - xw, 2)
     F.cands[i] = row
   end
   F.note = text(paper, "bItalic13", C.ink2, "LEFT", w)
@@ -831,6 +883,7 @@ local function buildForm(v)
     if #Page.form.cands < Ballot.MAX_CANDS then
       table.insert(Page.form.cands, { n = "", p = "ind" })
       Page:Refresh()
+      F.scroll:SetVerticalScroll(math.max(0, CAND_ROW * #Page.form.cands - CAND_VIEW)) -- show the new one
     end
   end)
   local ab, ob = boxOf("btn-add"), boxOf("btn-open")
@@ -877,7 +930,9 @@ local function fillForm()
       row.remove:SetUsable(n > 2)
     end
   end
-  at(F.note, F.paper, 24, 198 + n * 40 + 4)
+  at(F.note, F.paper, 24, 198 + CAND_VIEW + 6)
+  local top = math.max(0, CAND_ROW * n - CAND_VIEW)
+  if F.scroll:GetVerticalScroll() > top then F.scroll:SetVerticalScroll(top) end
   updateFormButtons()
 
   local y = 18

@@ -165,7 +165,7 @@ function Methods:SetTextInsets() end
 -- scroll frames and sliders
 function Methods:SetScrollChild(c) self.scrollChild = c end
 function Methods:SetVerticalScroll(v) self.vscroll = v end
-function Methods:GetVerticalScroll() return self.vscroll or 0 end
+function Methods:GetVerticalScroll() return type(self.vscroll) == "number" and self.vscroll or 0 end
 function Methods:EnableMouseWheel() end
 function Methods:SetOrientation() end
 function Methods:SetThumbTexture() end

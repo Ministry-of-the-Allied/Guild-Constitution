@@ -61,7 +61,7 @@ local function buildAside()
   aside = panel(root, nil, 0, 0, ASIDE_W, HEIGHT)
 
   local ev = panel(aside, nil, 0, 0, ASIDE_W, 158)
-  local plate = Kit:Art(ev, "kitBlue", "BACKGROUND")
+  local plate = Kit:AccentArt(ev, "kitBlue", "BACKGROUND")
   plate:SetAllPoints()
   local seal = UI:Piece(ev, "hseal_official", "ARTWORK", nil, nil, nil, ev)
   seal:ClearAllPoints()
@@ -79,6 +79,8 @@ local function buildAside()
     local step = Kit:Art(ev, "kitStepTodo", "OVERLAY")
     step:SetPoint("CENTER", ev, "BOTTOM", (i - 3) * 29, 29) -- centred, as the lit step's glow makes it larger
     ev.steps[i] = step
+    step.piece = "kitStepTodo"
+    Kit:Track(function() Kit:Look(step, Kit:AccentName(step.piece)) end) -- the diamonds follow the skin
   end
   aside.event = ev
 
@@ -162,7 +164,8 @@ local function refreshAside(cur)
     or (cur.stage == "signup" and ((cur.bracket or "Open") .. " · closes " .. day(cur.closes))
     or (cur.bracket or "Open")))
   for i, step in ipairs(ev.steps) do
-    Kit:Look(step, i < at and "kitStepDone" or (i == at and "kitStepNow" or "kitStepTodo"))
+    step.piece = i < at and "kitStepDone" or (i == at and "kitStepNow" or "kitStepTodo")
+    Kit:Look(step, Kit:AccentName(step.piece))
   end
 
   local pot, champ, bank, paid = 0, 0, 0, 0
@@ -532,7 +535,7 @@ local function refreshBracket(v, cur)
     return
   end
   local round = cur.next and (cur.next.slot <= 4 and 1 or (cur.next.slot <= 6 and 2 or 3)) or 0
-  for col, h in ipairs(v.heads) do h:SetColor(col == round and "1B3570" or "7A5719") end
+  for col, h in ipairs(v.heads) do h:SetColor(col == round and MOTA:Accent().INK or "7A5719") end
   for s, frame in ipairs(v.bouts) do
     local b = cur.bouts[s]
     showDuelist(frame.a, b.a, b)

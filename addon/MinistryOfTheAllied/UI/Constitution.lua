@@ -35,6 +35,9 @@ local function fontString(parent, font, color, justify)
   local fs = parent:CreateFontString(nil, "OVERLAY")
   fs:SetFontObject(MOTA:Font(font))
   fs:SetTextColor(MOTA:RGB(color))
+  if color == "1B3570" then -- the accent's ink
+    Kit:Track(function() fs:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end)
+  end
   fs:SetJustifyH(justify or "LEFT")
   fs:SetJustifyV("TOP")
   return fs
@@ -160,8 +163,9 @@ function Page:Refresh()
   for i, b in ipairs(rows) do
     local clip = MOTA.Voice:Clips()[i]
     local on = p and p.index == i
-    Kit:Gradient(b.bg, "1B3570", "1B3570", on and 0.13 or 0, 0, true)
-    b.roman:SetTextColor(MOTA:RGB(on and "1B3570" or "7A5719"))
+    local ink = MOTA:Accent().INK
+    Kit:Gradient(b.bg, ink, ink, on and 0.13 or 0, 0, true)
+    b.roman:SetTextColor(MOTA:RGB(on and ink or "7A5719"))
     b.small:SetText(MOTA.Voice:Length(clip.length) .. (heard[i] and " · heard" or ""))
     b.action:SetText(on and (locked and "Playing" or "Stop") or (locked and "" or "Play"))
     b:SetEnabled(not locked)

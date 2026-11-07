@@ -381,13 +381,19 @@ local function build()
   root = CreateFrame("Frame", nil, UI.window)
   root:SetSize(WIDTH, HEIGHT)
   root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
-  public = { sh = buildPublic("sh"), ex = buildPublic("ex") }
-  member, outsider, crownView = buildMember(), buildOutsider(), buildCrown()
+  -- Each party's page is drawn in its own colours (Silverhand blue, the Exchange
+  -- crimson, the Crown plum), whatever skin is worn.
+  public = {
+    sh = Kit:With("sh", function() return buildPublic("sh") end),
+    ex = Kit:With("ex", function() return buildPublic("ex") end),
+  }
+  member, outsider = buildMember(), buildOutsider()
+  crownView = buildCrown()
 
   tabs = {}
   local x = 0
-  for _, t in ipairs({ { "sh", 5 }, { "ex", 6 }, { "ch", 7 } }) do
-    local b = Kit:Ribbon(root, t[2], function() Page:Select(t[1]) end)
+  for _, t in ipairs({ { "sh", 5, "sh" }, { "ex", 6, "ex" }, { "ch", 7 } }) do
+    local b = Kit:With(t[3], function() return Kit:Ribbon(root, t[2], function() Page:Select(t[1]) end) end)
     b:SetPoint("TOPLEFT", root, "TOPLEFT", x, 0)
     x = x + b:GetWidth() + 2
     tabs[t[1]] = b

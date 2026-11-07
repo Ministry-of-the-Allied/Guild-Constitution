@@ -52,7 +52,7 @@ end
 
 local function buildAside()
   local plate = panel(root, nil, 0, 0, ASIDE_W, 158)
-  Kit:Art(plate, "kitBlue", "BACKGROUND"):SetAllPoints()
+  Kit:AccentArt(plate, "kitBlue", "BACKGROUND"):SetAllPoints()
   local seal = UI:Piece(plate, "hseal_official", "ARTWORK", nil, nil, nil, plate)
   seal:ClearAllPoints()
   seal:SetSize(44, 44)

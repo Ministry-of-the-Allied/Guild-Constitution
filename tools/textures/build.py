@@ -76,9 +76,9 @@ BAND_MAX = 330        # taller bands are cut in two, so every metal set fits 102
 # The canvas stores its textures under /_blob/ names; these are the same files in the repo.
 BLOBS = {
     "c2d86e49cc4f265a0371294274387bd7": "textures/leather-grain.svg",
-    "6d5fbe8d4c5384d8cf626886038701ac": "textures/filigree-corner.svg",
+    "6d5fbe8d4c5384d8cf626886038701ac": "../tools/textures/corner-nogem.svg",  # the gem is its own layer, tinted per skin
     "d4a81ff364cfd13a95212c60a73bd187": "textures/parchment-grain.svg",
-    "83dde6b367275cb6d4d9550c6c74c5ac": "textures/tab-frame.svg",
+    "83dde6b367275cb6d4d9550c6c74c5ac": "../tools/textures/tab-frame-gold.svg",  # small gold gems, the same in every skin
     "e91083b63eec292d284b54d9d2ba82db": "textures/divider-ink.svg",
     "19c005d5f1860452928780ca70041223": "textures/seal-official.svg",
     "539190bbac866c98462ae1069c2f22b6": "textures/seal-crown.svg",
@@ -109,6 +109,50 @@ ICONS = {
     "districts": '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path>',
     "ring": '<path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path>',
 }
+
+# Accent colours (the pieces that are blue in the canvas, drawn again for the Crown and the Exchange).
+# suffix -> (top, middle, bottom, dark edge, ink, plate top, plate bottom, plate pale text, ink as rgb)
+ACCENTS = {
+    "~cr": dict(top="#86296A", mid="#58143F", bot="#3D0B2D", dark="#2A0720", ink="#58143F", rgb="88,20,63",
+                plate_top="#6E2058", plate_bot="#3D0B2D", pale="#E8C6DC"),
+    "~ex": dict(top="#B8343C", mid="#8E1A21", bot="#661118", dark="#2E0609", ink="#7A1219", rgb="122,18,25",
+                plate_top="#8E1A21", plate_bot="#4A0A0F", pale="#F0C9BC"),
+}
+# Pieces with blue in them, by layout: each is drawn once more per accent in the "accent" texture.
+ACCENT_PIECES = (
+    ["kitBlue", "kitStepTodo"] + [f"kitRibbonOn{i}" for i in range(1, 8)]
+    + ["b_" + n for n in ("rb-ballot-on", "rb-ballot-on-dot", "rb-results-on", "rb-crown-on", "btn-seal", "btn-open",
+                          "btn-close", "btn-runoff", "btn-last", "btn-add", "pill-general-on", "pill-snap-on",
+                          "pill-runoff-on")]
+    + [f"hbtn_{style}_{{}}" for style in ("blue", "quiet")]  # filled in per herald label below
+    + ["segModestOn", "segRoyalOn", "segPartyOn", "segMinistryOn"]
+)
+
+
+def accent_css(a):
+    """CSS that turns the canvas's blue parts into the accent."""
+    grain = (DESIGN / "textures" / "leather-grain.svg").resolve().as_uri()
+    rules = [
+        ".ribbon.on,.pill.on{background:linear-gradient(180deg,TOP 0%,MID 58%,BOT 100%)!important}",
+        ".btn:not(.gold):not(.quiet){background:linear-gradient(180deg,TOP,MID 55%,BOT)!important;"
+        "box-shadow:0 0 0 1px DARK,0 0 0 3px #D2AE5C,0 0 0 4px #4A330C,0 5px 12px rgba(40,25,5,.45),"
+        "inset 0 1px 0 rgba(255,255,255,.28)!important}",
+        ".btn.quiet{color:INK!important;box-shadow:inset 0 0 0 1px rgba(RGB,.65),"
+        "inset 0 0 0 3px rgba(255,250,235,.4)!important}",
+        ".seg button.on{background:linear-gradient(180deg,TOP,MID)!important}",
+        ".plate.blue{background:url(GRAIN),linear-gradient(180deg,PLATETOP,PLATEBOT)!important;"
+        "box-shadow:inset 0 0 0 1px #F3D98A,inset 0 0 0 3px DARK,inset 0 0 0 4px rgba(201,162,74,.55),"
+        "0 4px 10px rgba(60,40,10,.35)!important}",
+        ".plate.blue .eyebrow{color:PALE!important}",
+        ".step:not(.done):not(.now){background:DARK!important}",
+    ]
+    css = "\n".join(rules)
+    for token, value in (("PLATETOP", a["plate_top"]), ("PLATEBOT", a["plate_bot"]), ("TOP", a["top"]),
+                         ("MID", a["mid"]), ("BOT", a["bot"]), ("DARK", a["dark"]), ("INK", a["ink"]),
+                         ("RGB", a["rgb"]), ("PALE", a["pale"]), ("GRAIN", grain)):
+        css = css.replace(token, value)
+    return css
+
 
 # Herald buttons drawn ready-made: the label and the style ("blue" is .btn, "quiet" is .btn.quiet).
 HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss", "Stop", "Restart"]
@@ -144,7 +188,7 @@ def find_edge():
 
 def local_css(css):
     for blob, rel in BLOBS.items():
-        css = css.replace(f"/_blob/{blob}", (DESIGN / rel).as_uri())
+        css = css.replace(f"/_blob/{blob}", (DESIGN / rel).resolve().as_uri())
     return css.replace(":hover", ".hover")  # so a hover look can be switched on for rendering
 
 
@@ -302,12 +346,25 @@ def pieces_to_draw(pages):
           scale=FRAME_SCALE)
         m("pagerim", only(["#page"]), scale=FRAME_SCALE)
         m("corner", only(["#corner-tr"]))
+        # the corner's jewel, alone and untinted: the game colours it for the skin
+        gem_url = (HERE / "corner-gem.svg").resolve().as_uri()
+        m("cornerGem", only(["#corner-tr"], extra=f".corner{{background-image:url({gem_url})!important;filter:none!important}}"))
         m("title", only(["#title"]), scale=TITLE_SCALE)
         m("tabOn", only(["#tab1"]))
         m("subRule", only(["#subtitle"], extra="#subtitle{color:transparent!important}"))
         m("railLine", only(["#railfoot"]))
         m("pip", only(["#pip"]))
         m("portrait", only(["#portrait"], ["#initials"]))
+
+    # The portrait bubble (initials) and the divider's jewel are blue in the canvas: drawn again for the
+    # Crown and the Exchange, named "<piece>~cr" / "<piece>~ex" (gold metal only: silver is Silverhand's blue).
+    bubble = {"~cr": ("#8E2E6E", "#1C0415", "cr"), "~ex": ("#C23A42", "#3A070B", "ex")}
+    for suffix, (light, dark, short) in bubble.items():
+        d["gold:portrait" + suffix] = dict(d["gold:portrait"], css=d["gold:portrait"]["css"]
+            + f"\n#portrait{{background:radial-gradient(circle at 40% 35%,{light},{dark} 85%)!important}}")
+        url = (HERE / f"divider-ink-{short}.svg").resolve().as_uri()
+        d["divider" + suffix] = dict(d["divider"], css=d["divider"]["css"]
+            + f"\n.divider{{background-image:url({url})!important}}")
 
     # Once per skin: the leather (with the Crown's glow behind the title), the wax tabs,
     # the knobs and the corner emblem.
@@ -357,6 +414,17 @@ def pieces_to_draw(pages):
             ballot("b_" + el, only([f"#{el}"]), tex="papers", scale=PAPER_SCALE)
         else:
             ballot("b_" + el, only([f"#{el}", f"#{el} *"]))
+
+    # The blue parts again in each accent (the Crown's plum, the Exchange's crimson), named "<piece>~cr".
+    bases = []
+    for n in ACCENT_PIECES:
+        if "{}" in n:
+            bases += [n.format(slug(label)) for label in HERALD_BUTTONS]
+        else:
+            bases.append(n)
+    for suffix, a in ACCENTS.items():
+        for base in bases:
+            d[base + suffix] = dict(d[base], tex="accent", css=d[base]["css"] + "\n" + accent_css(a))
     return d
 
 
@@ -614,7 +682,7 @@ def main():
         pieces[name] = dict(pos, tex=tex, root=todo[name]["root"], l=x / size[0], r=(x + im.width) / size[0],
                             t=y / size[1], b=(y + im.height) / size[1])
 
-    packed = ["atlas", "extras", "ballot", "papers"] + ["frame_" + m for m in METALS] + ["skin_" + s[1] for s in SKINS]
+    packed = ["atlas", "extras", "ballot", "papers", "accent"] + ["frame_" + m for m in METALS] + ["skin_" + s[1] for s in SKINS]
     for tex in packed:
         items = [(n, drawn[n][0]) for n, p in todo.items() if p["tex"] == tex]
         image, spots = pack(items)

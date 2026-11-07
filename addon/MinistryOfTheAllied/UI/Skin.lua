@@ -38,6 +38,33 @@ local SKINS = {
     SUBTITLE = "EBCBDF", PALE_INK = "EBCBDF", NAME_INK = "FBEFC4",
   },
 }
+-- The accent colours (what used to be the Ministry's blue). Each skin wears one:
+-- blue for the Ministry and Silverhand, plum for the Crown, crimson for the
+-- Exchange. Pages ask for "the accent", never for a colour, so a skin changes
+-- them all (UI/Kit.lua). A party's own page can still ask for its party's.
+--   INK       dark text on parchment (headings, labels)
+--   TOP, MID, BOT, DARK   button and plate colours, light to dark
+--   PALE      light text on a plate
+--   ON        dark text on a gold button
+--   GEM       the corner jewels: sapphire, jade or amethyst
+--   SUFFIX    which drawn copy of a blue picture to use (Media.lua: "ribbon~cr")
+Skin.accents = {
+  sh = { INK = "1B3570", TOP = "3460B4", BOT = "12285A", DARK = "142B5E", PLATE_TOP = "24478F",
+         PLATE_BOT = "152D63", PALE = "C9D6F5", FILL = "1D3B7C", SUFFIX = "", GEM = "2F5FD0", ON = "0E1F45" },
+  cr = { INK = "58143F", TOP = "86296A", BOT = "3D0B2D", DARK = "2A0720", PLATE_TOP = "6E2058",
+         PLATE_BOT = "3D0B2D", PALE = "E8C6DC", FILL = "5A1B49", SUFFIX = "~cr", GEM = "0B7A38", ON = "3E0A2F" },
+  ex = { INK = "7A1219", TOP = "B8343C", BOT = "661118", DARK = "2E0609", PLATE_TOP = "8E1A21",
+         PLATE_BOT = "4A0A0F", PALE = "F0C9BC", FILL = "7A1620", SUFFIX = "~ex", GEM = "9B5BD6", ON = "5A0E13" },
+}
+local ACCENT_OF = { UNREGISTERED = "sh", SILVERHAND = "sh", AZEROTH_EXCHANGE = "ex", CROWN = "cr" }
+
+-- The accent in force: a page that belongs to a party can name it (key), the
+-- rest follow the window's skin.
+function MOTA:Accent(key)
+  local a = Skin.accents[key or (MOTA.skin and MOTA.skin.ACCENT) or "sh"]
+  return a or Skin.accents.sh
+end
+
 Skin.keys = { "CROWN", "SILVERHAND", "AZEROTH_EXCHANGE", "UNREGISTERED" }
 
 -- Words /mota skin accepts.
@@ -71,7 +98,9 @@ end
 function MOTA.ApplySkin(key)
   if not SKINS[key] then key = "UNREGISTERED" end
   local media = MOTA.Media.skins[key]
-  local skin = { KEY = key, FILE = media.file, METAL = media.metal }
+  local skin = { KEY = key, FILE = media.file, METAL = media.metal, ACCENT = ACCENT_OF[key] }
+  local gr, gg, gb = MOTA:RGB(Skin.accents[skin.ACCENT].GEM) -- the corner jewels
+  skin.GEM = { r = gr, g = gg, b = gb }
   for token, hex in pairs(SKINS[key]) do
     local r, g, b = MOTA:RGB(hex)
     skin[token] = { r = r, g = g, b = b }
