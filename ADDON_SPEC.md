@@ -1139,6 +1139,21 @@ Defined in `Data.lua` (see `CODING_BRIEF.md` for the code):
 
 ---
 
+## 17b. The big test session (planned by Duncan, 2026-11-07)
+
+Duncan and Max will test everything together in one session, once the remaining systems are built. Needs both Kings and at least one citizen-rank character.
+
+Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and leaving a party, party heralds. Still to try:
+
+- [ ] **Catch-up:** one player offline while the other writes a record and makes a deposit; it arrives at login with no herald. Fresh install catches up. Two copies reach the same ledger.
+- [ ] **Leadership contest:** date, opening, standing with a platform, `/mota contest advance`, voting (also with no King online), both Kings' tallies, ratifying, a tie and run-off, a second tie with `/mota contest declare`, results on the public page. Long platforms fit.
+- [ ] **The Ring:** fee in parts, unpaid left out of the draw, withdraw and `/mota refunds`, draw, results, prize in the ledger, a ninth payer. A citizen-rank character at the bank: can they read the money log?
+- [ ] **Skins:** every page in all four skins (Max's accent colours and Kit button colours together).
+- [ ] **Heralds:** long names and titles fit.
+- [ ] Anything built after this note: deputy and shadow cabinet, the election delay, the General Election.
+
+**Before launch:** set `Party.FEE` in `Party.lua` back to 50000 (5 gold); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
+
 ## 18. To test after launch
 
 - **Addon message limits:** size and rate throttle, and whether Midnight-era rules block addon messages in instances or combat. `/mota probe limits` measures it; run `/mota probe` in a dungeon too.

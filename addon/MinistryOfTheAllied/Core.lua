@@ -350,6 +350,8 @@ function MOTA:CheckGuild()
   end
   if not self.db or not self.me then return end
   local key = self:GuildKey()
+  -- The game can briefly not know the guild's name around login; that isn't leaving.
+  if not key and IsInGuild() then return end
   if key == self.guildKey then return end
   self.guildKey = key
   if key then

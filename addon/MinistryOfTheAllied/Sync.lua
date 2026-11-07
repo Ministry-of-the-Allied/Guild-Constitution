@@ -1,7 +1,8 @@
 -- Ministry of the Allied: catching up (ADDON_SPEC.md, section 7).
 -- Records someone missed while offline reach them from any member who holds them.
 --
---   SY <summary>      GUILD    for each author, the number up to which I hold every record
+--   SY <summary>      GUILD    for each author, { the number up to which I hold every
+--                              record, then any numbers held beyond a gap }
 --   CO <name>         GUILD    "I'm sending to this member", so the others stand down
 --   CU <records>      WHISPER  the missing records, packed, on the slow queue
 --
@@ -38,9 +39,18 @@ end
 
 function Sync:Summary()
   local out = {}
-  for author in pairs(MOTA.guild.records) do
-    local n = self:Upto(author)
-    if n > 0 then out[author] = n end
+  for author, list in pairs(MOTA.guild.records) do
+    local upto = self:Upto(author)
+    local entry = { upto }
+    -- Records beyond a gap are listed, or they'd be sent again every time.
+    -- A gap can be permanent: a reset loses records nobody else ever held.
+    local beyond = {}
+    for n in pairs(list) do
+      if n > upto then beyond[#beyond + 1] = n end
+    end
+    table.sort(beyond)
+    for _, n in ipairs(beyond) do entry[#entry + 1] = n end
+    if upto > 0 or #beyond > 0 then out[author] = entry end
   end
   return out
 end
@@ -56,10 +66,11 @@ end
 function Sync:Missing(theirs)
   local out = {}
   for author, list in pairs(MOTA.guild.records) do
-    local from = theirs[author] or 0
+    local entry = theirs[author]
+    local from, held = entry and entry.upto or 0, entry and entry.held or {}
     local numbers = {}
     for n in pairs(list) do
-      if n > from then numbers[#numbers + 1] = n end
+      if n > from and not held[n] then numbers[#numbers + 1] = n end
     end
     table.sort(numbers)
     for _, n in ipairs(numbers) do
@@ -122,21 +133,32 @@ Comm:Handle("SY", function(self, sender, channel, f)
   local raw = f[1] and Comm:Decode(f[1], true)
   if type(raw) ~= "table" then return end
   local theirs = {}
-  for author, n in pairs(raw) do
+  for author, e in pairs(raw) do
     local name = self:Bare(author)
-    if name and type(n) == "number" then theirs[name] = n end
+    if name and type(e) == "table" and type(e[1]) == "number" then
+      local entry = { upto = e[1], held = {} }
+      for i = 2, #e do entry.held[e[i]] = true end
+      theirs[name] = entry
+    elseif name and type(e) == "number" then -- a copy from before 0.6.2
+      theirs[name] = { upto = e, held = {} }
+    end
   end
   if #Sync:Missing(theirs) > 0 and not offers[sender] then
     offers[sender] = true
     C_Timer.After(OFFER_MIN + math.random() * OFFER_SPREAD, function() Sync:Offer(sender, theirs) end)
   end
   -- They hold something I don't: tell the guild what I have, so I'm sent it.
-  for author, n in pairs(theirs) do
-    if n > Sync:Upto(author) then
-      if GetServerTime() - lastSummary >= ASK_GAP then Sync:Send() end
-      break
+  local g = self.guild
+  local want = false
+  for author, entry in pairs(theirs) do
+    local mine = g.records[author] or {}
+    local refused = g.refused and g.refused[author] or {}
+    if entry.upto > Sync:Upto(author) then want = true end
+    for n in pairs(entry.held) do
+      if not mine[n] and not refused[n] then want = true end
     end
   end
+  if want and GetServerTime() - lastSummary >= ASK_GAP then Sync:Send() end
 end)
 
 Comm:Handle("CO", function(self, _, channel, f)

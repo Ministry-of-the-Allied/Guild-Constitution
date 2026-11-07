@@ -430,5 +430,8 @@ local function remind()
 end
 MOTA:Listen("GUILD_READY", function()
   C_Timer.After(12, remind)
-  C_Timer.NewTicker(1800, remind)
+  if not Contest.reminding then
+    Contest.reminding = true
+    C_Timer.NewTicker(1800, remind)
+  end
 end)

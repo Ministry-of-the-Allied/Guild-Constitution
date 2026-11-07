@@ -191,7 +191,7 @@ function Prompt:Answer(reason, note)
     return nil
   end
   MOTA:Print("Recorded in the guild's book:", MOTA:Money(rec.d.amt), rec.d.io == "d" and "deposit" or "withdrawal",
-    "· " .. (note or self:LabelFor(rec.d.io, reason)) .. ". It's on the Treasury page.")
+    "· " .. (note or self:LabelFor(rec.d.io, reason)) .. (MOTA.Ledger:Get().open and ". It's on the Treasury page." or ". The ledger starts once a King opens the books."))
   chosen = nil
   self:Update()
   return rec
