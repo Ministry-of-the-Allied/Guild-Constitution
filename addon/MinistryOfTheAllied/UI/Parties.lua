@@ -1,9 +1,7 @@
 -- Ministry of the Allied: The Parties tab, following the Parties board
 -- (design/canvas-source/Parties.dc.html; ADDON_SPEC.md, section 10.16).
--- The look only, for now: membership, leaders and the chamber's contents come
--- with the party data. Until then nothing here writes a record, the party
--- buttons are greyed out, and the chamber's As member view is a design preview
--- using the board's example text.
+-- The roll is real (Party.lua). Leaders, whips and chamber notices aren't built
+-- yet, so those parts say so and their buttons are greyed out.
 
 local _, MOTA = ...
 local UI = MOTA.UI
@@ -50,8 +48,9 @@ local PARTIES = {
   },
 }
 
-local root, tabs, public, member, outsider, toggle
-local view, lastParty, preview = "sh", "sh", "outsider"
+local root, tabs, public, member, outsider, crownView
+local view, lastParty = "sh", "sh"
+local confirmLeave = false
 
 local function panel(parent, kind, x, y, w, h)
   local f = CreateFrame("Frame", nil, parent)
@@ -69,6 +68,36 @@ local function waiting(parent, width, label, style)
   b:SetEnabled(false)
   b:SetAlpha(0.45)
   return b
+end
+
+-- The join button on a party's page, and on its sealed chamber.
+local function pressJoin(key)
+  local Party = MOTA.Party
+  local _, _, action = Party:JoinState(key)
+  local rec, err
+  if action == "ask" then
+    rec, err = Party:Ask(key)
+  elseif action == "leave" then
+    if not confirmLeave then
+      confirmLeave = true
+      return Page:Refresh()
+    end
+    confirmLeave = false
+    rec, err = Party:Leave()
+  end
+  if err then MOTA:Print(err) end
+  Page:Refresh()
+end
+
+local function gold(copper)
+  return MOTA:Money(copper)
+end
+
+local function namesLine(names)
+  if #names == 0 then return "None yet" end
+  local short = {}
+  for i, n in ipairs(names) do short[i] = MOTA:Short(n) end
+  return table.concat(short, ", ")
 end
 
 local function seal(parent, name, size)
@@ -130,23 +159,24 @@ local function buildPublic(key)
   leader:SetWidth(plateW - 90)
   leader:SetText("Not yet chosen")
 
-  for i, row in ipairs({ { "Whips", "None yet" }, { "Members", "None yet" }, { "Strongholds", party.home } }) do
+  v.values = {}
+  for i, row in ipairs({ { "Funds", "0g" }, { "Members", "None yet" }, { "Strongholds", party.home } }) do
     local rowY = 72 + (i - 1) * 22
     Kit:Label(plate, "kitTiny", "7A5719", 0.2, row[1]):SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -rowY - 2)
     local value = Kit:Text(plate, "kitSmall")
-    value:SetPoint("TOPLEFT", plate, "TOPLEFT", 118, -rowY)
-    value:SetWidth(plateW - 130)
+    value:SetPoint("TOPLEFT", plate, "TOPLEFT", 130, -rowY)
+    value:SetWidth(plateW - 142)
     value:SetMaxLines(1)
     value:SetText(row[2])
+    v.values[row[1]] = value
   end
   Kit:Rule(plate, plateW - 36):SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -142)
   local join = Kit:Text(plate, "kitItalic", "5E4B33")
   join:SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -152)
   join:SetWidth(plateW - 36)
-  join:SetText("Joining costs 5 gold. Leaving another party starts a 14-day wait.")
-  local ask = waiting(plate, 200, "Ask to join")
-  ask:SetPoint("BOTTOMLEFT", plate, "BOTTOMLEFT", 18, 18)
-  v.ask = ask
+  v.joinNote = join
+  v.ask = Kit:Button(plate, 220, 36, "Ask to join", "blue", function() pressJoin(key) end)
+  v.ask:SetPoint("BOTTOMLEFT", plate, "BOTTOMLEFT", 18, 18)
   return v
 end
 
@@ -176,53 +206,71 @@ end
 local function buildMember()
   local v = panel(root, nil, 0, BODY_TOP, WIDTH, BODY_H)
   local leftW = 375
-  seal(v, "hseal_silverhand", 54):SetPoint("TOPLEFT", v, "TOPLEFT", 0, 0)
-  Kit:Label(v, "kitTiny", "7A5719", 0.22, "Design preview · example text"):SetPoint("TOPLEFT", v, "TOPLEFT", 66, -8)
-  local title = Kit:Text(v, "kitChamber", "1B3570")
-  title:SetPoint("TOPLEFT", v, "TOPLEFT", 66, -24)
-  title:SetText("The Silverhand Chamber")
+  v.seals = {}
+  for key, party in pairs(PARTIES) do
+    local s = seal(v, party.seal, 54)
+    s:SetPoint("TOPLEFT", v, "TOPLEFT", 0, 0)
+    v.seals[key] = s
+  end
+  Kit:Label(v, "kitTiny", "7A5719", 0.22, "Members only"):SetPoint("TOPLEFT", v, "TOPLEFT", 66, -8)
+  v.title = Kit:Text(v, "kitChamber", "1B3570")
+  v.title:SetPoint("TOPLEFT", v, "TOPLEFT", 66, -24)
 
-  notice(v, 66, leftW, 88, true, "Three-line whip · Elinor Ashby",
-    "Polls close at 9:40 tonight. Seal your ballot and bring a friend to the Ballot Hall.")
-  notice(v, 164, leftW, 88, false, "Campaign plan · Lady Vale",
-    "When the polls close, gather on the Cathedral steps for the Crown's proclamation, win or lose.")
-  notice(v, 262, leftW, 88, false, "Intelligence · Osric Hale",
-    "Thorne plans to run Tomas Wren in the Cathedral Ward. Back Elinor Ashby there.")
+  notice(v, 66, leftW, 88, false, "Chamber business",
+    "Nothing has been posted yet. Notices and the leadership contest come next.")
   local post = waiting(v, 200, "Post to the chamber", "quiet")
-  post:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -364)
+  post:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -168)
 
   local x = leftW + 18
   local w = WIDTH - x
-  local asking = panel(v, "plain", x, 0, w, 164)
-  Kit:Label(asking, "kitSection", "1B3570", 0.22, "Asking to join"):SetPoint("TOPLEFT", asking, "TOPLEFT", 16, -14)
-  local portrait = seal(asking, "portrait", 36)
-  portrait:SetPoint("TOPLEFT", asking, "TOPLEFT", 16, -36)
-  local initials = Kit:Text(asking, "initials", "F3D98A", "CENTER")
-  initials:SetPoint("CENTER", portrait, "CENTER", 0, 0)
-  initials:SetText("HB")
-  local who = Kit:Text(asking, "kitName")
-  who:SetPoint("TOPLEFT", asking, "TOPLEFT", 62, -36)
-  who:SetText("Hal Brennick")
-  local when = Kit:Text(asking, "kitSmallest", "5E4B33")
-  when:SetPoint("TOPLEFT", asking, "TOPLEFT", 62, -54)
-  when:SetText("Iron District · asked 2 h ago")
-  waiting(asking, 100, "Admit"):SetPoint("TOPLEFT", asking, "TOPLEFT", 16, -80)
-  waiting(asking, 100, "Decline", "quiet"):SetPoint("TOPLEFT", asking, "TOPLEFT", 124, -80)
-  local only = Kit:Text(asking, "kitItalic", "5E4B33")
-  only:SetPoint("TOPLEFT", asking, "TOPLEFT", 16, -126)
-  only:SetWidth(w - 32)
-  only:SetText("Only the Leader and Whips see this.")
+  local roll = panel(v, "plain", x, 0, w, 200)
+  Kit:Label(roll, "kitSection", "1B3570", 0.22, "The members"):SetPoint("TOPLEFT", roll, "TOPLEFT", 16, -14)
+  v.members = Kit:Text(roll, "kitSmall")
+  v.members:SetPoint("TOPLEFT", roll, "TOPLEFT", 16, -36)
+  v.members:SetWidth(w - 32)
 
-  local floor = panel(v, "sunk", x, 176, w, 128)
+  local floor = panel(v, "sunk", x, 212, w, 128)
   Kit:Label(floor, "kitSection", "1B3570", 0.22, "Roll of the floor"):SetPoint("TOPLEFT", floor, "TOPLEFT", 16, -14)
-  local crossed = Kit:Text(floor, "kitSmall")
-  crossed:SetPoint("TOPLEFT", floor, "TOPLEFT", 16, -36)
-  crossed:SetWidth(w - 32)
-  crossed:SetText("Elowen Marsh crossed the floor to the Exchange. Chamber access ended at once.")
-  local waitLine = Kit:Text(floor, "kitSmallest", "5E4B33")
-  waitLine:SetPoint("TOPLEFT", crossed, "BOTTOMLEFT", 0, -5)
-  waitLine:SetWidth(w - 32)
-  waitLine:SetText("No party may admit her until 17 November.")
+  v.floor = Kit:Text(floor, "kitSmall")
+  v.floor:SetPoint("TOPLEFT", floor, "TOPLEFT", 16, -36)
+  v.floor:SetWidth(w - 32)
+  return v
+end
+
+-- The Crown belongs to no party: its chamber ribbon is the desk where
+-- requests are decided.
+local CROWN_ROWS = 6
+local function buildCrown()
+  local v = panel(root, nil, 0, BODY_TOP, WIDTH, BODY_H)
+  Kit:Label(v, "kitTiny", "7A5719", 0.22, "The Crown's desk"):SetPoint("TOPLEFT", v, "TOPLEFT", 0, -8)
+  local title = Kit:Text(v, "kitChamber", "1B3570")
+  title:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -24)
+  title:SetText("Asking to join")
+  v.empty = Kit:Text(v, "kitItalic", "5E4B33")
+  v.empty:SetPoint("TOPLEFT", v, "TOPLEFT", 0, -62)
+  v.empty:SetWidth(WIDTH)
+  v.empty:SetText("Nobody is waiting. The Chambers stay sealed to the Crown, which belongs to no party.")
+  v.rows = {}
+  for i = 1, CROWN_ROWS do
+    local r = panel(v, "plain", 0, 56 + (i - 1) * 62, WIDTH, 56)
+    r.name = Kit:Text(r, "kitName")
+    r.name:SetPoint("TOPLEFT", r, "TOPLEFT", 16, -10)
+    r.name:SetWidth(WIDTH - 260)
+    r.line = Kit:Text(r, "kitSmallest", "5E4B33")
+    r.line:SetPoint("TOPLEFT", r, "TOPLEFT", 16, -30)
+    r.line:SetWidth(WIDTH - 260)
+    r.admit = Kit:Button(r, 100, 30, "Admit", "blue", function()
+      local _, err = MOTA.Party:Admit(r.who)
+      if err then MOTA:Print(err) end
+    end)
+    r.admit:SetPoint("RIGHT", r, "RIGHT", -120, 0)
+    r.decline = Kit:Button(r, 100, 30, "Decline", "quiet", function()
+      local _, err = MOTA.Party:Decline(r.who)
+      if err then MOTA:Print(err) end
+    end)
+    r.decline:SetPoint("RIGHT", r, "RIGHT", -12, 0)
+    v.rows[i] = r
+  end
   return v
 end
 
@@ -243,7 +291,7 @@ local function buildOutsider()
   v.line:SetPoint("TOP", v.title, "BOTTOM", 0, -8)
   v.line:SetWidth(470)
   v.line:SetText("Only admitted members may break this seal. Nothing written inside is ever sent to your add-on.")
-  v.ask = waiting(v, 260, "Ask to join", "quiet")
+  v.ask = Kit:Button(v, 260, 36, "Ask to join", "quiet", function() pressJoin(lastParty) end)
   v.ask:SetPoint("TOP", v, "TOP", 0, -366)
   return v
 end
@@ -252,46 +300,80 @@ end
 -- The page
 ---------------------------------------------------------------------------
 
-local function toggleButton(parent, x, label, name)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(80, 30)
-  b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -3)
-  b.bg = b:CreateTexture(nil, "BACKGROUND", nil, 1)
-  b.bg:SetAllPoints()
-  b.label = Kit:Label(b, "kitTiny", "5E4B33", 0.06, label)
-  b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
-  b:SetScript("OnClick", function() Page:Preview(name) end)
-  return b
+local function setJoin(button, key, note)
+  local label, enabled, action, text = MOTA.Party:JoinState(key)
+  if action == "leave" and confirmLeave then label = "Click again to leave" end
+  button:SetLabel(label)
+  button:SetEnabled(enabled and true or false)
+  button:SetAlpha(enabled and 1 or 0.45)
+  if note then note:SetText(text or "") end
+end
+
+local function floorLine(e)
+  return ("%s left %s on %s."):format(MOTA:Short(e.name), MOTA.Party.NAMES[e.p] or "a party", date("%d %b", e.t))
+end
+
+local function refreshCrown()
+  local requests = MOTA.Party:Requests()
+  crownView.empty:SetShown(#requests == 0)
+  for i, r in ipairs(crownView.rows) do
+    local q = requests[i]
+    r:SetShown(q ~= nil)
+    if q then
+      r.who = q.name
+      r.name:SetText(MOTA:Short(q.name))
+      local wait = MOTA.Party:WaitUntil(q.name, q.p)
+      local paid = q.paid >= MOTA.Party.FEE
+      local state = wait and ("waiting until " .. date("%d %b", wait))
+        or not paid and "hasn't paid yet"
+        or q.confirmed and (gold(q.paid) .. " paid, confirmed in the bank log")
+        or (gold(q.paid) .. " paid, open the guild bank to confirm")
+      r.line:SetText(MOTA.Party.NAMES[q.p] .. " · " .. state)
+      local can = paid and not wait
+      r.admit:SetEnabled(can)
+      r.admit:SetAlpha(can and 1 or 0.45)
+    end
+  end
 end
 
 function Page:Refresh()
   if not root then return end
+  local Party = MOTA.Party
   for key, t in pairs(tabs) do t:SetOn(key == view) end
   public.sh:SetShown(view == "sh")
   public.ex:SetShown(view == "ex")
   local chamber = view == "ch"
-  toggle:SetShown(chamber)
-  member:SetShown(chamber and preview == "member")
-  outsider:SetShown(chamber and preview == "outsider")
-  for name, b in pairs(toggle.buttons) do
-    local on = name == preview
-    Kit:Gradient(b.bg, "2E58AA", "1B3570", on and 1 or 0, on and 1 or 0)
-    b.label:SetColor(on and "F3D98A" or "5E4B33")
+  local mine = Party:Of(MOTA.me)
+  local isCrown = MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
+  member:SetShown(chamber and mine ~= nil)
+  crownView:SetShown(chamber and isCrown and not mine)
+  outsider:SetShown(chamber and not mine and not isCrown)
+
+  for key, v in pairs(public) do
+    v.values.Funds:SetText(gold(Party:Funds(key)))
+    v.values.Members:SetText(namesLine(Party:Members(key)))
+    setJoin(v.ask, key, v.joinNote)
   end
-  local party = PARTIES[lastParty]
+  if mine then
+    for key, s in pairs(member.seals) do s:SetShown(key == mine) end
+    member.title:SetText(("The %s Chamber"):format(mine == "sh" and "Silverhand" or "Exchange"))
+    member.members:SetText(namesLine(Party:Members(mine)))
+    local lines = {}
+    for _, e in ipairs(Party:Roll().floor) do
+      if e.p == mine then lines[#lines + 1] = floorLine(e) end
+    end
+    member.floor:SetText(#lines > 0 and table.concat(lines, "\n") or "Nobody has left yet.")
+  end
+  if isCrown then refreshCrown() end
   for key, s in pairs(outsider.seals) do s:SetShown(key == lastParty) end
   outsider.title:SetText(("The %s Chamber is sealed"):format(lastParty == "sh" and "Silverhand" or "Exchange"))
-  outsider.ask:SetLabel("Ask to join " .. party.short)
+  setJoin(outsider.ask, lastParty)
 end
 
 function Page:Select(name)
   view = name
+  confirmLeave = false
   if PARTIES[name] then lastParty = name end
-  self:Refresh()
-end
-
-function Page:Preview(name)
-  preview = name
   self:Refresh()
 end
 
@@ -300,7 +382,7 @@ local function build()
   root:SetSize(WIDTH, HEIGHT)
   root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
   public = { sh = buildPublic("sh"), ex = buildPublic("ex") }
-  member, outsider = buildMember(), buildOutsider()
+  member, outsider, crownView = buildMember(), buildOutsider(), buildCrown()
 
   tabs = {}
   local x = 0
@@ -310,15 +392,6 @@ local function build()
     x = x + b:GetWidth() + 2
     tabs[t[1]] = b
   end
-
-  -- The board's preview switch; the real view will follow membership.
-  toggle = panel(root, nil, WIDTH - 166, 0, 166, 36)
-  Kit:Fill(toggle, "6E4F17", "6E4F17", 0.12)
-  Kit:Outline(toggle, "6E4F17", 0.45)
-  toggle.buttons = {
-    member = toggleButton(toggle, 3, "As member", "member"),
-    outsider = toggleButton(toggle, 83, "As outsider", "outsider"),
-  }
 end
 
 function Page:Show(show)
@@ -329,3 +402,4 @@ function Page:Show(show)
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
+MOTA:Listen("PARTY_CHANGED", function() Page:Refresh() end)

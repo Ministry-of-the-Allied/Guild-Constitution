@@ -694,10 +694,83 @@ check("The Parties page replaces the page heading", not vns.UI.heading.shown and
 pp.Select(pp, "ex")
 pp.Select(pp, "ch")
 check("The chamber opens sealed, on the last party viewed", pp.Select is not None)
-pp.Preview(pp, "member")
-pp.Preview(pp, "outsider")
 pp.Select(pp, "sh")
 vns.UI.SelectPage(vns.UI, 1)
+
+print("== 12c. the party roll and the bank prompt")
+others = clients[:]
+crownP = Client("Max", tag="CAMWOWEU5Realm7PvE")
+cit = Client("Bram")
+clients[:] = [crownP, cit]
+run(12)
+BANK_STUB = """
+  BANK = 5000000
+  GetGuildBankMoney = function() return BANK end
+  DepositGuildBankMoney = function(a) BANK = BANK + a end
+  WithdrawGuildBankMoney = function(a) if a <= BANK then BANK = BANK - a end end
+  LOG = {}
+  QueryGuildBankLog = function() end
+  GetNumGuildBankMoneyTransactions = function() return #LOG end
+  GetGuildBankMoneyTransaction = function(i) return LOG[i][1], LOG[i][2], LOG[i][3] end
+  MinistryOfTheAllied.Bank:Install()
+"""
+cit.lua.execute(BANK_STUB)
+crownP.lua.execute(BANK_STUB)
+def P(c, code):
+    return c.lua.eval("(function() local M, Pa = MinistryOfTheAllied, MinistryOfTheAllied.Party " + code + " end)()")
+check("Party: the Crown can't ask to join", P(crownP, 'return (Pa:JoinState("sh"))') == "The Crown stands apart" and P(crownP, 'return Pa:Ask("sh") == nil') is True)
+check("Party: a citizen can", P(cit, 'return (Pa:JoinState("sh"))') == "Ask to join")
+P(cit, 'Pa:Ask("sh")')
+run(1)
+check("Party: the Crown sees the request, unpaid", P(crownP, 'local q = Pa:Requests()[1] return q and q.name == "Bram" and q.p == "sh" and q.paid == 0') is True)
+check("Party: the Crown hears of it", crownP.said(r"Bram asks to join the Silverhand"))
+cit.lua.execute('DepositGuildBankMoney(50000)')
+check("Bank: no prompt until the balance really changes", P(cit, 'return M.BankPrompt:IsShown()') is False)
+cit.lua.execute('mock_fire("GUILDBANK_UPDATE_MONEY")')
+check("Bank: the deposit raises the prompt", P(cit, 'return M.BankPrompt:IsShown()') is True)
+keepB = cit.saved()
+cit2 = Client("Bram", saved=keepB)
+clients[:] = [crownP, cit2]
+run(7)
+check("Bank: an unanswered prompt comes back after a reload", P(cit2, 'return M.BankPrompt:IsShown()') is True)
+cit = cit2
+cit.lua.execute(BANK_STUB)
+check("Bank: Other needs a note", P(cit, 'return M.BankPrompt:Answer("other", "  ") == nil and M.BankPrompt:IsShown()') is True)
+P(cit, 'M.BankPrompt:Answer("party_sh")')
+run(1)
+check("Bank: small amounts show on the party's funds", P(crownP, 'return M:Money(100)') == "1s" and P(crownP, 'return M:Money(0)') == "0g" and P(crownP, 'return M:Money(52001)') == "5g 20s 1c")
+check("Bank: answering says it was recorded", cit.said(r"Recorded in the guild's book: 5g deposit . Silverhand donation"))
+check("Bank: answering clears the prompt", P(cit, 'return M.BankPrompt:IsShown()') is False)
+check("Party: the donation reaches the Crown and the party's funds", P(crownP, 'return Pa:Requests()[1].paid == 50000 and Pa:Funds("sh") == 50000') is True)
+crownP.lua.execute('LOG = { { "deposit", "Bram-CAMWOWEU5Realm7PvE", 50000 } }; mock_fire("GUILDBANKLOG_UPDATE")')
+check("Party: the bank log confirms it", P(crownP, 'return Pa:Requests()[1].confirmed') is True)
+check("Party: a citizen can't admit", P(cit, 'local r = Pa:Roll(); local before = r.members.Bram; M.Book:Write("party.admit", { v = "Bram", p = "sh" }); return before == nil') is True)
+run(1)
+check("Party: and their record is ignored", P(crownP, 'return Pa:Of("Bram") == nil') is True)
+P(crownP, 'Pa:Admit("Bram")')
+run(1)
+check("Party: admitted on every copy", P(crownP, 'return Pa:Of("Bram")') == "sh" and P(cit, 'return Pa:Of("Bram")') == "sh")
+check("Party: membership gives the party's skin", P(cit, 'return M.skin.KEY') == "SILVERHAND")
+vnsP = cit.lua.eval("MinistryOfTheAllied")
+vnsP.UI.Build(vnsP.UI)
+vnsP.UI.SelectPage(vnsP.UI, 4)
+cit.lua.execute('MinistryOfTheAllied.PartiesPage:Select("ch")')
+check("Party: the member's button offers leaving", P(cit, 'return (Pa:JoinState("sh"))') == "Leave the party")
+check("Party: a member can't ask to join the other party", P(cit, 'return (Pa:JoinState("ex"))') == "Leave your party first")
+P(cit, 'Pa:Leave()')
+run(1)
+check("Party: leaving takes effect everywhere", P(crownP, 'return Pa:Of("Bram") == nil and #Pa:Roll().floor == 1') is True)
+check("Party: leaving returns the Ministry skin", P(cit, 'return M.skin.KEY') == "UNREGISTERED")
+P(cit, 'M.Book:Write("party.join", { p = "ex" })')
+run(1)
+P(crownP, 'M.Book:Write("party.admit", { v = "Bram", p = "ex" })')
+run(1)
+check("Party: the 14-day wait refuses the other party", P(crownP, 'return Pa:Of("Bram") == nil and Pa:WaitUntil("Bram", "ex") ~= nil') is True)
+P(crownP, 'Pa.WAIT = 0; M:Fire("GUILD_READY")')
+check("Party: after the wait, the other party's admission counts", P(crownP, 'return Pa:Of("Bram")') == "ex")
+crownP.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(4); MinistryOfTheAllied.PartiesPage:Select("ch")')
+check("Party: the Crown's desk opens without errors", True)
+clients[:] = others
 
 print("== 13. the Ring")
 clients[:] = [max4, hc]  # earlier clients share these names, and would muddle the record numbers
