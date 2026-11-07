@@ -16,7 +16,7 @@ local _, MOTA = ...
 local Party = {}
 MOTA.Party = Party
 
-Party.FEE = 50000 -- copper: the Charter's 5 gold
+Party.FEE = 5 -- copper. TESTING: the Charter's fee is 5 gold, which is 50000
 Party.WAIT = 14 * 86400
 Party.NAMES = { sh = "the Silverhand", ex = "the Azeroth Exchange" }
 Party.FUND_REASON = { sh = "party_sh", ex = "party_ex" }
@@ -153,10 +153,10 @@ function Party:JoinState(p)
   if asked and asked.p == p then
     local paid = self:Paid(me, p)
     if paid >= self.FEE then return "Awaiting the Crown", false, nil, "Your donation is noted. The Crown will record you as a member." end
-    return "Awaiting your 5 gold", false, nil, "Deposit 5 gold in the guild bank and choose this party as the reason."
+    return "Awaiting your fee", false, nil, "Deposit " .. MOTA:Money(self.FEE) .. " in the guild bank and choose this party as the reason."
   end
   if asked then return "Already asked elsewhere", false end
-  return "Ask to join", true, "ask", "Joining costs 5 gold, paid into the guild bank. Leaving a party starts a 14-day wait."
+  return "Ask to join", true, "ask", "Joining costs " .. MOTA:Money(self.FEE) .. ", paid into the guild bank. Leaving a party starts a 14-day wait."
 end
 
 function Party:Ask(p)
@@ -164,7 +164,7 @@ function Party:Ask(p)
   if state ~= "ask" then return nil, "You can't ask to join just now." end
   local rec, err = MOTA.Book:Write("party.join", { p = p })
   if rec then
-    MOTA:Print("Asked to join " .. self.NAMES[p] .. ". Now deposit 5 gold in the guild bank and choose this party as the reason.")
+    MOTA:Print("Asked to join " .. self.NAMES[p] .. ". Now deposit " .. MOTA:Money(self.FEE) .. " in the guild bank and choose this party as the reason.")
   end
   return rec, err
 end
