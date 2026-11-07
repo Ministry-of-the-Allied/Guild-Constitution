@@ -43,6 +43,9 @@ ROSTER = [
     ["Tobin-Realm", "Citizen", 3, False, 2],
     ["Wren-Realm", "Citizen", 3, False, 3],
     ["Oswin-Realm", "Citizen", 3, False, 45],
+    # Two players whose names start alike, as on Forever (section 1e).
+    ["Kíng Atwood-Realm", "Citizen", 3, False, 45],
+    ["Kíng Sinnclair-Realm", "Citizen", 3, False, 45],
 ]
 
 errors = []
@@ -55,7 +58,7 @@ class Client:
     # and on add-on message senders. Forever writes one that differs from one
     # player's screen to another's ("CAMWOWEU5Realm7PvE" on one, "...Realm1PvE"
     # on the next), and refuses a whisper addressed with it.
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None):
         self.name = name
         self.full = name + "-" + REALM
         self.tag = tag or REALM
@@ -67,6 +70,7 @@ class Client:
         self.lua = lua51.LuaRuntime(unpack_returned_tuples=True)
         g = self.lua.globals()
         g.PLAYER, g.REALM, g.GUILD = name, REALM, GUILD
+        g.SHORT_NAME = short  # Forever's UnitName gives only a name's first part
         g.ROSTER = self.lua.table_from([self.lua.table_from([m[0].split("-")[0] + "-" + self.tag] + m[1:]) for m in ROSTER])
         g.ROSTER_READY = False
         g.ADDON_VERSION = version
@@ -225,6 +229,42 @@ check("Realm tags: names are kept without a tag",
       kael.lua.eval('MinistryOfTheAllied.guild.peers["Max"] ~= nil and MinistryOfTheAllied.me == "Kael"') is True
       and kael.lua.eval('MinistryOfTheAllied:IsGuildMember("Bram") and MinistryOfTheAllied:IsOnline("Bram")') is True)
 clients.remove(kael)
+
+print("== 1e. Two players whose UnitName is the same short name")
+OLD_BOOK = """MOTADB = { schema = 1, guilds = { ["Ministry of the Allied-Realm"] = { names = 2,
+  records = { ["Kíng"] = { { t = 1, k = "test.note", d = { text = "old" } } } },
+  tops = { ["Kíng"] = 1 }, reserved = {}, peers = { ["Kíng Atwood"] = { seen = 1, v = "0.1.0" } } } } }"""
+# Atwood's tag hides him from the roster's ID check, so only his hello can tell
+# him; Sinnclair finds himself in the roster.
+atwood = Client("Kíng Atwood", short="Kíng", tag="CAMWOWEU5Realm1PvE", saved=OLD_BOOK)
+sinn = Client("Kíng Sinnclair", short="Kíng")
+others = clients[:]  # kept apart, so their records stay out of later counts
+clients[:] = [atwood, sinn]
+run(12)
+def me(c):
+    return c.lua.eval("MinistryOfTheAllied.me")
+check("Short names: each learns the name the guild knows them by", me(atwood) == "Kíng Atwood" and me(sinn) == "Kíng Sinnclair")
+atwood.log.clear()
+atwood.slash("who")
+check("Short names: Atwood doesn't list himself, and sees Sinnclair", not atwood.said(r"Atwood · v") and atwood.said(r"Sinnclair · v"))
+sinn.log.clear()
+sinn.slash("who")
+check("Short names: Sinnclair doesn't list himself, and sees Atwood", not sinn.said(r"Sinnclair · v") and sinn.said(r"Atwood · v"))
+check("Short names: nobody whispered themselves", "Kíng Atwood" not in atwood.whispered and "Kíng Sinnclair" not in sinn.whispered)
+check("Short names: nobody whispered the short name", all(t != "Kíng" for c in clients for t in c.whispered))
+check("Short names: Atwood's old record moved to his real name",
+      atwood.lua.eval('MinistryOfTheAllied.guild.records["Kíng Atwood"][1].d.text == "old" and MinistryOfTheAllied.guild.records["Kíng"] == nil and MinistryOfTheAllied.guild.tops["Kíng Atwood"] == 1 and MinistryOfTheAllied.guild.peers["Kíng Atwood"] == nil') is True)
+sinn.slash("test from Sinnclair")
+atwood.slash("test from Atwood")
+run(2)
+check("Short names: records from both arrive, each under its own name",
+      atwood.lua.eval('MinistryOfTheAllied.guild.records["Kíng Sinnclair"][1].d.text == "from Sinnclair" and MinistryOfTheAllied.guild.records["Kíng Atwood"][2].d.text == "from Atwood"') is True
+      and sinn.lua.eval('MinistryOfTheAllied.guild.records["Kíng Atwood"][2].d.text == "from Atwood"') is True)
+keep = atwood.saved()
+clients.remove(atwood)
+atwood = Client("Kíng Atwood", short="Kíng", tag="CAMWOWEU5Realm1PvE", saved=keep)
+check("Short names: the real name is known at once on the next login", me(atwood) == "Kíng Atwood")
+clients[:] = others
 
 print("== 2. test records")
 max_.slash("test Hear ye, the polls are open!")

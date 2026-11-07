@@ -233,9 +233,10 @@ function Comm:OnComm(prefix, text, channel, sender)
   if not self.guild then self:CheckGuild() end
   if not self.guild then return end
 
+  local protocol, kind, fields = Comm:Unpack(text)
+  if kind == "HI" and channel == "GUILD" and fields[3] == UnitGUID("player") then self:LearnMe(sender) end
   local own = self:IsMe(sender)
   sender = self:FullName(sender)
-  local protocol, kind, fields = Comm:Unpack(text)
   if own or sender == self.me then
     -- Our own guild messages come back to us. Only the limits test wants them.
     if kind == "PB" and kindHandlers.PB then kindHandlers.PB(self, sender, channel, fields, protocol) end

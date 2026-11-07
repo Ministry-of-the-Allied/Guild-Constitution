@@ -113,10 +113,36 @@ function MOTA:BareId(id)
   return (id:gsub("%-[^#]*#", "#"))
 end
 
--- Works out this character's own name.
+-- Works out this character's own name. Forever's UnitName gives only the first
+-- part ("Kíng"), while the roster and message senders say "Kíng Atwood", and
+-- two players can share that first part. So the short name only stands in until
+-- LearnMe finds the real one, which is remembered for the next login.
 function MOTA:SetMe()
+  if self.meLearned then return end
+  local saved = self.db and self.db.myNames and self.db.myNames[UnitGUID("player") or ""]
+  if saved then
+    self.me, self.meLearned = saved, true
+    return
+  end
   local name = UnitName("player")
   if name and name ~= "" then self.me = self:Bare(name) end
+end
+
+-- Called with this character's name as the guild knows it: from its roster
+-- entry (by unique ID), or from its own hello coming back (Comm.lua).
+function MOTA:LearnMe(name)
+  name = self:Bare(name)
+  if not name then return end
+  self.meLearned = true
+  if name == self.me then return end
+  self:Debug("own name:", name, "(was", tostring(self.me) .. ")")
+  self.me = name
+  if self.db then
+    self.db.myNames = self.db.myNames or {}
+    self.db.myNames[UnitGUID("player") or ""] = name
+  end
+  if self.guild then self:MoveMyBook(self.guild) end
+  self:Fire("ME_LEARNED", name)
 end
 
 -- True if a name is this character's own, with or without a realm tag.
@@ -253,6 +279,47 @@ function MOTA:BareGuildBook(g)
   g.names = 2
 end
 
+-- Moves what this copy saved under the short name to the real one. Nothing else
+-- can be under the short name: a record is only accepted if its author matches
+-- its sender, and senders always have the full name.
+function MOTA:MoveMyBook(g)
+  local short, me = self:Bare(UnitName("player")), self.me
+  if not short or not me or short == me then return end
+  local function swapId(id)
+    if type(id) == "string" and id:sub(1, #short + 1) == short .. "#" then return me .. id:sub(#short + 1) end
+    return id
+  end
+  for _, list in pairs(g.records or {}) do
+    for _, r in pairs(list) do
+      if type(r) == "table" and type(r.d) == "table" then
+        if r.d.v == short then r.d.v = me end
+        r.d.b = swapId(r.d.b)
+      end
+    end
+  end
+  local old = g.records and g.records[short]
+  if old then
+    g.records[me] = g.records[me] or {}
+    for n, r in pairs(old) do
+      if not g.records[me][n] then g.records[me][n] = r end
+    end
+    g.records[short] = nil
+  end
+  for _, key in ipairs({ "tops", "reserved" }) do
+    if g[key] and g[key][short] then
+      biggest(g[key], me, g[key][short])
+      g[key][short] = nil
+    end
+  end
+  if g.peers then g.peers[me], g.peers[short] = nil, nil end
+  local ballots = g.myBallots and g.myBallots[short]
+  if ballots then
+    g.myBallots[me] = g.myBallots[me] or {}
+    for id, e in pairs(ballots) do g.myBallots[me][swapId(id)] = e end
+    g.myBallots[short] = nil
+  end
+end
+
 -- The same for the Kings' running counts, saved for the whole account.
 function MOTA:BareTallies()
   if self.db.names == 2 then return end
@@ -295,6 +362,7 @@ function MOTA:CheckGuild()
     self.guild = self.db.guilds[key]
     self:BareGuildBook(self.guild)
     self:BareTallies()
+    self:MoveMyBook(self.guild)
     self:Fire("GUILD_READY", key)
   else
     self.guild = nil

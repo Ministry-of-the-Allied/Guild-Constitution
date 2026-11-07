@@ -108,7 +108,7 @@ function GetNormalizedRealmName()
   return REALM
 end
 function GetRealmName() if REALM_LATE and GetTime() < 0.5 then return nil end return REALM end
-function UnitName() return PLAYER end
+function UnitName() return SHORT_NAME or PLAYER end -- Forever: only the first part
 function UnitGUID() return "Player-" .. PLAYER .. "-" .. REALM end
 function IsInGuild() return GUILD ~= nil end
 local myRank, myRankIndex = "Citizen", 3

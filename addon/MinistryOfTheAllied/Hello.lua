@@ -7,7 +7,7 @@
 -- newcomer. If this computer lost records in a crash, the next record it writes
 -- still gets a fresh number instead of reusing one the guild already has.
 --
---   HI <version> <records held>     on GUILD, at login and after /reload
+--   HI <version> <records held> <ID>  on GUILD, at login and after /reload
 --   HR <version> <your top number>  by WHISPER, back to the one who said hello
 
 local _, MOTA = ...
@@ -16,12 +16,14 @@ MOTA.Hello = Hello
 
 Hello.heard = {} -- names heard from this session
 
+-- The hello carries this character's unique ID: when it comes back from the
+-- guild channel, its sender is the name the guild knows us by (MOTA:LearnMe).
 local HELLO_DELAY = 5 -- seconds after login, so the guild channel is ready
 
 function Hello:Send()
   if not MOTA.guild then return end
   local total = MOTA.Book:Count()
-  MOTA.Comm:Send(MOTA.Comm:Pack("HI", MOTA.VERSION, total), "GUILD")
+  MOTA.Comm:Send(MOTA.Comm:Pack("HI", MOTA.VERSION, total, UnitGUID("player")), "GUILD")
   self.sentAt = GetServerTime()
 end
 
