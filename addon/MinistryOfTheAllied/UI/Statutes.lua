@@ -239,8 +239,8 @@ local function buildForce(v)
   v.empty = besideMark(book, "kitItalic", "5E4B33")
   v.empty:Set(EMPTY_FORCE, 60)
   -- Given under the seal of the Crown
-  local seal = Kit:Art(book, "hseal_crown", "ARTWORK")
-  seal:SetSize(58, 58)
+  local seal, sp = Kit:Art(book, "hseal_crown", "ARTWORK")
+  seal:SetSize(58 * sp.w / sp.h, 58) -- the Crown crest, taller than it is wide
   seal:SetPoint("BOTTOMLEFT", book, "BOTTOMLEFT", R_X, 20)
   local l1 = Kit:Label(book, "kitTiny", "7A5719", 0.3, "Given under the seal")
   l1:SetPoint("LEFT", seal, "RIGHT", 12, 7)

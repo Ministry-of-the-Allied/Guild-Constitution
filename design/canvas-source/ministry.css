@@ -1,4 +1,6 @@
 /* Ministry of the Allied — "The Royal Seal" shared styles */
+/* The Crown crest stands in for the old crown seal (Max, 8 Nov): it is taller than wide, so it fits its square */
+img:not(.crest)[src*="95cd0584f50217d5706a3ab342656520"],img:not(.crest)[src*="crest-crown"]{object-fit:contain}
 /* Ministry Decorative: Cinzel Decorative with its "h" joins (as in "the") spaced normally, the double O kept
    (tools/fonts/make_ministry_decorative.py, Max 8 Nov). The add-on uses the same files. */
 @font-face{font-family:'Ministry Decorative';font-weight:700;src:url(/_blob/1cb79e1436f6a97727600db25de81026) format('truetype')}

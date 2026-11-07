@@ -483,7 +483,8 @@ local function buildBracket()
   local champ = panel(area, nil, 2 * (COLUMN_W + COLUMN_GAP), boutCentre(7) + BOUT_H / 2 + 12, COLUMN_W, 100)
   local seal = UI:Piece(champ, "seal", "ARTWORK", nil, nil, nil, champ)
   seal:ClearAllPoints()
-  seal:SetSize(36, 36)
+  local sp = MOTA.Media.pieces.seal
+  seal:SetSize(36 * sp.w / sp.h, 36) -- the Crown crest, taller than it is wide
   seal:SetPoint("TOP", champ, "TOP", 0, 0)
   local title = Kit:Text(champ, "kitLaurel", "7A5719", "CENTER")
   title:SetPoint("TOP", seal, "BOTTOM", 0, -3)

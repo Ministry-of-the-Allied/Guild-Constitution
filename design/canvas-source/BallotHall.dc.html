@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>The Ballot Hall</title>
 <script src="./support.js"></script>
-<link rel="stylesheet" href="/_blob/a71d23c1c3b21a84a5914a9c1b2fe665">
+<link rel="stylesheet" href="/_blob/363d3ef98f46d5b67734ddb35c4cbcbd">
 </head>
 <body>
 <x-dc>
@@ -208,7 +208,7 @@ select.inp{padding:0 6px;cursor:pointer}
                   </sc-if>
                 </div>
                 <sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
-                  <img class="stamp" src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Ballot sealed and received by the Crown">
+                  <img class="stamp" src="/_blob/95cd0584f50217d5706a3ab342656520" alt="Ballot sealed and received by the Crown">
                 </sc-if>
                 <sc-if value="{{waiting}}" hint-placeholder-val="{{ false }}">
                   <div class="held">
@@ -223,7 +223,7 @@ select.inp{padding:0 6px;cursor:pointer}
           <!-- BALLOT: polls closed, result not yet declared -->
           <sc-if value="{{ballotClosed}}" hint-placeholder-val="{{ false }}">
             <div class="paper" style="flex: 1; min-height: 0; padding: 30px 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center">
-              <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 76px; height: 76px; transform: rotate(-6deg)">
+              <img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="" style="width: 76px; height: 76px; transform: rotate(-6deg)">
               <p class="eyebrow" style="font-size: 10px">Polls closed · {{poll.name}}</p>
               <h2 class="h-page" style="font-size: 25px">The Crown is counting</h2>
               <p class="prose" style="font-size: 15.5px; max-width: 460px">The result will be proclaimed here, and a herald will announce it to everyone online.</p>
@@ -246,7 +246,7 @@ select.inp{padding:0 6px;cursor:pointer}
           <sc-if value="{{isResults}}" hint-placeholder-val="{{ false }}">
             <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px">
               <article class="paper" style="padding: 24px 30px; display: flex; flex-direction: column; gap: 12px">
-                <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="Crown seal" style="position: absolute; right: 18px; top: 14px; width: 74px; height: 74px; transform: rotate(8deg)">
+                <img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="Crown seal" style="position: absolute; right: 18px; top: 14px; width: 74px; height: 74px; transform: rotate(8deg)">
                 <p class="eyebrow" style="font-size: 10px">Proclaimed by the Crown · {{res.date}}</p>
                 <h2 class="h-page" style="font-size: 24px; padding-right: 70px">{{res.name}}</h2>
                 <p class="prose dropcap" style="font-size: 15.5px; line-height: 1.45">{{res.text}}</p>
@@ -356,7 +356,7 @@ select.inp{padding:0 6px;cursor:pointer}
           <sc-if value="{{crownCount}}" hint-placeholder-val="{{ false }}">
             <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px">
               <div class="paper" style="padding: 20px 26px; display: flex; flex-direction: column; gap: 10px">
-                <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="position: absolute; right: 16px; top: 12px; width: 60px; height: 60px; transform: rotate(8deg)">
+                <img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="" style="position: absolute; right: 16px; top: 12px; width: 60px; height: 60px; transform: rotate(8deg)">
                 <p class="eyebrow" style="font-size: 9.5px">{{count.eyebrow}}</p>
                 <h2 class="h-page" style="font-size: 22px; padding-right: 60px">{{poll.name}}</h2>
                 <sc-if value="{{crownOpen}}" hint-placeholder-val="{{ true }}">
@@ -442,7 +442,7 @@ select.inp{padding:0 6px;cursor:pointer}
     <sc-if value="{{showLogout}}" hint-placeholder-val="{{ false }}">
       <div class="dim">
         <div class="paper popup" role="alertdialog" aria-labelledby="lastking-title">
-          <img src="/_blob/539190bbac866c98462ae1069c2f22b6" alt="" style="width: 56px; height: 56px">
+          <img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="" style="width: 56px; height: 56px">
           <p class="eyebrow" style="font-size: 10px">Polls are open · {{poll.name}}</p>
           <h2 class="h-page" id="lastking-title" style="font-size: 21px">You are the last King online</h2>
           <p class="prose" style="font-size: 15px; line-height: 1.4">If you log out, ballots sealed from now on wait with their voters until a King returns. They still count if they reach the Crown before the result is declared.</p>

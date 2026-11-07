@@ -127,6 +127,12 @@ The canvas is the design source. When the add-on moves away from it, say so to M
 `addon/MinistryOfTheAllied/UI/MainWindow.lua` had edits before we started: the window uses the learned full name (`MOTA.me`) and shrinks long names to fit the rail foot, and the footer text is moved clear of the corner ornaments. Left as is; Max or Duncan to commit.
 
 ## Progress log
+- 8 Nov 2026 (after 0.6.3): **the Crown crest replaced the blue crown seal everywhere** (Max).
+  - Covered: heralds by the Crown, Royal Assent, the Statute Book's "Given under the seal", the Ballot Hall's Crown seal and stamps, the minimap button, the settings page, and the Ring's laurels.
+  - Build: `CROWN_CREST` in `build.py`.
+  - Shape: the crest is taller than wide. It fits inside the old square (`object-fit:contain` rule in `ministry.css`). Statutes and Ring size it by its own shape.
+  - Canvas boards use the crest blob `95cd0584...` (version 58).
+  - sim.py 335 passed, 0 failed. Not seen in game, not committed.
 - 8 Nov 2026 (final round today):
   - **Max liked the tab names (2a/2b) and said to make text crisp everywhere (2d).** Done as one mechanism:
     - `build.py` measures the real text in every piece (TEXT_JS, one page per look), draws the piece without it (HIDE_JS), and writes `Media.texts`.

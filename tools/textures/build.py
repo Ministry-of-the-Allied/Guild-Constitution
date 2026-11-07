@@ -91,6 +91,9 @@ BLOBS = {
     "1cb79e1436f6a97727600db25de81026": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Bold.ttf",
     "b86b602a50d468e81c13dca06841b75b": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Black.ttf",
 }
+# The Crown's mark everywhere (heralds, Royal Assent, the ballot's stamps, the minimap button,
+# the settings page) is the Crown crest, which replaced the blue crown seal (Max, 8 Nov).
+CROWN_CREST = DESIGN / "textures" / "crest-crown.png"
 SEALS = ["official", "crown", "exchange", "silverhand", "ring", "treasury"]  # ring/treasury: the Seal of the State's page variants
 
 FONT_FACES = [
@@ -364,7 +367,7 @@ def window_html(pages, css, piece_css="", page=0, hover_tab=None, skin="UNREGIST
         "skin": cls,
         "crest_class": emblem_cls,
         "crest": (DESIGN / "textures" / emblem).as_uri(),
-        "seal": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "seal": CROWN_CREST.as_uri(),  # the minimap button: the Crown crest (Max, 8 Nov)
         "subtitle": html.escape(p["subtitle"], quote=False),
         "eyebrow": html.escape(p["eyebrow"], quote=False),
         "heading": html.escape(p["heading"], quote=False),
@@ -377,8 +380,8 @@ def extras_html(css, piece_css="", seal="official", button="Vote now", style="bl
         "party_class": "on" if skin_seg == "party" else "",
         "ministry_class": "on" if skin_seg == "ministry" else "",
         "css": css + "\n" + piece_css,
-        "seal": (DESIGN / "textures" / f"seal-{seal}.svg").as_uri(),
-        "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "seal": (CROWN_CREST if seal == "crown" else DESIGN / "textures" / f"seal-{seal}.svg").as_uri(),
+        "crown": CROWN_CREST.as_uri(),
         "seal_sh": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
         "seal_ex": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
         "coin_g": (DESIGN / "textures" / "coin-g.svg").as_uri(),
@@ -395,7 +398,7 @@ def ballot_html(css, piece_css=""):
     return fill("ballot.html", {
         "css": css + "\n" + piece_css,
         "official": (DESIGN / "textures" / "seal-official.svg").as_uri(),
-        "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "crown": CROWN_CREST.as_uri(),
         "silverhand": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
         "exchange": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
     })
