@@ -214,11 +214,11 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   if rec.k == "party.leave" or rec.k == "party.remove" then
     local who = rec.k == "party.leave" and rec.a or d.v
     H:Announce({ seal = SEALS[d.p] or "official", eyebrow = "Crossing the floor",
-      title = self:Short(who) .. " leaves " .. (Party.NAMES[d.p] or "their party"),
-      text = "No other party may admit them for 14 days.", button = { label = "Dismiss", style = "quiet" } })
+      title = self:Short(who) .. " walks out",
+      text = "They leave " .. (Party.NAMES[d.p] or "their party") .. ". No other party may admit them for 14 days.", button = { label = "Dismiss", style = "quiet" } })
   elseif rec.k == "party.admit" and d.v == self.me and after == d.p then
     H:Announce({ seal = SEALS[d.p] or "official", eyebrow = "By the Crown's record",
-      title = "Welcome to " .. Party.NAMES[d.p], text = "Your party's Chamber is now open to you.",
+      title = d.p == "sh" and "Welcome to the Silverhand" or "Welcome to the Exchange", text = "Your party's Chamber is now open to you.",
       button = { label = "Open", style = "blue", page = 4 } })
   elseif rec.k == "party.join" and rec.a ~= self.me and self:IsCrown(self.me) then
     self:Print(self:Short(rec.a), "asks to join", (Party.NAMES[d.p] or "a party") .. ". Admit them in The Parties, on the Chamber ribbon, once they've paid.")

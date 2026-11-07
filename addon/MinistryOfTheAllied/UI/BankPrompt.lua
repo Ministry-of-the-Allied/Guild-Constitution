@@ -78,7 +78,7 @@ local function build()
   end
 
   eyebrow = MOTA:Tracked(frame, "eyebrow", "7A5719", 0.32)
-  UI:AtSlot(eyebrow, "heyebrow", 0, 1, frame)
+  UI:AtSlot(eyebrow, "heyebrow", 0, -1, frame)
   title = frame:CreateFontString(nil, "OVERLAY")
   title:SetFontObject(MOTA:Font("heraldTitle"))
   MOTA.Kit:Track(function() title:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end)

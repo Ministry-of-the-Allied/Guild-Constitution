@@ -367,7 +367,7 @@ local function callOut()
   if cur.champion then
     if called ~= "champion:" .. cur.id then
       called = "champion:" .. cur.id
-      MOTA.Herald:Announce({ seal = "official", eyebrow = "The Ring · " .. cur.season,
+      MOTA.Herald:Announce({ seal = "official", eyebrow = "The Ring",
         title = MOTA:Short(cur.champion) .. " is champion!", text = "The Gladiator of Stormwind, by victory in Old Town.",
         button = { label = "Dismiss", style = "quiet" } })
     end
@@ -375,7 +375,7 @@ local function callOut()
     local key = cur.id .. ":" .. cur.next.slot
     if called ~= key then
       called = key
-      MOTA.Herald:Announce({ seal = "official", eyebrow = "The Ring · " .. cur.season,
+      MOTA.Herald:Announce({ seal = "official", eyebrow = "The Ring",
         title = "Next bout", text = MOTA:Short(cur.next.a) .. " v " .. MOTA:Short(cur.next.b) .. ", Old Town",
         button = { label = "Dismiss", style = "quiet" } })
     end

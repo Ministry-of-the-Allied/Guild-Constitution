@@ -394,7 +394,7 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   changed()
   local d = rec.d or {}
   if rec.k == "contest.open" then
-    herald({ seal = "crown", eyebrow = "By the Crown", title = "The leadership contests are open",
+    herald({ seal = "crown", eyebrow = "By the Crown", title = "The contests are open",
       text = "Party members may now stand for leader.", button = { label = "Open", style = "blue", page = 4 } })
   elseif rec.k == "contest.stand" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "Leadership contest", title = self:Short(rec.a) .. " stands",

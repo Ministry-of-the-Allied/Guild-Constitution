@@ -74,7 +74,7 @@ local function build()
   end
 
   frame.eyebrow = MOTA:Tracked(frame, "eyebrow", "7A5719", 0.32)
-  UI:AtSlot(frame.eyebrow, "heyebrow", 0, 1, frame)
+  UI:AtSlot(frame.eyebrow, "heyebrow", 0, -1, frame)
   frame.title = frame:CreateFontString(nil, "OVERLAY")
   frame.title:SetFontObject(MOTA:Font("heraldTitle"))
   MOTA.Kit:Track(function() frame.title:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end)
@@ -194,6 +194,11 @@ local function fit(h)
   local width = chosen.left - 16 - M.slots.htext.x
   frame.title:SetWidth(width)
   frame.body:SetWidth(width)
+  -- A long title takes a smaller font, rather than crowding the line below.
+  if frame.title.SetMaxLines then frame.title:SetMaxLines(1) end
+  frame.title:SetFontObject(MOTA:Font("heraldTitle"))
+  local wide = frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth() or frame.title:GetStringWidth()
+  if wide and wide > width then frame.title:SetFontObject(MOTA:Font("kitName")) end
   frame.closeX:SetShown(h.closeX and true or false)
 end
 
