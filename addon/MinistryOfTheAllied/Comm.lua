@@ -86,6 +86,11 @@ function Comm:DecodeRecord(f)
   if type(rec.n) ~= "number" or type(rec.t) ~= "number" then return nil end
   if rec.n < 1 or rec.n ~= math.floor(rec.n) then return nil end
   if type(rec.d) ~= "table" then rec.d = {} end
+  -- A copy from before names lost their realm tag may still send one.
+  rec.a = MOTA:Bare(rec.a)
+  if not rec.a then return nil end
+  if type(rec.d.b) == "string" then rec.d.b = MOTA:BareId(rec.d.b) end
+  if type(rec.d.v) == "string" then rec.d.v = MOTA:Bare(rec.d.v) end
   return rec
 end
 
@@ -195,6 +200,8 @@ function Comm:Send(msg, channel, target, priority)
     MOTA:Debug("not sent, too long:", #msg, "bytes")
     return false
   end
+  -- Whispers go to the name alone: Forever refuses one addressed "Name-Realm".
+  if channel == "WHISPER" then target = MOTA:Bare(target) end
   local q = held[priority or "live"]
   q[#q + 1] = { msg = msg, channel = channel, target = target }
   self:Kick()

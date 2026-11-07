@@ -6,7 +6,7 @@
 
 local _, MOTA = ...
 
-local roster = {} -- [Name-Realm] = { rank, rankIndex, level, class, online, days }
+local roster = {} -- [Name] = { rank, rankIndex, level, class, online, days }
 MOTA.roster = roster
 
 -- Days since a member was last online, from the roster (nil if the game
@@ -21,12 +21,9 @@ end
 local function scan()
   wipe(roster)
   local total = GetNumGuildMembers()
-  local myGUID = UnitGUID("player")
   for i = 1, total do
     local name, rankName, rankIndex, level, _, _, _, _, isOnline, _, class = GetGuildRosterInfo(i)
-    local guid = select(17, GetGuildRosterInfo(i))
-    if guid and guid == myGUID and name and name:find("-", 1, true) then MOTA:LearnMe(name) end
-    local full = MOTA:FullName(name)
+    local full = MOTA:FullName(name) -- the name alone (Core.lua, MOTA:Bare)
     if full then
       roster[full] = {
         rank = rankName,

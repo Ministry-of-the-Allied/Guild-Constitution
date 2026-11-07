@@ -51,17 +51,23 @@ clock = [0.0]
 
 
 class Client:
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False):
+    # tag: the realm tag this client's game writes on every name, in the roster
+    # and on add-on message senders. Forever writes one that differs from one
+    # player's screen to another's ("CAMWOWEU5Realm7PvE" on one, "...Realm1PvE"
+    # on the next), and refuses a whisper addressed with it.
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None):
         self.name = name
         self.full = name + "-" + REALM
+        self.tag = tag or REALM
         self.log = []
         self.wire = []  # every message this client handed to the game
+        self.whispered = []  # every whisper's target
         self.tokens = 10.0
         self.last = clock[0]
         self.lua = lua51.LuaRuntime(unpack_returned_tuples=True)
         g = self.lua.globals()
         g.PLAYER, g.REALM, g.GUILD = name, REALM, GUILD
-        g.ROSTER = self.lua.table_from([self.lua.table_from(m) for m in ROSTER])
+        g.ROSTER = self.lua.table_from([self.lua.table_from([m[0].split("-")[0] + "-" + self.tag] + m[1:]) for m in ROSTER])
         g.ROSTER_READY = False
         g.ADDON_VERSION = version
         g.LOCKDOWN = lockdown
@@ -99,11 +105,14 @@ class Client:
         self.wire.append(msg)
         if channel == "GUILD":
             for c in clients:
-                pending.append((now + 0.1, c, (prefix, msg, "GUILD", self.full, "")))
+                pending.append((now + 0.1, c, (prefix, msg, "GUILD", self.name + "-" + c.tag, "")))
         elif channel == "WHISPER":
+            self.whispered.append(target)
             for c in clients:
-                if c.full == target:
-                    pending.append((now + 0.1, c, (prefix, msg, "WHISPER", self.full, c.name)))
+                # The game takes the name alone, or the name with the realm's
+                # proper name; never a Forever tag.
+                if target in (c.name, c.full):
+                    pending.append((now + 0.1, c, (prefix, msg, "WHISPER", self.name + "-" + c.tag, c.name)))
         return 0
 
     def print(self, msg):
@@ -176,7 +185,7 @@ check("Kael doesn't list himself", not kael.said(r"Kael · v") and kael.said(r"B
 kael.slash("test from Kael")
 run(2)
 check("Kael's record carries his full name", bram.said(r'Test record #1 from Kael: "from Kael"')
-      and any(a == "Kael-Realm" for a in bram.lua.eval("(function() local t = {} for a in pairs(MinistryOfTheAllied.guild.records) do t[#t+1] = a end return table.concat(t, ',') end)()").split(",")))
+      and any(a == "Kael" for a in bram.lua.eval("(function() local t = {} for a in pairs(MinistryOfTheAllied.guild.records) do t[#t+1] = a end return table.concat(t, ',') end)()").split(",")))
 clients.remove(kael)
 
 print("== 1c. Kael on a Forever-style realm name")
@@ -189,6 +198,32 @@ check("Forever realm: names show without the realm", kael.said(r"Online without 
 kael.slash("test Forever realm")
 run(2)
 check("Forever realm: Kael's record carries his roster name", bram.said(r'Test record #2 from Kael: "Forever realm"'))
+clients.remove(kael)
+
+print("== 1d. Forever's realm tag differs from screen to screen")
+# On Kael's screen every name ends "-CAMWOWEU5Realm7PvE"; on Max's and Bram's
+# it ends "-Realm". Whispers addressed with a tag go nowhere, as in Forever.
+kael = Client("Kael", tag="CAMWOWEU5Realm7PvE")
+clients.append(kael)
+max_.whispered.clear()
+bram.whispered.clear()
+run(12)
+kael.log.clear()
+kael.slash("who")
+check("Realm tags: Kael sees Max and Bram online (their whispered replies reached him)",
+      kael.said(r"Max · v0\.1\.0 .*· .*online") and kael.said(r"Bram · v0\.1\.0 .*· .*online"))
+check("Realm tags: Kael doesn't list himself, though his own hello came back tagged",
+      not kael.said(r"Kael · v"))
+max_.log.clear()
+max_.slash("who")
+check("Realm tags: Max sees Kael online", max_.said(r"Kael · v0\.1\.0 .*· .*online"))
+check("Realm tags: every whisper went to a name alone",
+      all("-" not in t for c in (max_, bram, kael) for t in c.whispered)
+      and len(max_.whispered) > 0 and len(kael.whispered) == 0)
+check("Realm tags: Kael didn't whisper himself", "Kael" not in kael.whispered)
+check("Realm tags: names are kept without a tag",
+      kael.lua.eval('MinistryOfTheAllied.guild.peers["Max"] ~= nil and MinistryOfTheAllied.me == "Kael"') is True
+      and kael.lua.eval('MinistryOfTheAllied:IsGuildMember("Bram") and MinistryOfTheAllied:IsOnline("Bram")') is True)
 clients.remove(kael)
 
 print("== 2. test records")
@@ -621,7 +656,7 @@ for c in (max4, hc, rk):
     c.lua.execute("for _, m in ipairs(ROSTER) do if m[1] == 'Kael-Realm' then m[2] = 'Minister of War' end end; mock_fire('GUILD_ROSTER_UPDATE')")
 rk.lua.globals().mock_set_rank("Minister of War")
 run(1)
-check("The Minister of War rank is recognised", RB.Ring.Minister(RB.Ring) == "Kael-Realm" and RK.Ring.CanSetTerms(RK.Ring))
+check("The Minister of War rank is recognised", RB.Ring.Minister(RB.Ring) == "Kael" and RK.Ring.CanSetTerms(RK.Ring))
 check("A citizen still can't open one", not RB.Ring.Create(RB.Ring, "The Bram Ring", "Open", 1, 7)[0])
 RB.RingPage.Refresh(RB.RingPage)
 check("...and their form stays greyed", sf().alpha < 1 and sf().create.enabled == False)
@@ -632,7 +667,7 @@ check("The form opens for the Crown", RM.RingPage.Form(RM.RingPage).create.enabl
 RB.Book.Write(RB.Book, "ring.create", hc.lua.table_from({"season": "Forged", "bracket": "Open", "fee": 1, "closes": 9999999999}))
 run(1)
 check("A citizen's forged tournament isn't accepted", ring(RM) is None)
-hc.lua.execute("MinistryOfTheAllied.guild.records['Bram-Realm'] = {}; MinistryOfTheAllied:Fire('RECORD_ADDED', { k = 'ring.x' })")
+hc.lua.execute("MinistryOfTheAllied.guild.records['Bram'] = {}; MinistryOfTheAllied:Fire('RECORD_ADDED', { k = 'ring.x' })")
 check("Bad details are refused", not RM.Ring.Create(RM.Ring, "X", "Open", "lots", 7)[0])
 RM.Ring.Create(RM.Ring, "The November Ring", "Open", 10, 7)
 run(1)
@@ -649,8 +684,8 @@ run(1)
 RK.Ring.Enter(RK.Ring)
 run(1)
 check("Withdrawing and re-entering leaves one entry", len(list(ring(RB).entrants.values())) == 3)
-RM.Ring.SetPaid(RM.Ring, "Bram-Realm", True)
-RM.Ring.SetPaid(RM.Ring, "Kael-Realm", True)
+RM.Ring.SetPaid(RM.Ring, "Bram", True)
+RM.Ring.SetPaid(RM.Ring, "Kael", True)
 run(1)
 pot, champ, bank, paid = RB.Ring.Purse(RB.Ring, ring(RB))
 check("The purse splits 90/10 on what's paid", pot == 20 and champ == 18 and bank == 2 and paid == 2)
@@ -660,7 +695,7 @@ run(3)
 cur = ring(RB)
 check("The draw reaches everyone, the same", cur.stage == "bouts" and ring(RK).next.a == cur.next.a and ring(RK).next.b == cur.next.b)
 names = {cur.bouts[1].a, cur.bouts[2].a, cur.bouts[3].a}
-check("Three entrants: everyone is placed, with a bye", names == {"Max-Realm", "Bram-Realm", "Kael-Realm"} and cur.bouts[1].bye and cur.next.slot == 5)
+check("Three entrants: everyone is placed, with a bye", names == {"Max", "Bram", "Kael"} and cur.bouts[1].bye and cur.next.slot == 5)
 check("The next bout is called by a herald", hf.shown and hf.title.text == "Next bout")
 hns.Herald.Press(hns.Herald)
 first = cur.next
@@ -792,7 +827,7 @@ ex(max_, "P:OpenPolls()")
 check("A blank third candidate is left off", ev(max_, "#MinistryOfTheAllied.Ballot:Current().d.cands") == 2)
 BID = ev(max_, "MinistryOfTheAllied.Ballot:Current().id")
 check("Open polls writes a ballot.open record, polls open 2 hours",
-      BID == "Max-Realm#1" and stage(max_) == "open"
+      BID == "Max#1" and stage(max_) == "open"
       and ev(max_, "MinistryOfTheAllied.Ballot:Current().d.closes - GetServerTime()") == 7200)
 check("The Crown view turns to the live count", MP.shown == "count")
 run(2)
@@ -820,7 +855,7 @@ check("Max's add-on counts it", counts(max_).startswith("1,0|"))
 check("Bram gets a receipt: sealed and sent", state(bram) == "sent" and bo.stamp.shown and bram.said(r"Your ballot was received by the Crown \(Max\)"))
 check("Bram's add-on forgets the choice", ev(bram, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') is None)
 check("Everyone sees that Bram voted, never how",
-      ev(kael, f'MinistryOfTheAllied.Ballot:Get("{BID}").voted["Bram-Realm"]') is True
+      ev(kael, f'MinistryOfTheAllied.Ballot:Get("{BID}").voted["Bram"]') is True
       and not ev(kael, 'MinistryOfTheAllied.db.ballotTally and next(MinistryOfTheAllied.db.ballotTally)'))
 check("The King's count keeps no choice by name", ev(max_, f'''(function() local t = MinistryOfTheAllied.Ballot:Tally("{BID}")
       for k, v in pairs(t.counted) do if v == 1 or v == 2 then return false end end return true end)()'''))
@@ -848,7 +883,7 @@ run(2)
 check("Kael's ballot is sealed, waiting for the Crown", state(kael) == "held" and ko.held.shown
       and ko.hint.text == "Sealed, waiting for the Crown.")
 check("A ballot.sealed record tells the guild who sealed, never how",
-      ev(bram, f'MinistryOfTheAllied.Ballot:Get("{BID}").sealed["Kael-Realm"] ~= nil')
+      ev(bram, f'MinistryOfTheAllied.Ballot:Get("{BID}").sealed["Kael"] ~= nil')
       and ev(kael, f'MinistryOfTheAllied.Ballot:Mine("{BID}").choice') == 2)
 saved_kael = logout(kael)
 kael = login("Kael", saved=saved_kael)
@@ -881,8 +916,8 @@ run(16)
 check("Aldric learns the ballot from Max", stage(aldric) == "open")
 check("Aldric is handed Max's count", counts(aldric) == "1,1|1")
 check("Both Kings' counts agree",
-      ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric-Realm").same') is True
-      and ev(aldric, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Max-Realm").same') is True)
+      ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric").same') is True
+      and ev(aldric, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Max").same') is True)
 
 print("  -- the same ballot reaching both Kings")
 ex(mira, "P:Pick(1); P:Seal()")
@@ -890,10 +925,10 @@ run(6)
 check("Mira's ballot went to both Kings", sum(1 for m in mira.wire if "\x1fBV\x1f" in m) == 2)
 check("...and each counted it once", counts(max_) == "2,1|1" and counts(aldric) == "2,1|1")
 check("Mira is on the voted list once (two Kings may both record it: harmless)", ev(bram, f'''(function() local n = 0
-      for name in pairs(MinistryOfTheAllied.Ballot:Get("{BID}").voted) do if name == "Mira-Realm" then n = n + 1 end end
+      for name in pairs(MinistryOfTheAllied.Ballot:Get("{BID}").voted) do if name == "Mira" then n = n + 1 end end
       return n end)()''') == 1)
 run(5)
-check("The counts still agree after", ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric-Realm").same') is True)
+check("The counts still agree after", ev(max_, f'MinistryOfTheAllied.Ballot:PeerCount("{BID}", "Aldric").same') is True)
 max_.slash("ballot")
 mk = MP.parts.count
 ex(max_, 'P:SetView("crown")')
@@ -903,8 +938,8 @@ check("The Crown view shows the live count and both Kings", MP.shown == "count" 
       and mk.kings[2].name.text == "Aldric" and mk.kings[2].num.text == "3")
 
 print("  -- counts that partly overlap are shown as differing")
-outcome = ev(max_, f'''MinistryOfTheAllied.Ballot:Compare("Aldric-Realm", {{ b = "{BID}", c = {{ 1, 1 }},
-    n = {{ ["Bram-Realm"] = MinistryOfTheAllied.Ballot:Tally("{BID}").counted["Bram-Realm"], ["Zed-Realm"] = "1" }}, r = 0, p = 1 }})''')
+outcome = ev(max_, f'''MinistryOfTheAllied.Ballot:Compare("Aldric", {{ b = "{BID}", c = {{ 1, 1 }},
+    n = {{ ["Bram"] = MinistryOfTheAllied.Ballot:Tally("{BID}").counted["Bram"], ["Zed"] = "1" }}, r = 0, p = 1 }})''')
 check("A partly overlapping count is kept apart, not merged", outcome == "differ" and counts(max_) == "2,1|1")
 ex(max_, "P:Refresh()")
 check("...and the Crown view says the counts differ", "differ" in "".join(
@@ -1009,6 +1044,41 @@ check("With no polls open, the ballot view is quiet", (ex(bram, 'P:SetView("ball
       and BP.parts.quiet.title.text == "The Ballot Hall is quiet")
 check("The King's add-on drops the voters' names once declared",
       ev(max_, f'next(MinistryOfTheAllied.Ballot:Tally("{RID}").counted)') is None)
+
+print("== 14. saved names with a realm tag merge into one")
+OLD_SAVE = r'''
+MOTADB = {
+  guilds = { ["Ministry of the Allied-Realm"] = {
+    records = {
+      ["Bram-CAMWOWEU5Realm1PvE"] = { [1] = { t = 5, k = "test.note", d = { text = "a" } } },
+      ["Bram-CAMWOWEU5Realm7PvE"] = { [2] = { t = 6, k = "test.note", d = { text = "b" } } },
+      ["Max-CAMWOWEU5Realm7PvE"] = { [1] = { t = 4, k = "ballot.voted", d = { b = "Max-CAMWOWEU5Realm7PvE#1", v = "Bram-CAMWOWEU5Realm1PvE" } } },
+    },
+    tops = { ["Bram-CAMWOWEU5Realm1PvE"] = 1, ["Bram-CAMWOWEU5Realm7PvE"] = 2 },
+    reserved = { ["Pell-CAMWOWEU5Realm7PvE"] = 3 },
+    peers = { ["Bram-CAMWOWEU5Realm1PvE"] = { v = "0.1.0", seen = 10 }, ["Bram-CAMWOWEU5Realm7PvE"] = { v = "0.1.0", seen = 20 } },
+    myBallots = { ["Pell-CAMWOWEU5Realm7PvE"] = { ["Max-CAMWOWEU5Realm7PvE#1"] = { held = true } } },
+  } },
+  ballotTally = { ["Max-CAMWOWEU5Realm7PvE#1"] = { counts = { 1 }, counted = { ["Bram-CAMWOWEU5Realm1PvE"] = "1.1" }, refused = 0 } },
+}
+'''
+pell = Client("Pell", saved=OLD_SAVE)
+clients.append(pell)
+run(1)
+G = "MinistryOfTheAllied.guild"
+check("Old names: one Bram, holding both his records, top number 2",
+      ev(pell, f'{G}.records["Bram"][1].d.text == "a" and {G}.records["Bram"][2].d.text == "b" and {G}.tops["Bram"] == 2') is True)
+check("Old names: no tagged name is left in the book",
+      ev(pell, f'''(function() for _, key in ipairs({{"records","tops","reserved","peers","myBallots"}}) do
+        for name in pairs({G}[key]) do if name:find("-", 1, true) then return false end end end return true end)()''') is True)
+check("Old names: ballot IDs and voters inside records lose the tag",
+      ev(pell, f'{G}.records["Max"][1].d.b == "Max#1" and {G}.records["Max"][1].d.v == "Bram"') is True)
+check("Old names: the held ballot and the Kings' count follow",
+      ev(pell, f'{G}.myBallots["Pell"]["Max#1"].held == true and {G}.reserved["Pell"] == 3') is True
+      and ev(pell, 'MinistryOfTheAllied.db.ballotTally["Max#1"].counted["Bram"] == "1.1"') is True)
+check("Old names: Pell's next record doesn't reuse a number the guild holds",
+      ev(pell, 'MinistryOfTheAllied.Book:NextNumber()') == 4)
+clients.remove(pell)
 
 print("  Methods the pretend game didn't know:", max_.lua.globals().mock_unknown())
 missing = []

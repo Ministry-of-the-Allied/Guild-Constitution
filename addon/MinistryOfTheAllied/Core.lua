@@ -87,66 +87,48 @@ end
 -- Names, times and versions
 ---------------------------------------------------------------------------
 
--- This character's realm, with spaces and dashes taken out. The game can
--- report no realm for a moment around login, so it falls back to the realm's
--- display name, and returns "" if neither is known yet.
--- Once the guild roster has loaded, the realm is taken from this character's
--- own roster entry (LearnMe), because Forever writes it there and in add-on
--- message senders in a form of its own (e.g. "CAMWOWEU5Realm7PvE").
-function MOTA:MyRealm()
-  if self.homeRealm then return self.homeRealm end
-  local realm = GetNormalizedRealmName and GetNormalizedRealmName()
-  if (not realm or realm == "") and GetRealmName then
-    realm = (GetRealmName() or ""):gsub("[%s%-]", "")
-  end
-  return realm or ""
+-- Players are known by their name alone ("Kíng Sinnclair"). Forever adds a
+-- realm tag to names in the roster and on add-on messages
+-- ("Kíng Sinnclair-CAMWOWEU5Realm7PvE"), but the tag differs from one
+-- player's screen to another's (Realm7 on one, Realm1 on the next), and the
+-- server refuses a whisper addressed with it. Character names can't contain
+-- a dash, and are unique within the guild.
+function MOTA:Bare(name)
+  if type(name) ~= "string" then return nil end
+  name = name:match("^([^%-]*)")
+  if name == "" then return nil end
+  return name
 end
 
--- Always "Name-Realm", the form the game uses for add-on message senders.
-function MOTA:FullName(name, realm)
-  if not name or name == "" then return nil end
-  if name:find("-", 1, true) then return name end
-  if realm and realm ~= "" then
-    realm = realm:gsub("[%s%-]", "")
-  else
-    realm = self:MyRealm()
-  end
-  return name .. "-" .. realm
+-- The name every part of the add-on uses for a player (see Bare). Kept under
+-- this name because the roster, messages and whispers all go through it.
+function MOTA:FullName(name)
+  return self:Bare(name)
 end
 
--- Works out this character's own full name once the realm is known.
+-- A ballot's ID is its author and number, "Name#12"; an ID written before
+-- names lost their tag ("Name-Realm#12") becomes the same.
+function MOTA:BareId(id)
+  if type(id) ~= "string" then return id end
+  return (id:gsub("%-[^#]*#", "#"))
+end
+
+-- Works out this character's own name.
 function MOTA:SetMe()
   local name = UnitName("player")
-  local realm = self:MyRealm()
-  if name and realm ~= "" then self.me = name .. "-" .. realm end
+  if name and name ~= "" then self.me = self:Bare(name) end
 end
 
--- Called by Roster.lua with this character's own name exactly as the guild
--- roster writes it (found by the character's unique ID), which is the form
--- add-on messages arrive in.
-function MOTA:LearnMe(fullName)
-  if not fullName or fullName == self.me then return end
-  self:Debug("own name from the roster:", fullName, "(was", tostring(self.me) .. ")")
-  self.me = fullName
-  self.homeRealm = fullName:match("%-(.+)$")
-end
-
--- True if a sender's name is this character's own, in any of the forms the
--- game uses: "Name" for the player's own realm, or "Name-Realm".
+-- True if a name is this character's own, with or without a realm tag.
 function MOTA:IsMe(name)
+  name = self:Bare(name)
   if not name then return false end
-  local mine = UnitName("player")
-  return name == self.me or name == mine or Ambiguate(name, "none") == mine
+  return name == self.me or name == self:Bare(UnitName("player"))
 end
 
--- A name for display: the realm is dropped when it's the guild's own.
-function MOTA:Short(fullName)
-  if not fullName then return "?" end
-  local realm = self:MyRealm()
-  if realm ~= "" and fullName:sub(-(#realm + 1)) == "-" .. realm then
-    return fullName:sub(1, -(#realm + 2))
-  end
-  return Ambiguate(fullName, "guild")
+-- A name for display.
+function MOTA:Short(name)
+  return self:Bare(name) or "?"
 end
 
 function MOTA:Ago(t)
@@ -224,6 +206,69 @@ function MOTA:GuildKey()
   return guildName .. "-" .. guildRealm
 end
 
+-- Saved data from before players were known by their name alone (MOTA:Bare)
+-- holds names with a realm tag, sometimes the same player under two tags.
+-- Done once per guild book: each name loses its tag and the entries merge.
+local function biggest(t, k, v)
+  if type(v) == "number" and v > (t[k] or 0) then t[k] = v end
+end
+
+function MOTA:BareGuildBook(g)
+  if g.names == 2 then return end
+  local records = {}
+  for author, list in pairs(g.records or {}) do
+    local a = self:Bare(author) or author
+    records[a] = records[a] or {}
+    for n, r in pairs(list) do
+      if type(r) == "table" and type(r.d) == "table" then
+        if type(r.d.b) == "string" then r.d.b = self:BareId(r.d.b) end
+        if type(r.d.v) == "string" then r.d.v = self:Bare(r.d.v) end
+      end
+      local have = records[a][n]
+      if not have or (type(r) == "table" and r.t and have.t and r.t < have.t) then records[a][n] = r end
+    end
+  end
+  g.records = records
+  for _, key in ipairs({ "tops", "reserved" }) do
+    local merged = {}
+    for name, n in pairs(g[key] or {}) do biggest(merged, self:Bare(name) or name, n) end
+    g[key] = merged
+  end
+  local peers = {}
+  for name, p in pairs(g.peers or {}) do
+    local bare = self:Bare(name)
+    local have = bare and peers[bare]
+    if bare and (not have or (p.seen or 0) > (have.seen or 0)) then peers[bare] = p end
+  end
+  g.peers = peers
+  if g.myBallots then
+    local mine = {}
+    for name, list in pairs(g.myBallots) do
+      local bare = self:Bare(name) or name
+      mine[bare] = mine[bare] or {}
+      for id, e in pairs(list) do mine[bare][self:BareId(id)] = e end
+    end
+    g.myBallots = mine
+  end
+  g.names = 2
+end
+
+-- The same for the Kings' running counts, saved for the whole account.
+function MOTA:BareTallies()
+  if self.db.names == 2 then return end
+  local tallies = {}
+  for id, t in pairs(self.db.ballotTally or {}) do
+    if type(t) == "table" and type(t.counted) == "table" then
+      local counted = {}
+      for name, v in pairs(t.counted) do counted[self:Bare(name) or name] = v end
+      t.counted = counted
+    end
+    tallies[self:BareId(id)] = t
+  end
+  if self.db.ballotTally then self.db.ballotTally = tallies end
+  self.db.names = 2
+end
+
 -- Called whenever the guild might have changed. Fires GUILD_READY once the
 -- guild is known, and GUILD_LOST if the character leaves it.
 function MOTA:CheckGuild()
@@ -248,6 +293,8 @@ function MOTA:CheckGuild()
       peers = {},    -- [name] = what we last heard from their add-on
     })
     self.guild = self.db.guilds[key]
+    self:BareGuildBook(self.guild)
+    self:BareTallies()
     self:Fire("GUILD_READY", key)
   else
     self.guild = nil
