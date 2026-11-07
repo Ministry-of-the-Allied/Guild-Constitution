@@ -354,7 +354,7 @@ local function buildCrown()
   v.contestLine:SetWidth(WIDTH - 32)
   local days = CreateFrame("EditBox", nil, desk)
   days:SetSize(60, 30)
-  days:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 16, 16)
+  days:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 16, 54)
   days:SetAutoFocus(false)
   days:SetFontObject(MOTA:Font("kitSmall"))
   days:SetTextColor(MOTA:RGB("2A1F14"))
@@ -364,18 +364,20 @@ local function buildCrown()
   Kit:Outline(days, "6E4F17", 0.6)
   days:SetScript("OnEscapePressed", days.ClearFocus)
   days:SetScript("OnEnterPressed", days.ClearFocus)
-  local function act(x, w, label, style, fn)
+  -- Two rows, so each button has room for its label: the date and the
+  -- contests on the left above, the two ratify buttons on the right below.
+  local function act(point, x, y, w, label, style, fn)
     local b = Kit:Button(desk, w, 30, label, style, function()
       local _, err = fn()
       if err then MOTA:Print(err) end
     end)
-    b:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", x, 16)
+    b:SetPoint(point, desk, point, x, y)
     return b
   end
-  act(82, 132, "Set: days away", "quiet", function() return MOTA.Contest:SetDate(days:GetText()) end)
-  v.openBtn = act(220, 132, "Open contests", "gold", function() return MOTA.Contest:Open() end)
-  act(358, 166, "Ratify Silverhand", "blue", function() return MOTA.Contest:Ratify("sh") end)
-  act(530, 162, "Ratify Exchange", "blue", function() return MOTA.Contest:Ratify("ex") end)
+  act("BOTTOMLEFT", 82, 54, 156, "Set: days away", "quiet", function() return MOTA.Contest:SetDate(days:GetText()) end)
+  v.openBtn = act("BOTTOMLEFT", 244, 54, 156, "Open contests", "gold", function() return MOTA.Contest:Open() end)
+  act("BOTTOMRIGHT", -16 - 194 - 8, 16, 200, "Ratify Silverhand", "blue", function() return MOTA.Contest:Ratify("sh") end)
+  act("BOTTOMRIGHT", -16, 16, 194, "Ratify Exchange", "blue", function() return MOTA.Contest:Ratify("ex") end)
   return v
 end
 

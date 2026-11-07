@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="rim" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFF1B0"/><stop offset="0.45" stop-color="#D9A92E"/><stop offset="1" stop-color="#7A5518"/>
+    </linearGradient>
+    <radialGradient id="face" cx="0.36" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#FFE9A0"/><stop offset="0.55" stop-color="#E0B13A"/><stop offset="1" stop-color="#A67A22"/>
+    </radialGradient>
+    <linearGradient id="shine" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="shade" cx="0.6" cy="0.62" r="0.62">
+      <stop offset="0.6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.32"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="#5E4210"/>
+  <circle cx="32" cy="32" r="30" fill="url(#rim)"/>
+  <circle cx="32" cy="32" r="28.6" fill="none" stroke="#5E4210" stroke-opacity="0.55" stroke-width="2.2" stroke-dasharray="1.5 1.5"/>
+  <circle cx="32" cy="32" r="25.6" fill="#5E4210" fill-opacity="0.8"/>
+  <circle cx="32" cy="32" r="24.4" fill="url(#face)"/>
+  <circle cx="32" cy="32" r="21.2" fill="none" stroke="#FFF6C8" stroke-opacity="0.55" stroke-width="1"/>
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#5E4210" stroke-opacity="0.45" stroke-width="0.9"/>
+  <g transform="translate(0.9 0.9)" fill="#6B4A14" fill-opacity="0.75"><path d="M19 41 L15.5 25.5 L25 32 L32 20.5 L39 32 L48.5 25.5 L45 41 Z"/><rect x="19" y="43" width="26" height="4" rx="1"/></g>
+  <g transform="translate(-0.6 -0.6)" fill="#FFF6C8" fill-opacity="0.9"><path d="M19 41 L15.5 25.5 L25 32 L32 20.5 L39 32 L48.5 25.5 L45 41 Z"/><rect x="19" y="43" width="26" height="4" rx="1"/></g>
+  <g fill="#C9992A"><path d="M19 41 L15.5 25.5 L25 32 L32 20.5 L39 32 L48.5 25.5 L45 41 Z"/><rect x="19" y="43" width="26" height="4" rx="1"/></g>
+  <circle cx="32" cy="32" r="24.4" fill="url(#shade)"/>
+  <path d="M10 28 A23 23 0 0 1 36 9.5 A26 26 0 0 0 10 28 Z" fill="url(#shine)" opacity="0.9"/>
+  <ellipse cx="21.5" cy="15.5" rx="6" ry="3" transform="rotate(-38 21.5 15.5)" fill="#fff" fill-opacity="0.5249999999999999"/>
+</svg>

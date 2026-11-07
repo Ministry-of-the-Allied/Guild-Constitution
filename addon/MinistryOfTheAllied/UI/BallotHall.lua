@@ -50,9 +50,12 @@ local function inkIt(apply)
   apply()
 end
 local function wear(t) -- a blue picture, in the accent's drawn copy
-  local p = M.pieces["b_" .. t.name .. MOTA:Accent().SUFFIX] or M.pieces["b_" .. t.name]
+  local name = "b_" .. t.name .. MOTA:Accent().SUFFIX
+  if not M.pieces[name] then name = "b_" .. t.name end
+  local p = M.pieces[name]
   t:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
   t:SetTexCoord(p.l, p.r, p.t, p.b)
+  MOTA.LiveText:Set(t, name)
 end
 MOTA:Listen("SKIN_CHANGED", function()
   for _, apply in ipairs(inked) do apply() end
@@ -72,6 +75,7 @@ local function art(parent, name, layer, sub)
   t:SetTexCoord(p.l, p.r, p.t, p.b)
   t:SetSize(p.w, p.h)
   t.piece, t.slot, t.k = p, s, 1
+  MOTA.LiveText:Set(t, "b_" .. name)
   if M.pieces["b_" .. name .. "~cr"] then
     t.name = name
     wearing[#wearing + 1] = t
@@ -100,6 +104,23 @@ local function putCenter(t, anchor, cx, cy)
 end
 
 local function boxOf(name) return M.slots[name] end
+
+-- The seal of a candidate's party (the Official seal for an independent): the
+-- mark on the name you pick, and the seal on the Seal my ballot button, wear it.
+local SEAL_OF = { sh = "seal-sh", ex = "seal-ex" }
+local function sealOf(p) return SEAL_OF[p] or "seal-off" end
+
+-- Shows another seal on a piece drawn by art(), at the same size and place.
+local function swapSeal(t, name, size, anchor, x, y)
+  if t.sealName == name then return end
+  t.sealName = name
+  local p = M.pieces["b_" .. name]
+  t:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
+  t:SetTexCoord(p.l, p.r, p.t, p.b)
+  t.piece, t.slot = p, M.slots[name]
+  scaled(t, size)
+  put(t, anchor, x, y)
+end
 
 local function at(region, anchor, x, y, point)
   region:ClearAllPoints()
@@ -442,6 +463,12 @@ local function buildOpen(v)
   O.seal = pieceButton(paper, "btn-seal", function() Page:Seal() end)
   local sb = boxOf("btn-seal")
   at(O.seal, paper, pw - 30 - sb.w, VH - 20 - 29 - sb.h / 2)
+  -- The button is drawn without its seal: the chosen candidate's party's goes in the gap.
+  local ico = boxOf("btn-seal-ico")
+  O.sealIco = art(O.seal, "seal-off", "ARTWORK", 1)
+  O.sealIco.home = { ico.x - sb.x, ico.y - sb.y, ico.w }
+  scaled(O.sealIco, ico.w)
+  put(O.sealIco, O.seal, O.sealIco.home[1], O.sealIco.home[2])
 
   -- The stamp once a King has it; the held block while it waits.
   local over = CreateFrame("Frame", nil, paper)
@@ -450,6 +477,7 @@ local function buildOpen(v)
   O.stamp = putCenter(art(over, "stamp", "OVERLAY"), paper, pw - 26 - 75, VH - 18 - 75)
   local hb = boxOf("held")
   O.held = putCenter(art(over, "held", "OVERLAY"), paper, pw - 22 - hb.w / 2, VH - 16 - hb.h / 2)
+  O.held.home = { paper, pw - 22 - hb.w / 2, VH - 16 - hb.h / 2 }
 end
 
 local HINTS = {
@@ -523,6 +551,7 @@ local function fillOpen(b)
       opt.chip:Set(p.chip, c.p)
       local on = chosen == i
       opt.sel:SetShown(on)
+      swapSeal(opt.marked, sealOf(c.p), 38, opt, 10, 10)
       opt.marked:SetShown(on)
       opt.ring:SetShown(not on)
       opt:ClearAllPoints()
@@ -543,7 +572,25 @@ local function fillOpen(b)
   end
   O.seal:SetShown(state == "none")
   O.seal:SetUsable(pick ~= nil)
+  local pc = pick and d.cands[pick]
+  local home = O.sealIco.home
+  swapSeal(O.sealIco, sealOf(pc and pc.p), home[3], O.seal, home[1], home[2])
   O.stamp:SetShown(state == "sent")
+  -- the held block wears the seal of the party you voted for
+  local held = O.held
+  local hp = chosen and d.cands[chosen]
+  local HELD_OF = { sh = "held-sh", ex = "held-ex" }
+  local hname = HELD_OF[hp and hp.p] or "held"
+  if held.artName ~= hname then
+    held.artName = hname
+    local piece = M.pieces["b_" .. hname]
+    held:SetTexture(M.dir .. M.textures[piece.tex], "CLAMP", "CLAMP", "TRILINEAR")
+    held:SetTexCoord(piece.l, piece.r, piece.t, piece.b)
+    held.piece, held.slot = piece, M.slots[hname]
+    MOTA.LiveText:Set(held, "b_" .. hname)
+    held:SetSize(piece.w * held.k, piece.h * held.k)
+    putCenter(held, held.home[1], held.home[2], held.home[3])
+  end
   O.held:SetShown(state == "held")
 end
 
@@ -556,7 +603,7 @@ local Q = {}
 local function buildQuiet(v)
   put(art(v, "paper-wide", "BACKGROUND"), v, 0, 0)
   Q.crown = scaled(art(v, "seal-crown"), 76)
-  Q.official = scaled(art(v, "seal-off"), 64)
+  Q.official = scaled(art(v, "seal-off"), 112) -- large, so its ring text can be read
   Q.eyebrow = caps(v, "bEyebrow", C.inkGold, 0.32)
   Q.title = text(v, "bTitle", C.rb, "CENTER", 600)
   Q.prose = text(v, "bProse", C.ink, "CENTER", 460)
@@ -572,7 +619,7 @@ local function fillQuiet(closed, b)
   Q.last:SetShown(not closed)
   Q.note:SetShown(closed)
   local seal = closed and Q.crown or Q.official
-  local sealH = closed and 76 or 64
+  local sealH = closed and 76 or 112
   local eyebrow = closed and ("Polls closed · " .. b.d.name) or "No polls open"
   Q.title:SetText(closed and "The Crown is counting" or "The Ballot Hall is quiet")
   Q.prose:SetText(closed and "The result will be proclaimed here, and a herald will announce it to everyone online."

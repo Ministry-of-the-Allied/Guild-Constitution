@@ -1,5 +1,6 @@
 -- Ministry of the Allied: the Constitution, on the Statute Book page (ADDON_SPEC.md, section 12.6).
 -- The Charter to read on the left, the narration to replay on the right.
+-- One of the Statute Book's four views: UI/Statutes.lua shows and hides it.
 
 local _, MOTA = ...
 local UI = MOTA.UI
@@ -11,7 +12,6 @@ local PAGE_ID = "statute"
 local Kit = MOTA.Kit
 -- The Statute Book board: ribbons along the top, then an open book of two pages.
 local PARCH = M.slots.parch
-local LEFT, TOP = PARCH.x + 34, PARCH.y + 20
 local WIDTH, HEIGHT = PARCH.w - 60, PARCH.h - 44
 local BOOK_TOP = 36 + 16
 local BOOK_H = HEIGHT - BOOK_TOP
@@ -176,14 +176,10 @@ end
 
 function Page:Show(show)
   if show and not root then
-    root = CreateFrame("Frame", nil, UI.window)
+    -- Hangs on the Statute Book page (UI/Statutes.lua), which draws the ribbons.
+    root = CreateFrame("Frame", nil, MOTA.StatutesPage:Root())
     root:SetSize(WIDTH, HEIGHT)
-    root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
-    local ribbon = Kit:Ribbon(root, 4)
-    ribbon:SetPoint("TOPLEFT", root, "TOPLEFT", 0, 0)
-    ribbon:SetOn(true)
-    local count = Kit:Label(root, "kitTiny", "7A5719", 0.3, "Ten readings")
-    count:SetPoint("TOPRIGHT", root, "TOPRIGHT", 0, -13)
+    root:SetPoint("TOPLEFT", MOTA.StatutesPage:Root(), "TOPLEFT", 0, 0)
     -- The open book: two pages and the gutter between them.
     local book = CreateFrame("Frame", nil, root)
     book:SetSize(WIDTH, BOOK_H)
@@ -205,5 +201,4 @@ function Page:Show(show)
   end
 end
 
-MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
 MOTA:Listen("VOICE_CHANGED", function() Page:Refresh() end)

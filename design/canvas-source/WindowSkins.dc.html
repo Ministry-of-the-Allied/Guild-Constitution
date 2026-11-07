@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Window skins</title>
 <script src="./support.js"></script>
-<link rel="stylesheet" href="/_blob/92b4fa14869576666ce050f265fa7623">
+<link rel="stylesheet" href="/_blob/a71d23c1c3b21a84a5914a9c1b2fe665">
 </head>
 <body>
 <x-dc>
@@ -34,9 +34,10 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 .ws-sh .title{background:linear-gradient(180deg,#FFFFFF 0%,#F1F4F8 32%,#B3BDCA 56%,#E9EEF3 100%);-webkit-background-clip:text;background-clip:text}
 .ws-sh .subtitle{color:#D5DEF0}
 .ws-sh .subtitle::before,.ws-sh .subtitle::after{background:linear-gradient(90deg,rgba(184,194,207,0),#B8C2CF)}
-.ws-sh .knob{color:#F2F5F9;background:radial-gradient(circle at 35% 30%,#4570C4,#1F4290 60%,#0C1C44);
-  box-shadow:0 0 0 2px #B8C2CF,0 0 0 3px #1B1F27,0 3px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
-.ws-sh .knob.red{color:#1F4290;background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.7),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#FFFFFF 0%,#D3DAE3 45%,#8A95A5 100%)}
+.ws-sh .head-btns{--knob-edge:#1B1F27}
+.ws-sh .knob{color:#F2F5F9;--wax:radial-gradient(circle at 35% 30%,#4570C4,#1F4290 60%,#0C1C44);--hair:rgba(255,255,255,.5);
+  --rim:linear-gradient(180deg,#FFFFFF 0%,#E3E8EE 18%,#AEB8C6 42%,#6B7483 58%,#AEB8C6 76%,#EEF2F6 100%)}
+.ws-sh .knob.red{color:#1F4290;--hair:rgba(31,66,144,.35);--wax:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.7),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#FFFFFF 0%,#D3DAE3 45%,#8A95A5 100%)}
 .ws-sh .tab{color:#DCE3EE;border-color:rgba(214,222,233,.5);
   background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.16),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#6F82A8 0%,#2E3E62 42%,#0F172B 100%);
   box-shadow:inset 0 1px 0 rgba(200,212,232,.45),inset 0 -2px 0 rgba(5,8,16,.7),inset 0 0 10px rgba(5,8,16,.4),0 2px 5px rgba(0,0,0,.5)}
@@ -55,8 +56,8 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 /* ---- Azeroth Exchange: crimson leather and gold ---- */
 .ws-ex .win-leather{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),radial-gradient(ellipse 90% 70% at 40% 0%,#B8343C 0%,#8E1A21 34%,#661118 62%,#2E0609 100%)}
 .ws-ex .subtitle{color:#F2CDBE}
-.ws-ex .knob{background:radial-gradient(circle at 35% 30%,#C23A42,#8E1A21 60%,#3A070B)}
-.ws-ex .knob.red{color:#6B1016;background:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
+.ws-ex .knob{--wax:radial-gradient(circle at 35% 30%,#C23A42,#8E1A21 60%,#3A070B)}
+.ws-ex .knob.red{color:#6B1016;--hair:rgba(107,16,22,.35);--wax:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
 .ws-ex .tab{color:#F3D98A;
   background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.16),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#C8434B 0%,#7A151C 42%,#2A0407 100%);
   box-shadow:inset 0 1px 0 rgba(240,160,150,.45),inset 0 -2px 0 rgba(30,2,4,.7),inset 0 0 10px rgba(30,2,4,.4),0 2px 5px rgba(0,0,0,.5)}
@@ -70,8 +71,8 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 .ws-cr .win-head::before{content:"";position:absolute;left:120px;right:120px;top:-4px;bottom:-4px;z-index:-1;
   background:radial-gradient(ellipse 50% 58% at 50% 46%,rgba(150,52,120,.55),rgba(150,52,120,0) 100%)}
 .ws-cr .subtitle{color:#EBCBDF}
-.ws-cr .knob{background:radial-gradient(circle at 35% 30%,#8E2E6E,#4E1039 50%,#1C0415)}
-.ws-cr .knob.red{color:#4F0F3B;background:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
+.ws-cr .knob{--wax:radial-gradient(circle at 35% 30%,#8E2E6E,#4E1039 50%,#1C0415)}
+.ws-cr .knob.red{color:#4F0F3B;--hair:rgba(79,15,59,.35);--wax:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420)}
 .ws-cr .tab{color:#F3D98A;
   background:radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.14),rgba(255,255,255,0) 100%),radial-gradient(ellipse 120% 170% at 30% 22%,#9A3A7E 0%,#5A1645 42%,#1E0418 100%);
   box-shadow:inset 0 1px 0 rgba(222,156,204,.6),inset 0 -2px 0 rgba(20,2,16,.7),inset 0 0 10px rgba(20,2,16,.4),0 2px 5px rgba(0,0,0,.5)}
@@ -187,7 +188,7 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
                     <section class="plate blue" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px">
                       <h3 class="h-sec">Open now</h3>
                       <div style="display: flex; gap: 12px; align-items: center">
-                        <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 56px; height: 56px; flex: none">
+                        <img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="" style="width: 56px; height: 56px; flex: none">
                         <div style="display: flex; flex-direction: column; gap: 2px">
                           <span class="h-name" style="font-size: 16px">The General Election</span>
                           <span class="small muted">Polls close at 9:40 pm · 1 h 12 min left</span>

@@ -3,7 +3,7 @@
 -- heading line, a title, a line of text and a button. One at a time, each
 -- for a few seconds or until dismissed, never during combat.
 --
---   MOTA.Herald:Announce{ seal = "official" | "crown" | "exchange" | "silverhand",
+--   MOTA.Herald:Announce{ seal = "official" | "crown" | "exchange" | "silverhand" | "ring" | "treasury",
 --     eyebrow = "...", title = "...", text = "...",
 --     button = { label = "Vote now" | "Read it" | "Open" | "Dismiss",
 --                style = "blue" | "quiet", page = <window page number>,
@@ -69,7 +69,7 @@ local function build()
 
   piece(frame, "heraldBg", "BACKGROUND")
   frame.seals = {}
-  for _, seal in ipairs({ "official", "crown", "exchange", "silverhand" }) do
+  for _, seal in ipairs({ "official", "crown", "exchange", "silverhand", "ring", "treasury" }) do
     frame.seals[seal] = piece(frame, "hseal_" .. seal, "ARTWORK")
   end
 
@@ -102,6 +102,7 @@ local function build()
       t:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
       t:SetTexCoord(p.l, p.r, p.t, p.b)
       t:SetAllPoints()
+      MOTA.LiveText:Set(t, name)
       local glow = b:CreateTexture(nil, "HIGHLIGHT")
       glow:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
       glow:SetTexCoord(p.l, p.r, p.t, p.b)
@@ -109,11 +110,13 @@ local function build()
       glow:SetBlendMode("ADD")
       glow:SetAlpha(0.25)
       MOTA.Kit:Track(function() -- the blue buttons follow the skin's accent
-        local q = M.pieces[name .. MOTA:Accent().SUFFIX] or p
+        local qname = M.pieces[name .. MOTA:Accent().SUFFIX] and name .. MOTA:Accent().SUFFIX or name
+        local q = M.pieces[qname]
         for _, tex in ipairs({ t, glow }) do
           tex:SetTexture(M.dir .. M.textures[q.tex], "CLAMP", "CLAMP", "TRILINEAR")
           tex:SetTexCoord(q.l, q.r, q.t, q.b)
         end
+        MOTA.LiveText:Set(t, qname)
       end)
       b:SetScript("OnClick", function() Herald:Press() end)
       b:Hide()

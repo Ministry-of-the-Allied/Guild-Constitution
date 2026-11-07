@@ -78,22 +78,26 @@ BLOBS = {
     "c2d86e49cc4f265a0371294274387bd7": "textures/leather-grain.svg",
     "6d5fbe8d4c5384d8cf626886038701ac": "../tools/textures/corner-nogem.svg",  # the gem is its own layer, tinted per skin
     "d4a81ff364cfd13a95212c60a73bd187": "textures/parchment-grain.svg",
-    "83dde6b367275cb6d4d9550c6c74c5ac": "../tools/textures/tab-frame-gold.svg",  # small gold gems, the same in every skin
+    "800598301eab1e913fea8bebb29ced92": "../tools/textures/tab-frame-gold.svg",  # small gold gems, the same in every skin
     "e91083b63eec292d284b54d9d2ba82db": "textures/divider-ink.svg",
-    "19c005d5f1860452928780ca70041223": "textures/seal-official.svg",
+    "94ef7c92a8bcd358781dc40e94b03f94": "textures/seal-official.svg",  # the Seal of the State (8-point star)
+    "99bf4b4c93aa6e84722428af4ade0c71": "textures/seal-ring.svg",      # ...its Ring form (portcullis)
+    "0e3ae79bcbb71b9e22d6acc9f26734b8": "textures/seal-treasury.svg",  # ...its Treasury form (crossed keys)
     "539190bbac866c98462ae1069c2f22b6": "textures/seal-crown.svg",
     "dd8568019d0ff8be3c87935987cf352a": "textures/seal-silverhand.svg",
     "2548a4e779105c6802c9276a14f27592": "textures/seal-exchange.svg",
     "95cd0584f50217d5706a3ab342656520": "textures/crest-crown.png",
     "7c545901b08ed0754c9e9eaf3000577b": "textures/alliance-crest.png",
+    "1cb79e1436f6a97727600db25de81026": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Bold.ttf",
+    "b86b602a50d468e81c13dca06841b75b": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Black.ttf",
 }
-SEALS = ["official", "crown", "exchange", "silverhand"]
+SEALS = ["official", "crown", "exchange", "silverhand", "ring", "treasury"]  # ring/treasury: the Seal of the State's page variants
 
 FONT_FACES = [
     ("Cinzel", 600, "normal", "Cinzel-SemiBold.ttf"),
     ("Cinzel", 700, "normal", "Cinzel-Bold.ttf"),
-    ("Cinzel Decorative", 700, "normal", "CinzelDecorative-Bold.ttf"),
-    ("Cinzel Decorative", 900, "normal", "CinzelDecorative-Black.ttf"),
+    ("Cinzel Decorative", 700, "normal", "MinistryDecorative-Bold.ttf"),  # joined pairs spaced normally (tools/fonts)
+    ("Cinzel Decorative", 900, "normal", "MinistryDecorative-Black.ttf"),
     ("EB Garamond", 400, "normal", "EBGaramond-Regular.ttf"),
     ("EB Garamond", 500, "normal", "EBGaramond-Medium.ttf"),
     ("EB Garamond", 400, "italic", "EBGaramond-Italic.ttf"),
@@ -120,7 +124,7 @@ ACCENTS = {
 }
 # Pieces with blue in them, by layout: each is drawn once more per accent in the "accent" texture.
 ACCENT_PIECES = (
-    ["kitBlue", "kitStepTodo"] + [f"kitRibbonOn{i}" for i in range(1, 8)]
+    ["kitBlue", "kitStepTodo", "kitMark"] + [f"kitRibbonOn{i}" for i in range(1, 11)]
     + ["b_" + n for n in ("rb-ballot-on", "rb-ballot-on-dot", "rb-results-on", "rb-crown-on", "btn-seal", "btn-open",
                           "btn-close", "btn-runoff", "btn-last", "btn-add", "pill-general-on", "pill-snap-on",
                           "pill-runoff-on")]
@@ -145,6 +149,7 @@ def accent_css(a):
         "0 4px 10px rgba(60,40,10,.35)!important}",
         ".plate.blue .eyebrow{color:PALE!important}",
         ".step:not(.done):not(.now){background:DARK!important}",
+        ".ribbon-mark{background:linear-gradient(90deg,DARK,TOP 50%,DARK)!important}",
     ]
     css = "\n".join(rules)
     for token, value in (("PLATETOP", a["plate_top"]), ("PLATEBOT", a["plate_bot"]), ("TOP", a["top"]),
@@ -172,11 +177,134 @@ SLOTS = {
     + [f"ssmall{i}" for i in range(1, 7)] + [f"sw{i}" for i in range(1, 5)],
     # The Ballot Hall's pieces, so the add-on knows each one's own box (without its shadow).
     "ballot": ["ballot", "rb-ballot", "rb-ballot-dot", "rb-ballot-on", "rb-ballot-on-dot", "rb-results",
-               "rb-results-on", "rb-crown", "rb-crown-on", "seal-off", "seal-crown", "seal-tilt", "stamp", "held",
-               "ring", "kdot-on", "kdot-off", "diamond", "portrait-king", "btn-seal", "btn-open", "btn-close",
-               "btn-declare", "btn-runoff", "btn-last", "btn-add", "pill-general", "pill-general-on", "pill-snap",
+               "rb-results-on", "rb-crown", "rb-crown-on", "seal-off", "seal-sh", "seal-ex", "seal-crown", "seal-tilt", "stamp", "held",
+               "held-sh", "held-ex", "ring", "kdot-on", "kdot-off", "diamond", "portrait-king", "btn-seal", "btn-open", "btn-close",
+               "btn-seal-ico", "btn-declare", "btn-runoff", "btn-last", "btn-add", "pill-general", "pill-general-on", "pill-snap",
                "pill-snap-on", "pill-runoff", "pill-runoff-on", "xbtn", "paper-ballot", "paper-half", "paper-wide"],
 }
+
+
+# --------------------------------------------------------------------- live text
+# Text inside a piece is not baked into the picture: the build measures it (words, font, size,
+# spacing, colour, shadow, where it sits), draws the piece without it, and the add-on lays the
+# same words over the picture as game text (UI/LiveText.lua), which stays sharp at any window
+# size (Max, 8 Nov). Kept as pictures: the window's title (gold gradient letters) and the tabs'
+# label/small pieces (the tabs draw their own text; the pieces only give the places), and the Ballot
+# Hall's held block, whose strip is tilted (game text can't tilt).
+BAKED_TEXT = re.compile(r"(^|:)title$|^label\d+$|^small\d+$|^b_held")
+
+# Finds every visible text run on the page; build.py keeps the ones inside the piece being drawn.
+TEXT_JS = r"""<script>(function () {
+  const runs = [];
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = walk.nextNode())) {
+    const raw = n.nodeValue;
+    if (!raw || !raw.trim()) continue;
+    const el = n.parentElement;
+    if (!el || el.closest('svg,script,style,pre,title,head')) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none') continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    const lines = Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0);
+    if (!lines.length) continue;
+    const b = range.getBoundingClientRect();
+    const anc = [];
+    for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) if (e.id) anc.push(e.id);
+    let text = raw.replace(/\s+/g, ' ').trim();
+    if (cs.textTransform === 'uppercase') text = text.toUpperCase();
+    else if (cs.textTransform === 'lowercase') text = text.toLowerCase();
+    runs.push({ text, own: el.id || '', anc, x: b.left, y: b.top, w: b.width, h: b.height, lines: lines.length,
+      family: cs.fontFamily, weight: parseInt(cs.fontWeight, 10) || 400, style: cs.fontStyle,
+      size: parseFloat(cs.fontSize), ls: cs.letterSpacing === 'normal' ? 0 : parseFloat(cs.letterSpacing) || 0,
+      color: cs.color, fill: cs.webkitTextFillColor, align: cs.textAlign, shadow: cs.textShadow });
+  }
+  const pre = document.createElement('pre');
+  pre.id = 'texts-json';
+  pre.style.display = 'none';
+  pre.textContent = JSON.stringify(runs);
+  document.body.appendChild(pre);
+})();</script>"""
+
+# Makes the piece's own text invisible for the picture (its runs are wrapped in a clear span).
+HIDE_JS = r"""<script>(function (show, hide) {
+  const pick = (el, list) => list.exact.includes(el.id) ||
+    (function () { for (let e = el.parentElement; e; e = e.parentElement) if (e.id && list.desc.includes(e.id)) return true; return false; })();
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const todo = [];
+  let n;
+  while ((n = walk.nextNode())) {
+    const el = n.parentElement;
+    if (!n.nodeValue.trim() || !el || el.closest('svg,script,style,pre')) continue;
+    if (pick(el, show) && !pick(el, hide)) todo.push(n);
+  }
+  for (const t of todo) {
+    const s = document.createElement('span');
+    for (const p of ['color', '-webkit-text-fill-color']) s.style.setProperty(p, 'transparent', 'important');
+    s.style.setProperty('text-shadow', 'none', 'important');
+    t.parentNode.insertBefore(s, t);
+    s.appendChild(t);
+  }
+})(%s, %s);</script>"""
+
+
+def piece_lists(css):
+    """The ids a piece's only() CSS shows and hides: {"exact": [...], "desc": [...]} each."""
+    def ids(rule):
+        out = {"exact": [], "desc": []}
+        if rule:
+            for sel in rule.group(1).split(","):
+                m = re.fullmatch(r"\s*#([\w-]+)(\s+\*)?\s*", sel)
+                if m:
+                    out["desc" if m.group(2) else "exact"].append(m.group(1))
+        return out
+    show = re.search(r"\n([^{}\n]+)\{visibility:visible!important\}", css)
+    hide = re.search(r"\n(?!body \*)([^{}\n]+)\{visibility:hidden!important\}", css)
+    return ids(show), ids(hide)
+
+
+def css_without_visibility(css):
+    return re.sub(r"[^{}\n]*\{visibility:(?:hidden|visible)!important\}", "", css)
+
+
+def font_key(family, weight, style):
+    first = family.split(",")[0].strip(" '\"").lower()
+    if "decorative" in first:
+        return "decoBlack" if weight >= 800 else "decoBold"
+    if first == "cinzel":
+        return "cinzel" if weight >= 650 else "cinzelSemi"
+    if style == "italic":
+        return "garamondItalic"
+    return "garamondMedium" if weight >= 500 else "garamond"
+
+
+def css_color(text):
+    """'rgb(1, 2, 3)' or 'rgba(1, 2, 3, .5)' -> ("010203", alpha), or None."""
+    m = re.match(r"rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)", text or "")
+    if not m:
+        return None
+    r, g, b = (round(float(v)) for v in m.group(1, 2, 3))
+    return f"{r:02X}{g:02X}{b:02X}", float(m.group(4)) if m.group(4) else 1.0
+
+
+def text_record(run, ox, oy, pos):
+    """One run as the add-on reads it: place relative to the piece, font, colour, spacing."""
+    col = css_color(run["color"]) or ("000000", 1.0)
+    fill = css_color(run["fill"])
+    if fill and fill[1] > 0:
+        col = fill
+    rec = {"s": run["text"], "x": round(run["x"] - ox - pos["x"], 2), "y": round(run["y"] - oy - pos["y"], 2),
+           "w": round(run["w"], 2), "h": round(run["h"], 2), "f": font_key(run["family"], run["weight"], run["style"]),
+           "z": round(run["size"], 2), "t": round(run["ls"] / run["size"], 3) if run["size"] else 0,
+           "c": col[0], "a": round(col[1], 3),
+           "j": {"center": "CENTER", "right": "RIGHT", "end": "RIGHT"}.get(run["align"], "LEFT"), "n": run["lines"]}
+    m = re.match(r"(rgba?\([^)]*\))\s+(-?[\d.]+)px\s+(-?[\d.]+)px", run["shadow"] or "")
+    if m:
+        sc = css_color(m.group(1))
+        if sc and sc[1] > 0:
+            rec.update(sx=float(m.group(2)), sy=float(m.group(3)), sc=sc[0], sa=round(sc[1], 3))
+    return rec
 
 
 def find_edge():
@@ -253,6 +381,9 @@ def extras_html(css, piece_css="", seal="official", button="Vote now", style="bl
         "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
         "seal_sh": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
         "seal_ex": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
+        "coin_g": (DESIGN / "textures" / "coin-g.svg").as_uri(),
+        "coin_s": (DESIGN / "textures" / "coin-s.svg").as_uri(),
+        "coin_c": (DESIGN / "textures" / "coin-c.svg").as_uri(),
         "button": html.escape(button, quote=False),
         "button_class": "btn sm" if style == "blue" else "btn quiet sm",
         "modest_class": "on" if seg == "small" else "",
@@ -265,6 +396,8 @@ def ballot_html(css, piece_css=""):
         "css": css + "\n" + piece_css,
         "official": (DESIGN / "textures" / "seal-official.svg").as_uri(),
         "crown": (DESIGN / "textures" / "seal-crown.svg").as_uri(),
+        "silverhand": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
+        "exchange": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
     })
 
 
@@ -303,7 +436,8 @@ def pieces_to_draw(pages):
 
     # Parts for page contents (UI/Kit.lua)
     for name in ("kitBlue", "kitRibbonOn1", "kitRibbonOn2", "kitRibbonOn3", "kitRibbonOn4", "kitRibbonOff1",
-                 "kitRibbonOff2", "kitRibbonOff3", "kitGem", "kitGemHollow", "kitCoinG", "kitCoinS", "kitBand",
+                 "kitRibbonOff2", "kitRibbonOff3", "kitGem", "kitGemHollow", "kitCoinG", "kitCoinS", "kitCoinC", "kitBand", "kitMark",
+                 "kitRibbonOn8", "kitRibbonOn9", "kitRibbonOn10", "kitRibbonOff4", "kitRibbonOff8", "kitRibbonOff9", "kitRibbonOff10",
                  "kitStepTodo", "kitStepDone", "kitStepNow", "kitRibbonOn5", "kitRibbonOn6", "kitRibbonOn7",
                  "kitRibbonOff5", "kitRibbonOff6", "kitRibbonOff7", "kitPortraitSh", "kitPortraitEx"):
         d[name] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={},
@@ -410,6 +544,8 @@ def pieces_to_draw(pages):
 
     # The Ballot Hall (Milestone 4). Piece names are the layout's ids, prefixed "b_".
     for el in SLOTS["ballot"][1:]:
+        if el == "btn-seal-ico":
+            continue  # only a place (where the party's seal goes on the Seal button), nothing to draw
         if el.startswith("paper-"):
             ballot("b_" + el, only([f"#{el}"]), tex="papers", scale=PAPER_SCALE)
         else:
@@ -468,6 +604,17 @@ class Edge:
         m = re.search(r'<pre id="rects-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
         if not m:
             raise RuntimeError("Edge didn't report the layout (run this from PowerShell, not Git Bash)")
+        return json.loads(html.unescape(m.group(1)))
+
+    def texts(self, name, text, size=None):
+        """The text runs TEXT_JS finds on a page."""
+        page = self.workdir / f"{name}-texts.html"
+        page.write_text(text, encoding="utf-8")
+        out = subprocess.run(self._args(1, size) + ["--dump-dom", page.as_uri()],
+                             capture_output=True, timeout=180, text=True, encoding="utf-8")
+        m = re.search(r'<pre id="texts-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
+        if not m:
+            raise RuntimeError(f"Edge didn't report the text on {name}")
         return json.loads(html.unescape(m.group(1)))
 
 
@@ -622,20 +769,76 @@ def main():
             slots[n] = {"x": r["x"] - ox, "y": r["y"] - oy, "w": r["w"], "h": r["h"], "root": root}
 
     todo = pieces_to_draw(pages)
+
+    # Live text (see BAKED_TEXT): measure each piece's text, on one page per distinct look.
+    combos, wanted = {}, {}
+    for name, p in todo.items():
+        if p.get("raw") or p["layout"] == "grain" or BAKED_TEXT.search(name):
+            continue
+        show, hide = piece_lists(p["css"])
+        if not (show["exact"] or show["desc"]):
+            continue
+        key = (p["layout"], json.dumps(p["args"], sort_keys=True), css_without_visibility(p["css"]))
+        combos.setdefault(key, len(combos))
+        wanted[name] = (key, show, hide)
+    print(f"Measuring the text on {len(combos)} pages...")
+
+    def measure(key):
+        layout, args, extra = key
+        page = render[layout](extra, json.loads(args)).replace("</body>", TEXT_JS + "</body>")
+        return key, edge.texts(f"texts{combos[key]}", page, view.get(layout))
+
+    runs_on = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        for key, runs in pool.map(measure, list(combos)):
+            runs_on[key] = runs
+
+    def picked(run, lists):
+        return run["own"] in lists["exact"] or any(a in lists["desc"] for a in run["anc"])
+
+    def drawn_colour(run):  # clear text (the gradient title's letters) has nothing to lay over
+        fill = css_color(run["fill"])
+        col = fill if fill else css_color(run["color"])
+        return col and col[1] > 0
+
+    live = {}
+    for name, (key, show, hide) in wanted.items():
+        runs = [r for r in runs_on[key] if picked(r, show) and not picked(r, hide) and drawn_colour(r)]
+        if runs:
+            live[name] = (runs, show, hide)
+    print(f"  {len(live)} pieces carry text; it is drawn live in the game")
+
     print(f"Drawing {len(todo)} pieces in Edge...")
     drawn = {}
 
     def draw(name):
         p = todo[name]
-        im = edge.screenshot(name.replace(":", "_"), render[p["layout"]](p["css"], p["args"]), p["scale"],
-                             view.get(p["layout"]))
+        page = render[p["layout"]](p["css"], p["args"])
+        if name in live:
+            _, show, hide = live[name]
+            page = page.replace("</body>", HIDE_JS % (json.dumps(show), json.dumps(hide)) + "</body>")
+        im = edge.screenshot(name.replace(":", "_"), page, p["scale"], view.get(p["layout"]))
         if p.get("raw"):
             return name, (im, None)
-        return name, crop(im, p["scale"], origin[p["root"]])
+        try:
+            return name, crop(im, p["scale"], origin[p["root"]])
+        except RuntimeError:
+            if name not in live:
+                raise
+            # nothing but text: a clear picture the size of the text keeps the piece's place
+            runs, ox, oy, s = live[name][0], *origin[p["root"]], p["scale"]
+            x0, y0 = min(r["x"] for r in runs), min(r["y"] for r in runs)
+            x1, y1 = max(r["x"] + r["w"] for r in runs), max(r["y"] + r["h"] for r in runs)
+            clear = Image.new("RGBA", (max(1, round((x1 - x0) * s)), max(1, round((y1 - y0) * s))), (0, 0, 0, 0))
+            return name, (clear, {"x": x0 - ox, "y": y0 - oy, "w": x1 - x0, "h": y1 - y0})
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         for name, result in pool.map(draw, todo):
             drawn[name] = result
+    texts = {}
+    for name, (runs, _, _) in live.items():
+        ox, oy = origin[todo[name]["root"]]
+        texts[name] = [text_record(r, ox, oy, drawn[name][1]) for r in runs]
 
     # The grain tile is used whole, so it repeats without a seam.
     im = drawn["grain"][0]
@@ -712,6 +915,9 @@ def main():
         "shadow": {"inset": 96, "corner": 112, "size": 256},
         "heraldButtons": HERALD_BUTTONS,
         "pieces": pieces,
+        # Text laid over a piece as game text (UI/LiveText.lua): s words, x y w h its box from the piece's
+        # top-left, f font, z size, t letter-spacing in em, c a colour, j justify, n lines, sx sy sc sa shadow.
+        "texts": {name: recs for name, recs in texts.items() if name in pieces},
         "slots": slots,
         "pages": pages,
         # Window skins (ADDON_SPEC.md 9.7): per-skin pieces are named "<file>:<piece>",

@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">
+  <!-- The Seal of the State (the "official" seal): dark emerald wax, gold eight-point compass star. The Ministry's own seal for state business that is no party's and not a royal act: the Ballot Hall, heralds, the Statute Book. -->
   <defs>
     <radialGradient id="wax" cx="38%" cy="32%" r="75%">
-      <stop offset="0" stop-color="#B9503F"/>
-      <stop offset=".45" stop-color="#6E1712"/>
-      <stop offset="1" stop-color="#2C0705"/>
+      <stop offset="0" stop-color="#2F8A5E"/>
+      <stop offset=".45" stop-color="#0F4A33"/>
+      <stop offset="1" stop-color="#03170E"/>
     </radialGradient>
     <radialGradient id="well" cx="56%" cy="58%" r="55%">
-      <stop offset="0" stop-color="#7C2219"/>
-      <stop offset=".8" stop-color="#5A130E"/>
-      <stop offset="1" stop-color="#330806"/>
+      <stop offset="0" stop-color="#16593E"/>
+      <stop offset=".8" stop-color="#0C3D29"/>
+      <stop offset="1" stop-color="#052318"/>
     </radialGradient>
     <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFF0B8"/>
@@ -17,14 +18,14 @@
       <stop offset="1" stop-color="#F1D486"/>
     </linearGradient>
     <filter id="drip" x="-15%" y="-15%" width="130%" height="130%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="31" result="n"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="55" result="n"/>
       <feDisplacementMap in="SourceGraphic" in2="n" scale="18" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
       <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity=".55"/>
     </filter>
     <filter id="raise" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="1.4" dy="1.8" stdDeviation=".8" flood-color="#1E0403" flood-opacity=".85"/>
+      <feDropShadow dx="1.4" dy="1.8" stdDeviation=".8" flood-color="#021008" flood-opacity=".85"/>
     </filter>
     <path id="ring" d="M110 36 a74 74 0 1 1 -0.01 0"/>
   </defs>
@@ -32,16 +33,21 @@
     <circle cx="110" cy="110" r="90" fill="url(#wax)" filter="url(#drip)"/>
   </g>
   <circle cx="110" cy="110" r="62" fill="url(#well)"/>
-  <path d="M66 154 A62 62 0 0 1 154 66" stroke="#1E0403" stroke-opacity=".7" stroke-width="3" fill="none"/>
-  <path d="M66 154 A62 62 0 0 0 154 66" stroke="#E39A84" stroke-opacity=".45" stroke-width="2.5" fill="none"/>
+  <path d="M66 154 A62 62 0 0 1 154 66" stroke="#021008" stroke-opacity=".7" stroke-width="3" fill="none"/>
+  <path d="M66 154 A62 62 0 0 0 154 66" stroke="#7FD1A8" stroke-opacity=".4" stroke-width="2.5" fill="none"/>
   <circle cx="110" cy="110" r="54" fill="none" stroke="#E3BE62" stroke-opacity=".45" stroke-width="1.4" stroke-dasharray="1 5" stroke-linecap="round"/>
-  <text font-family="Georgia, 'Times New Roman', serif" font-size="12" letter-spacing="3.4" fill="#E9A996" fill-opacity=".8">
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="12" letter-spacing="3.4" fill="#A6DBC0" fill-opacity=".8">
     <textPath href="#ring">✦ SEALED IN STORMWIND ✦ FOR THE ALLIANCE ✦</textPath>
   </text>
-  <g filter="url(#raise)" fill="url(#gold)">
-    <path fill-rule="evenodd" d="M82 144 V92 H90 V100 H98 V92 H106 V100 H114 V92 H122 V100 H130 V92 H138 V144 Z M102 144 V126 Q110 114 118 126 V144 Z M92 108 h4 v11 h-4 Z M124 108 h4 v11 h-4 Z"/>
-    <rect x="109" y="70" width="2.4" height="22"/>
-    <path d="M111.4 70 L126 75 L111.4 80 Z"/>
+  <g filter="url(#raise)" fill="url(#gold)" transform="translate(110 110) scale(.88) translate(-50 -50)">
+  <g id="sp"><path d="M50 18 L54.2 45.8 L50 50 L45.8 45.8 Z"/><path d="M50 18 L54.2 45.8 L50 50 Z" fill="#A97E2C"/></g>
+  <use href="#sp" transform="rotate(45 50 50)"/><use href="#sp" transform="rotate(135 50 50)"/>
+  <use href="#sp" transform="rotate(225 50 50)"/><use href="#sp" transform="rotate(315 50 50)"/>
+  <g id="lp"><path d="M50 2 L56 44 L50 50 L44 44 Z"/><path d="M50 2 L56 44 L50 50 Z" fill="#A97E2C"/></g>
+  <use href="#lp" transform="rotate(90 50 50)"/><use href="#lp" transform="rotate(180 50 50)"/><use href="#lp" transform="rotate(270 50 50)"/>
+  <circle cx="50" cy="50" r="9.5" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <circle cx="50" cy="50" r="4.6"/>
+  <circle cx="50" cy="50" r="4.6" fill="none" stroke="#5A3F10" stroke-opacity=".5" stroke-width=".7"/>
   </g>
-  <ellipse cx="80" cy="66" rx="30" ry="14" fill="#fff" opacity=".16" transform="rotate(-32 80 66)"/>
+  <ellipse cx="80" cy="66" rx="30" ry="14" fill="#fff" opacity=".14" transform="rotate(-32 80 66)"/>
 </svg>

@@ -151,6 +151,7 @@ local function art(parent, name, layer)
   t:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
   t:SetTexCoord(p.l, p.r, p.t, p.b)
   t:SetSize(p.w, p.h)
+  MOTA.LiveText:Set(t, name)
   return t, p
 end
 Kit.Art = function(_, parent, name, layer) return art(parent, name, layer) end
@@ -162,6 +163,7 @@ function Kit:Look(texture, name)
   texture:SetTexture(M.dir .. M.textures[p.tex], "CLAMP", "CLAMP", "TRILINEAR")
   texture:SetTexCoord(p.l, p.r, p.t, p.b)
   texture:SetSize(p.w, p.h)
+  MOTA.LiveText:Set(texture, name)
 end
 
 -- .gem: a small diamond, tinted. Hollow marks an empty place.
@@ -177,30 +179,89 @@ function Kit:Tint(gem, hex, hollow, alpha)
   gem:SetAlpha(alpha or 1)
 end
 
--- .amt: gold and silver with their coins, right-aligned.
-function Kit:Amount(parent, font, hex)
+-- Money as numbers with their coins: "1,240 [gold] 35 [silver] 10 [copper]".
+-- fonts = { gold's, the others' }, coins = their sizes. Anything wider than the
+-- box takes the next smaller pair (fonts and coins) in "steps".
+local COIN_ART = { "kitCoinG", "kitCoinS", "kitCoinC" }
+local function commas(n)
+  local s = tostring(n)
+  while true do
+    local out, k = s:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+    s = out
+    if k == 0 then return s end
+  end
+end
+Kit.Commas = function(_, n) return commas(n) end
+
+local function coinRow(parent, width, height, steps, hex, align)
   local f = CreateFrame("Frame", nil, parent)
-  f:SetSize(110, 16)
-  local g, s = Kit:Text(f, font, hex or "1B3570"), Kit:Text(f, font, hex or "1B3570")
-  local coinG, coinS = art(f, "kitCoinG"), art(f, "kitCoinS")
-  function f:SetGold(amount)
-    local gold = math.floor(amount)
-    local silver = math.floor((amount - gold) * 100 + 0.5)
-    local showS, showG = silver > 0, gold > 0 or silver == 0
-    s:SetShown(showS) coinS:SetShown(showS) g:SetShown(showG) coinG:SetShown(showG)
-    s:SetText(silver) g:SetText(gold)
-    local anchor, point, gap = f, "RIGHT", 0
-    if showS then
-      coinS:ClearAllPoints() coinS:SetPoint("RIGHT", anchor, point, gap, 0)
-      s:ClearAllPoints() s:SetPoint("RIGHT", coinS, "LEFT", -2, 0)
-      anchor, point, gap = s, "LEFT", -5
-    end
-    if showG then
-      coinG:ClearAllPoints() coinG:SetPoint("RIGHT", anchor, point, gap, 0)
-      g:ClearAllPoints() g:SetPoint("RIGHT", coinG, "LEFT", -2, 0)
+  f:SetSize(width, height)
+  local texts, coins = {}, {}
+  for i = 1, 3 do
+    texts[i] = Kit:Text(f, steps[1].fonts[i == 1 and 1 or 2], hex)
+    coins[i] = art(f, COIN_ART[i])
+  end
+  local list = {}
+  local function layout()
+    for step = 1, #steps do
+      local st = steps[step]
+      local total = 0
+      for n, part in ipairs(list) do
+        local i = part[1]
+        texts[i]:SetFontObject(MOTA:Font(st.fonts[i == 1 and 1 or 2]))
+        texts[i]:SetText(part[2])
+        local cs = st.coins[i == 1 and 1 or 2]
+        coins[i]:SetSize(cs, cs)
+        part.w = texts[i]:GetStringWidth() + 2 + cs
+        total = total + part.w + (n > 1 and 5 or 0)
+      end
+      if total <= width or step == #steps then
+        local x = align == "RIGHT" and width - total or (align == "CENTER" and (width - total) / 2 or 0)
+        for _, part in ipairs(list) do
+          local i = part[1]
+          local tw = texts[i]:GetStringWidth()
+          texts[i]:ClearAllPoints()
+          texts[i]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, 0)
+          coins[i]:ClearAllPoints()
+          coins[i]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x + tw + 2, 1)
+          x = x + part.w + 5
+        end
+        return
+      end
     end
   end
+  -- copper is the whole amount in copper; maxParts keeps only the biggest few (a tight column)
+  function f:SetCopper(copper, maxParts)
+    copper = math.max(0, math.floor((copper or 0) + 0.5))
+    local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
+    list = {}
+    if g > 0 then list[#list + 1] = { 1, commas(g) } end
+    if s > 0 then list[#list + 1] = { 2, tostring(s) } end
+    if c > 0 then list[#list + 1] = { 3, tostring(c) } end
+    if #list == 0 then list[1] = { 3, "0" } end
+    while maxParts and #list > maxParts do list[#list] = nil end
+    for i = 1, 3 do texts[i]:Hide() coins[i]:Hide() end
+    for _, part in ipairs(list) do texts[part[1]]:Show() coins[part[1]]:Show() end
+    layout()
+  end
+  function f:SetGold(amount) self:SetCopper(amount * 10000, 2) end
   return f
+end
+
+-- .amt: money with its coins, right-aligned, in one font.
+function Kit:Amount(parent, font, hex)
+  local _, size = MOTA:Font(font):GetFont()
+  local c = math.max(11, math.floor((size or 13) * 0.9 + 0.5))
+  return coinRow(parent, 110, 16, { { fonts = { font, font }, coins = { c, c } } }, hex or "1B3570", "RIGHT")
+end
+
+-- The Guild Coffers' figure, as the Treasury board has it: a big gold number,
+-- smaller silver and copper, shrinking a step if the sum is large.
+function Kit:Coffer(parent, width)
+  return coinRow(parent, width, 41, {
+    { fonts = { "kitCofferBig", "kitCofferSmall" }, coins = { 20, 15 } },
+    { fonts = { "kitStage", "kitAmount" }, coins = { 16, 13 } },
+  }, "F3D98A", "CENTER")
 end
 
 local BUTTONS = {
@@ -261,6 +322,20 @@ function Kit:AccentArt(parent, name, layer)
     local drawn = name .. MOTA:Accent(key).SUFFIX
     self:Look(t, MOTA.Media.pieces[drawn] and drawn or name)
   end)
+  return t, p
+end
+
+-- A plate part laid over a box. The drawn part carries its soft shadow round
+-- the plate, so the shadow hangs outside the box and the plate itself fills
+-- it, as wide as every other box in the column. The size is the box the part
+-- was drawn at (tools/textures/extras.html).
+local PLATE_BOX = { kitBlue = { 206, 158 } }
+function Kit:PlateArt(parent, name, layer)
+  local t, p = self:AccentArt(parent, name, layer)
+  local box = PLATE_BOX[name]
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", parent, "TOPLEFT", p.x, -p.y)
+  t:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", p.x + p.w - box[1], -(p.y + p.h - box[2]))
   return t, p
 end
 

@@ -46,7 +46,7 @@ local function choose(reason)
   list:Hide()
   local move = MOTA.Bank:Pending()[1]
   chooserText:SetText(reason and Prompt:LabelFor(move and move.io, reason) or "Choose a reason")
-  showSeal(SEAL_FOR[reason] or "official")
+  showSeal(SEAL_FOR[reason] or "treasury") -- the Treasury's own form of the Seal of the State
   local other = reason == "other"
   chooser:SetWidth(other and 100 or 377)
   noteBox:SetShown(other)
@@ -73,7 +73,7 @@ local function build()
 
   UI:Piece(frame, "heraldBg", "BACKGROUND", nil, nil, nil, frame)
   seals = {}
-  for _, name in ipairs({ "official", "exchange", "silverhand" }) do
+  for _, name in ipairs({ "treasury", "exchange", "silverhand" }) do
     seals[name] = UI:Piece(frame, "hseal_" .. name, "ARTWORK", nil, nil, nil, frame)
   end
 

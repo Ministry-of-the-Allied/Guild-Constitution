@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>The Ballot Hall</title>
 <script src="./support.js"></script>
-<link rel="stylesheet" href="/_blob/92b4fa14869576666ce050f265fa7623">
+<link rel="stylesheet" href="/_blob/a71d23c1c3b21a84a5914a9c1b2fe665">
 </head>
 <body>
 <x-dc>
@@ -156,7 +156,7 @@ select.inp{padding:0 6px;cursor:pointer}
               <div style="display: flex; flex-direction: column; gap: 12px">
                 <p class="eyebrow" style="font-size: 10px">Open ballot</p>
                 <div class="bl on" style="cursor: default">
-                  <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 36px; height: 36px; flex: none">
+                  <img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="" style="width: 36px; height: 36px; flex: none">
                   <span style="display: flex; flex-direction: column; gap: 1px"><span class="h-name" style="font-size: 13.5px; line-height: 1.2">{{poll.name}}</span><span class="small muted" style="font-size: 13px">{{poll.kindLabel}} · 2 hours</span></span>
                 </div>
                 <div class="plate sunk" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
@@ -185,7 +185,7 @@ select.inp{padding:0 6px;cursor:pointer}
                   <sc-for list="{{options}}" as="o" hint-placeholder-count="2">
                     <button class="{{o.cls}}" type="button" aria-pressed="{{o.pressed}}" disabled="{{o.locked}}" onClick="{{o.pick}}">
                       <sc-if value="{{o.on}}" hint-placeholder-val="{{ false }}">
-                        <img src="/_blob/19c005d5f1860452928780ca70041223" alt="Marked" style="width: 38px; height: 38px; flex: none">
+                        <img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="Marked" style="width: 38px; height: 38px; flex: none">
                       </sc-if>
                       <sc-if value="{{o.off}}" hint-placeholder-val="{{ true }}">
                         <span class="ring"></span>
@@ -204,7 +204,7 @@ select.inp{padding:0 6px;cursor:pointer}
                     <span class="small muted italic" style="font-size: 13px">{{hintSub}}</span>
                   </span>
                   <sc-if value="{{canSeal}}" hint-placeholder-val="{{ true }}">
-                    <button class="btn" type="button" disabled="{{noPick}}" onClick="{{seal}}"><img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
+                    <button class="btn" type="button" disabled="{{noPick}}" onClick="{{seal}}"><img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
                   </sc-if>
                 </div>
                 <sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
@@ -212,7 +212,7 @@ select.inp{padding:0 6px;cursor:pointer}
                 </sc-if>
                 <sc-if value="{{waiting}}" hint-placeholder-val="{{ false }}">
                   <div class="held">
-                    <img src="/_blob/19c005d5f1860452928780ca70041223" alt="Ballot sealed" style="width: 96px; height: 96px">
+                    <img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="Ballot sealed" style="width: 96px; height: 96px">
                     <span class="chip k-ink">Waiting for the Crown</span>
                   </div>
                 </sc-if>
@@ -234,7 +234,7 @@ select.inp{padding:0 6px;cursor:pointer}
           <!-- BALLOT: no polls open -->
           <sc-if value="{{ballotNone}}" hint-placeholder-val="{{ false }}">
             <div class="paper" style="flex: 1; min-height: 0; padding: 30px 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center">
-              <img src="/_blob/19c005d5f1860452928780ca70041223" alt="" style="width: 64px; height: 64px">
+              <img src="/_blob/94ef7c92a8bcd358781dc40e94b03f94" alt="" style="width: 112px; height: 112px">
               <p class="eyebrow" style="font-size: 10px">No polls open</p>
               <h2 class="h-page" style="font-size: 25px">The Ballot Hall is quiet</h2>
               <p class="prose" style="font-size: 15.5px; max-width: 460px">When the Crown opens the polls, a herald calls “The polls are open!” and your ballot appears here.</p>

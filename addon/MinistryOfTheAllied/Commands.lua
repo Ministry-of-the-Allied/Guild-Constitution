@@ -111,6 +111,7 @@ add("constitution", "", "read and hear the Charter", function()
   for i, page in ipairs(MOTA.Media.pages) do
     if page.id == "statute" then MOTA.UI:SelectPage(i) end
   end
+  MOTA.StatutesPage:Select("charter")
   MOTA.UI.window:Show()
 end)
 

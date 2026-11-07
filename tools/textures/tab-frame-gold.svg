@@ -1,46 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+  <!-- The lit tab's corners (Batch C1, the "fleuron", Max 8 Nov): no inner rule. In each corner a
+       fleur-de-lis points out past the tab's corner, with a curling tendril along each edge, and a row of
+       small gold beads along the top and bottom edges with one bead on each end (Max, 8 Nov).
+       Drawn round the tab, 9 out from its edges (.tab.on::after, inset -9px), as a border-image 28 / 28px round:
+       the corners are the outer 28, the 24 between them repeats. The tab is 50 high, so each end shows
+       one bead squeezed to half height: the end beads are drawn twice as tall to come out round. -->
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#FFF1BF"/>
-      <stop offset=".22" stop-color="#E6C36C"/>
-      <stop offset=".48" stop-color="#A97E2C"/>
-      <stop offset=".7" stop-color="#EBCB7A"/>
+      <stop offset=".25" stop-color="#E6C36C"/>
+      <stop offset=".55" stop-color="#B08530"/>
       <stop offset="1" stop-color="#7A5719"/>
     </linearGradient>
     <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx=".4" dy=".7" stdDeviation=".45" flood-color="#2A1D06" flood-opacity=".8"/>
+      <feDropShadow dx=".3" dy=".5" stdDeviation=".35" flood-color="#2A1D06" flood-opacity=".8"/>
     </filter>
-    <!-- a small copy of the window's filigree corner: rounded bracket, two scrolls, leaves and a jewelled boss -->
-    <g id="scrolls" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M7 7 C10.4 6.2 12.6 6.9 13.5 8.8 C14.2 10.3 13 11.6 11.7 11.1 C10.7 10.7 10.9 9.5 11.8 9.6"/>
-      <path d="M7 7 C6.2 10.4 6.9 12.6 8.8 13.5 C10.3 14.2 11.6 13 11.1 11.7 C10.7 10.7 9.5 10.9 9.6 11.8"/>
-      <path d="M13.5 8.8 C15.2 7.5 16.6 7.2 17.8 6.7" stroke-width=".8"/>
-      <path d="M8.8 13.5 C7.5 15.2 7.2 16.6 6.7 17.8" stroke-width=".8"/>
+    <g id="fleur">
+      <path d="M0 -9.6 C1.7 -7.3 2 -4.7 0 -2.3 C-2 -4.7 -1.7 -7.3 0 -9.6 Z"/>
+      <path id="side" d="M0.7 -2.3 C1.4 -5.2 4.2 -6.6 5.6 -4.9 C6.4 -3.8 5.6 -2.4 4.5 -2.9 C5.1 -3.7 4.3 -4.5 3.4 -4 C2.4 -3.4 1.7 -2.6 1.3 -1.6 Z"/>
+      <use href="#side" transform="scale(-1 1)"/>
+      <path d="M-2.7 -1.9 H2.7 V-0.6 H-2.7 Z"/>
+      <path d="M-1.3 -0.6 L0 1.5 L1.3 -0.6 Z"/>
     </g>
-    <g id="leaves">
-      <path d="M15 6.8 C15.9 5.2 17.2 4.8 18.2 5.1 C17.5 6.4 16.2 7.1 15 6.8 Z"/>
-      <path d="M6.8 15 C5.2 15.9 4.8 17.2 5.1 18.2 C6.4 17.5 7.1 16.2 6.8 15 Z"/>
-      <circle cx="4.8" cy="4.8" r="4"/>
+    <!-- one tendril along the top edge: a gentle wave out of the fleur, a small bud on the
+         first crest, ending in a curl that turns back on itself -->
+    <path id="vine" d="M10.9 5.4 C12.9 2.5 15.9 2.5 17.1 4.3 C18.2 5.9 20.3 6.7 21.6 5.4 C22.6 4.4 22 2.9 20.8 3 C19.9 3.1 19.7 4.2 20.4 4.6"/>
+    <path id="bud" d="M15.2 3.05 C15.6 1.9 16.6 1.35 17.6 1.5 C17.2 2.5 16.3 3.1 15.2 3.05 Z"/>
+    <g id="tendril">
+      <use href="#vine" fill="none" stroke="#4A330C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <use href="#bud" fill="#4A330C" stroke="#4A330C" stroke-width="1.3" stroke-linejoin="round"/>
+      <use href="#vine" fill="none" stroke="url(#g)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+      <use href="#bud" fill="url(#g)"/>
     </g>
     <g id="corner">
       <g filter="url(#s)">
-        <path d="M1.8 16.5 V6.4 Q1.8 1.8 6.4 1.8 H16.5" fill="none" stroke="#4A330C" stroke-width="2.9" stroke-linecap="round"/>
-        <path d="M1.8 16.5 V6.4 Q1.8 1.8 6.4 1.8 H16.5" fill="none" stroke="url(#g)" stroke-width="1.9" stroke-linecap="round"/>
-        <use href="#scrolls" stroke="#4A330C" stroke-width="2.1"/>
-        <use href="#leaves" fill="#4A330C" stroke="#4A330C" stroke-width="1"/>
-        <use href="#scrolls" stroke="url(#g)" stroke-width="1.1"/>
-        <use href="#leaves" fill="url(#g)"/>
+        <use href="#tendril" transform="translate(2 3)"/>
+        <use href="#tendril" transform="matrix(0 1 1 0 3 2)"/>
+        <use href="#fleur" transform="translate(10 10) rotate(-45) scale(1.22)" fill="url(#g)" stroke="#4A330C" stroke-width=".75" stroke-linejoin="round"/>
       </g>
-      <circle cx="4.8" cy="4.8" r="2.5" fill="#C9A24A" stroke="#5A3F10" stroke-width=".6"/>
-      <circle cx="4.1" cy="4.1" r=".8" fill="#FFF3C4" opacity=".9"/>
     </g>
   </defs>
-  <!-- the window's double gold rule and stitched line, engraved into the gold -->
-  <rect x="3.5" y="3.5" width="53" height="53" fill="none" stroke="#5A3F10" stroke-opacity=".85" stroke-width="1"/>
-  <rect x="4.4" y="4.4" width="51.2" height="51.2" fill="none" stroke="#FFF6D2" stroke-opacity=".7" stroke-width=".6"/>
-  <rect x="6.5" y="6.5" width="47" height="47" fill="none" stroke="#6E4F17" stroke-opacity=".55" stroke-width=".7" stroke-dasharray="2 2"/>
   <use href="#corner"/>
-  <use href="#corner" transform="translate(60 0) scale(-1 1)"/>
-  <use href="#corner" transform="translate(0 60) scale(1 -1)"/>
-  <use href="#corner" transform="translate(60 60) scale(-1 -1)"/>
+  <use href="#corner" transform="translate(80 0) scale(-1 1)"/>
+  <use href="#corner" transform="translate(0 80) scale(1 -1)"/>
+  <use href="#corner" transform="translate(80 80) scale(-1 -1)"/>
+  <g filter="url(#s)" fill="url(#g)" stroke="#4A330C" stroke-width=".55">
+    <circle cx="40" cy="8.4" r="1.35"/>
+    <circle cx="40" cy="71.6" r="1.35"/>
+    <ellipse cx="8.4" cy="40" rx="1.35" ry="2.7" stroke-width=".7"/>
+    <ellipse cx="71.6" cy="40" rx="1.35" ry="2.7" stroke-width=".7"/>
+  </g>
 </svg>

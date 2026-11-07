@@ -20,6 +20,11 @@ local TAB_TOKENS = {
 
 local DEFAULT_SCALE = 0.85
 
+-- The title, the page's name with its rules, and the Close and Settings
+-- buttons sit this many canvas units lower than the layout has them, as one
+-- unit, so they clear the corner ornament (Max, 7 Nov).
+local HEADER_DROP = 6
+
 -- Every texture that changes with the skin, so a new skin can be put on at once.
 local skinned = {}
 local setTabLook -- below, with the tabs
@@ -63,6 +68,7 @@ function UI:SetPiece(t, name, dx, dy, anchor, at, flipH, flipV)
   local x, y = p.x + (dx or 0), p.y + (dy or 0)
   if at then x, y = at[1], at[2] end
   t:SetPoint("TOPLEFT", anchor or self.window, "TOPLEFT", x, -y)
+  MOTA.LiveText:Set(t, name)
 end
 
 -- The piece's name in the current skin: per skin ("crown:leather") or per
@@ -92,9 +98,11 @@ function UI:ApplySkinPiece(e)
     e.t:SetVertexColor(g.r, g.g, g.b)
   end
   if e.anchor and e.applied then
-    local p = M.pieces[self:SkinName(e.base, e.kind)]
+    local name = self:SkinName(e.base, e.kind)
+    local p = M.pieces[name]
     e.t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
     e.t:SetTexCoord(p.l, p.r, p.t, p.b)
+    MOTA.LiveText:Set(e.t, name)
     return
   end
   e.applied = true
@@ -214,9 +222,9 @@ function UI:PlaceSubRule(t, right)
   local sub = M.pieces["subtitle" .. (self.page or 1)]
   local p = M.pieces[self:SkinName("subRule", "metal")]
   if right then
-    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x + sub.w + M.subRule.gapR, p.y }, true, false)
+    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x + sub.w + M.subRule.gapR, p.y + HEADER_DROP }, true, false)
   else
-    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x - M.subRule.gapL - p.w, p.y }, false, false)
+    self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x - M.subRule.gapL - p.w, p.y + HEADER_DROP }, false, false)
   end
 end
 
@@ -261,9 +269,20 @@ function setTabLook(tab, look)
   tab.bgRest:SetShown(look == "rest")
   tab.bgHover:SetShown(look == "hover")
   tab.bgOn:SetShown(look == "on")
+  -- the lit tab's corners hang out past its edges: keep them over the tabs next to it
+  tab:SetFrameLevel(tab.window:GetFrameLevel() + (look == "on" and 3 or 1))
   ink(tab.icon, tokens.label)
-  ink(tab.label, tokens.label)
+  local c = MOTA.skin[tokens.label]
+  -- a fine dark shadow lifts the pale letters off the resting (wax) tabs; the lit tab is dark ink on metal
+  local shadow = look ~= "on"
+  for _, fs in ipairs(tab.label.letters) do
+    fs:SetTextColor(c.r, c.g, c.b)
+    fs:SetShadowColor(0, 0, 0, shadow and 0.9 or 0)
+    fs:SetShadowOffset(1, -1)
+  end
   ink(tab.small, tokens.small)
+  tab.small:SetShadowColor(0, 0, 0, shadow and 0.9 or 0)
+  tab.small:SetShadowOffset(1, -1)
 end
 
 local function buildTab(f, i)
@@ -273,6 +292,7 @@ local function buildTab(f, i)
   local rest = M.slots.tab2 -- tab 2 is drawn resting in the layout
   tab:SetSize(rest.w, rest.h)
   tab.index = i
+  tab.window = f
 
   local dyRest = s.y - M.slots.tab2.y
   local dyOn = s.y - M.slots.tab1.y
@@ -280,8 +300,18 @@ local function buildTab(f, i)
   tab.bgHover = UI:SkinPiece(tab, "tabHover", "skin", "BACKGROUND", 0, 0, dyRest)
   tab.bgOn = UI:SkinPiece(tab, "tabOn", "metal", "BACKGROUND", 0, 0, dyOn)
   tab.icon = UI:Piece(tab, "icon" .. i, "ARTWORK")
-  tab.label = UI:Piece(tab, "label" .. i, "ARTWORK")
-  tab.small = UI:Piece(tab, "small" .. i, "ARTWORK")
+  -- The tab's name and its small line are live game text, not pictures, so they stay
+  -- sharp at any window size (Max, 8 Nov). Each sits where the layout drew it.
+  local page = M.pages[i]
+  local lp, sp = M.pieces["label" .. i], M.pieces["small" .. i]
+  tab.label = MOTA:Tracked(tab, "tabLabel", "FFFFFF", 0.13)
+  tab.label:SetText(page.label:upper())
+  tab.label:SetPoint("LEFT", f, "TOPLEFT", lp.x, -(lp.y + lp.h / 2))
+  tab.small = tab:CreateFontString(nil, "ARTWORK")
+  tab.small:SetFontObject(MOTA:Font("tabSmall"))
+  tab.small:SetJustifyH("LEFT")
+  tab.small:SetText(page.small)
+  tab.small:SetPoint("LEFT", f, "TOPLEFT", sp.x, -(sp.y + sp.h / 2))
 
   tab:SetScript("OnClick", function()
     if UI.page ~= i then
@@ -333,11 +363,11 @@ end
 
 local function buildKnob(f, piece, slot, tooltip, onClick)
   local b = CreateFrame("Button", nil, f)
-  local s = UI:AtSlot(b, slot)
+  local s = UI:AtSlot(b, slot, 0, HEADER_DROP)
   b:SetSize(s.w, s.h)
   b:SetFrameLevel(f:GetFrameLevel() + 15)
-  UI:SkinPiece(b, piece, "skin", "ARTWORK")
-  local glow = UI:SkinPiece(b, piece, "skin", "HIGHLIGHT")
+  UI:SkinPiece(b, piece, "skin", "ARTWORK", 0, 0, HEADER_DROP)
+  local glow = UI:SkinPiece(b, piece, "skin", "HIGHLIGHT", 0, 0, HEADER_DROP)
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
   b:SetScript("OnClick", onClick)
@@ -374,10 +404,10 @@ function UI:Build()
   self:BuildFrame(f)
 
   -- Header: the title, and the page's name under it between two rules.
-  self:SkinPiece(f, "title", "metal", "ARTWORK")
+  self:SkinPiece(f, "title", "metal", "ARTWORK", 0, 0, HEADER_DROP)
   self.subtitles, self.eyebrows = {}, {}
   for i = 1, #M.pages do
-    self.subtitles[i] = self:Piece(f, "subtitle" .. i, "ARTWORK")
+    self.subtitles[i] = self:Piece(f, "subtitle" .. i, "ARTWORK", nil, 0, HEADER_DROP)
     self.eyebrows[i] = self:Piece(f, "eyebrow" .. i, "ARTWORK")
   end
   self.subRules = {
@@ -423,10 +453,10 @@ function UI:Build()
   -- The status strip along the bottom (coloured by UI:InkWindow).
   self:SkinPiece(f, "pip", "metal", "ARTWORK")
   self.footLeft = text(f, "foot", "AFC0E6")
-  self:AtSlot(self.footLeft, "foot-left", 16, 5)
+  self:AtSlot(self.footLeft, "foot-left", 36, 5) -- clear of the corner ornament
   self.footRight = text(f, "foot", "AFC0E6")
   local fr = M.slots["foot-right"]
-  self.footRight:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w, -(fr.y + 5))
+  self.footRight:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w - 36, -(fr.y + 5)) -- clear of the corner ornament
   self.footRight:SetJustifyH("RIGHT")
 
   -- The crest goes on top of everything, breaking out over the frame.
@@ -497,8 +527,21 @@ end
 
 function UI:Refresh()
   if not self.window then return end
-  local name = UnitName("player") or "?"
+  -- Forever's UnitName gives only the first name; MOTA.me is the full name
+  -- ("Kíng Sinclaire") once the guild roster has told us, and the first name until then.
+  local name = MOTA.me or UnitName("player") or "?"
   self.who:SetText(name)
+  -- The rail foot has about 108 canvas units between the portrait and the rail's
+  -- edge. Longer names shrink a step at a time (never below 8) until they fit.
+  local file, base, flags = MOTA:Font("who"):GetFont()
+  if file then
+    local size = base
+    self.who:SetFont(file, size, flags)
+    while size > 8 and self.who:GetStringWidth() > 108 do
+      size = size - 0.5
+      self.who:SetFont(file, size, flags)
+    end
+  end
   self.initials:SetText(name:match("^[%z\1-\127\194-\244][\128-\191]*") or "?")
   -- The canvas shows your district here; until the Citizens module, your guild rank.
   local rank = MOTA.guild and select(2, GetGuildInfo("player"))
@@ -580,6 +623,7 @@ end
 -- Keep the window's live text up to date while it's open.
 MOTA:Listen("RECORD_ADDED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:Listen("GUILD_READY", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:Listen("ME_LEARNED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:On("ZONE_CHANGED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:On("ZONE_CHANGED_NEW_AREA", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 

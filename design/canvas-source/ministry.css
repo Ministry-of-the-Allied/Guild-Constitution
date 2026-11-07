@@ -1,4 +1,8 @@
 /* Ministry of the Allied — "The Royal Seal" shared styles */
+/* Ministry Decorative: Cinzel Decorative with its "h" joins (as in "the") spaced normally, the double O kept
+   (tools/fonts/make_ministry_decorative.py, Max 8 Nov). The add-on uses the same files. */
+@font-face{font-family:'Ministry Decorative';font-weight:700;src:url(/_blob/1cb79e1436f6a97727600db25de81026) format('truetype')}
+@font-face{font-family:'Ministry Decorative';font-weight:900;src:url(/_blob/b86b602a50d468e81c13dca06841b75b) format('truetype')}
 :root{
   --rb-deep:#0E1F45; --rb:#1B3570; --rb-mid:#24468F; --azure:#3A63B8; --sky:#B9C9EE;
   --gold-sh:#5A3F10; --gold-dk:#8A6420; --gold:#C9A24A; --gold-leaf:#F3D98A; --gold-pale:#FBEFC4;
@@ -9,7 +13,7 @@
   --gold-grad-h:linear-gradient(90deg,#8A6420 0%,#E9C877 22%,#FFF3C4 50%,#E9C877 78%,#8A6420 100%);
   --blue-grad:linear-gradient(180deg,#2E58AA 0%,#1B3570 55%,#11264F 100%);
   --f-display:'Cinzel',Georgia,serif;
-  --f-deco:'Cinzel Decorative','Cinzel',Georgia,serif;
+  --f-deco:'Ministry Decorative','Cinzel Decorative','Cinzel',Georgia,serif;
   --f-body:'EB Garamond',Georgia,serif;
 }
 *{box-sizing:border-box}
@@ -47,11 +51,18 @@
 .subtitle::before,.subtitle::after{content:"";width:48px;height:1px;background:linear-gradient(90deg,rgba(201,162,74,0),#C9A24A)}
 .subtitle::after{transform:scaleX(-1)}
 
-.head-btns{position:absolute;right:30px;top:24px;display:flex;gap:10px;z-index:8}
-.knob{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;border:none;padding:0;cursor:pointer;color:var(--gold-leaf);
-  background:radial-gradient(circle at 35% 30%,#3C68BE,#1B3570 60%,#0B1838);
-  box-shadow:0 0 0 2px #C9A24A,0 0 0 3px #2a1d06,0 3px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
-.knob.red{background:radial-gradient(circle at 35% 30%,#C25A47,#7A1B14 60%,#3A0906)}
+/* the Settings and Close buttons: notched cartouches in the skin's wax with a metal rim, set in from the corner ornament */
+.head-btns{position:absolute;right:52px;top:23px;display:flex;gap:9px;z-index:8;
+  filter:drop-shadow(0 0 .5px var(--knob-edge,#2a1d06)) drop-shadow(0 0 .5px var(--knob-edge,#2a1d06)) drop-shadow(0 3px 3px rgba(0,0,0,.55))}
+.knob{--rim:var(--gold-grad);--wax:radial-gradient(circle at 35% 30%,#3C68BE,#1B3570 60%,#0B1838);--hair:rgba(255,243,196,.45);
+  position:relative;isolation:isolate;width:40px;height:34px;display:grid;place-items:center;border:none;padding:0;cursor:pointer;color:var(--gold-leaf);
+  background:var(--rim);clip-path:path('M5 0H35A5 5 0 0 0 40 5V29A5 5 0 0 0 35 34H5A5 5 0 0 0 0 29V5A5 5 0 0 0 5 0Z')}
+.knob::before{content:"";position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(ellipse 60% 45% at 30% 18%,rgba(255,255,255,.3),rgba(255,255,255,0) 100%),var(--wax);
+  clip-path:path('M7 2.4H33A7.4 7.4 0 0 0 37.6 7V27A7.4 7.4 0 0 0 33 31.6H7A7.4 7.4 0 0 0 2.4 27V7A7.4 7.4 0 0 0 7 2.4Z')}
+.knob::after{content:"";position:absolute;inset:0;z-index:-1;background:var(--hair);
+  clip-path:path(evenodd,'M8.31 4.4H31.69A9.4 9.4 0 0 0 35.6 8.31V25.69A9.4 9.4 0 0 0 31.69 29.6H8.31A9.4 9.4 0 0 0 4.4 25.69V8.31A9.4 9.4 0 0 0 8.31 4.4ZM8.66 5H31.34A10 10 0 0 0 35 8.66V25.34A10 10 0 0 0 31.34 29H8.66A10 10 0 0 0 5 25.34V8.66A10 10 0 0 0 8.66 5Z')}
+.knob.red{--wax:radial-gradient(circle at 35% 30%,#C25A47,#7A1B14 60%,#3A0906)}
 .knob svg{width:16px;height:16px}
 
 /* body */
@@ -72,13 +83,15 @@
     radial-gradient(ellipse 30% 46% at 15% 20%,rgba(255,255,255,.2),rgba(255,255,255,0) 100%),
     radial-gradient(ellipse 120% 170% at 30% 22%,#CB604B 0%,#842019 42%,#380906 100%)}
 .tab.on{color:var(--rb-deep);background:var(--gold-grad);border-color:#FFF3C4;margin-right:-16px;z-index:5;
-  box-shadow:0 0 22px rgba(243,217,138,.35),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.7);overflow:hidden}
+  box-shadow:0 0 22px rgba(243,217,138,.35),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.7)}
 .tab.on small{color:#3A2A0A}
-.tab.on::before{content:"";position:absolute;top:0;bottom:0;width:40px;left:-60px;transform:skewX(-20deg);
-  background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.65),rgba(255,255,255,0));animation:sheen 5s ease-in-out infinite}
-@keyframes sheen{0%,62%{left:-60px}100%{left:240px}}
-/* the window's ornate border in miniature: double rule, stitching and jewelled filigree corners */
-.tab.on::after{content:"";position:absolute;inset:0;border:20px solid transparent;border-image:url(/_blob/83dde6b367275cb6d4d9550c6c74c5ac) 20 / 20px round;pointer-events:none}
+/* the moving shine: a slanted band swept across the tab, kept inside it (the corners hang outside, so the tab can't clip) */
+.tab.on::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(110deg,rgba(255,255,255,0) 45%,rgba(255,255,255,.65) 50%,rgba(255,255,255,0) 55%) no-repeat;
+  background-size:300% 100%;background-position:120% 0;animation:sheen 5s ease-in-out infinite}
+@keyframes sheen{0%,62%{background-position:120% 0}100%{background-position:-20% 0}}
+/* the lit tab's corners: a fleur-de-lis pointing out past each corner, with a curling tendril along each edge, set 9 out from the tab */
+.tab.on::after{content:"";position:absolute;inset:-9px;border:28px solid transparent;border-image:url(/_blob/800598301eab1e913fea8bebb29ced92) 28 / 28px round;pointer-events:none}
 .badge-count{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:11px;display:grid;place-items:center;
   font-family:var(--f-display);font-size:11px;font-weight:700;color:#fff;background:radial-gradient(circle at 35% 30%,#D2614E,#7A1B14);box-shadow:0 0 0 1.5px #F3D98A}
 /* on a resting tab the badge is pinned over the tab's edge, so the label keeps its full width */

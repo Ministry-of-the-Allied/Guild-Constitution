@@ -10,6 +10,7 @@
 <meta charset="utf-8">
 <style>
 {{css}}
+.ribbon-mark{position:absolute;width:22px;height:96px;background:linear-gradient(90deg,#14306E,#2C55A8 50%,#14306E);clip-path:polygon(0 0,100% 0,100% 100%,50% 86%,0 100%);box-shadow:0 2px 4px rgba(0,0,0,.4)}
 </style>
 </head>
 <body>
@@ -60,6 +61,13 @@
   <button class="ribbon on" id="kitRibbonOn7" style="position: absolute; left: 220px; top: 160px" type="button">The Chamber</button>
   <button class="ribbon" id="kitRibbonOff5" style="position: absolute; left: 220px; top: 160px" type="button">Silverhand</button>
   <button class="ribbon" id="kitRibbonOff6" style="position: absolute; left: 220px; top: 160px" type="button">Azeroth Exchange</button>
+  <button class="ribbon on" id="kitRibbonOn8" style="position: absolute; left: 220px; top: 160px" type="button">In force</button>
+  <button class="ribbon on" id="kitRibbonOn9" style="position: absolute; left: 220px; top: 160px" type="button">Awaiting</button>
+  <button class="ribbon on" id="kitRibbonOn10" style="position: absolute; left: 220px; top: 160px" type="button">Court rulings</button>
+  <button class="ribbon" id="kitRibbonOff4" style="position: absolute; left: 220px; top: 160px" type="button">The Charter</button>
+  <button class="ribbon" id="kitRibbonOff8" style="position: absolute; left: 220px; top: 160px" type="button">In force</button>
+  <button class="ribbon" id="kitRibbonOff9" style="position: absolute; left: 220px; top: 160px" type="button">Awaiting</button>
+  <button class="ribbon" id="kitRibbonOff10" style="position: absolute; left: 220px; top: 160px" type="button">Court rulings</button>
   <button class="ribbon" id="kitRibbonOff7" style="position: absolute; left: 220px; top: 160px" type="button">The Chamber</button>
   <div class="banner sh" id="kitBannerSh" style="position: absolute; left: 0; top: 300px; width: 708px; height: 128px; min-height: 0; padding: 0; box-sizing: border-box"><img class="seal" src="{{seal_sh}}" alt=""></div>
   <div class="banner ex" id="kitBannerEx" style="position: absolute; left: 0; top: 300px; width: 708px; height: 128px; min-height: 0; padding: 0; box-sizing: border-box"><img class="seal" src="{{seal_ex}}" alt=""></div>
@@ -68,8 +76,10 @@
   <div class="portrait" id="kitPortraitEx" style="--pc: #9E1B22; position: absolute; left: 300px; top: 200px"></div>
   <span class="gem" id="kitGem" style="--cc: #fff; position: absolute; left: 10px; top: 200px; box-shadow: none"></span>
   <span class="gem" id="kitGemHollow" style="position: absolute; left: 40px; top: 200px; background: transparent; box-shadow: inset 0 0 0 1px #fff"></span>
-  <span class="coin g" id="kitCoinG" style="position: absolute; left: 70px; top: 200px; margin: 0"></span>
-  <span class="coin s" id="kitCoinS" style="position: absolute; left: 100px; top: 200px; margin: 0"></span>
+  <img id="kitCoinG" src="{{coin_g}}" alt="" style="position: absolute; left: 70px; top: 190px; width: 28px; height: 28px">
+  <img id="kitCoinS" src="{{coin_s}}" alt="" style="position: absolute; left: 100px; top: 190px; width: 28px; height: 28px">
+  <img id="kitCoinC" src="{{coin_c}}" alt="" style="position: absolute; left: 530px; top: 190px; width: 28px; height: 28px">
+  <span class="ribbon-mark" id="kitMark" style="left: 560px; top: 150px"></span>
   <button class="band on" id="kitBand" style="position: absolute; left: 130px; top: 195px; width: 88px" type="button"></button>
   <div class="track" id="kitTrack" style="position: absolute; left: 10px; top: 240px"><span class="step"></span></div>
   <span class="step" id="kitStepTodo" style="position: absolute; left: 170px; top: 240px"></span>

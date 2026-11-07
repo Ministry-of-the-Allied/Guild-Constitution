@@ -30,13 +30,23 @@
   <button class="ribbon at" id="rb-crown" type="button" style="left: 0; top: 60px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg>Crown</button>
   <button class="ribbon on at" id="rb-crown-on" type="button" style="left: 180px; top: 60px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M4.5 19 3.5 8l5 4 3.5-7 3.5 7 5-4-1 11"></path></svg>Crown</button>
 
-  <!-- seals: the Official mark, the Crown seal, the Crown stamp, the held block -->
+  <!-- seals: the Official mark, the two parties' seals (the mark and the Seal button wear the chosen candidate's), the Crown seal, the Crown stamp, the held block -->
   <img class="at" id="seal-off" src="{{official}}" alt="" style="left: 0; top: 130px; width: 80px; height: 80px">
+  <img class="at" id="seal-sh" src="{{silverhand}}" alt="" style="left: 1020px; top: 130px; width: 80px; height: 80px">
+  <img class="at" id="seal-ex" src="{{exchange}}" alt="" style="left: 1130px; top: 130px; width: 80px; height: 80px">
   <img class="at" id="seal-crown" src="{{crown}}" alt="" style="left: 130px; top: 130px; width: 80px; height: 80px">
   <img class="at" id="seal-tilt" src="{{crown}}" alt="" style="left: 260px; top: 130px; width: 64px; height: 64px; transform: rotate(8deg)">
   <img class="at" id="stamp" src="{{crown}}" alt="" style="left: 380px; top: 120px; width: 150px; height: 150px; transform: rotate(-8deg); filter: drop-shadow(0 6px 8px rgba(0,0,0,.35))">
   <div class="at held-block" id="held" style="left: 580px; top: 120px">
     <img src="{{official}}" alt="" style="width: 96px; height: 96px">
+    <span class="chip k-ink">Waiting for the Crown</span>
+  </div>
+  <div class="at held-block" id="held-sh" style="left: 580px; top: 120px">
+    <img src="{{silverhand}}" alt="" style="width: 96px; height: 96px">
+    <span class="chip k-ink">Waiting for the Crown</span>
+  </div>
+  <div class="at held-block" id="held-ex" style="left: 580px; top: 120px">
+    <img src="{{exchange}}" alt="" style="width: 96px; height: 96px">
     <span class="chip k-ink">Waiting for the Crown</span>
   </div>
   <span class="at ring" id="ring" style="left: 800px; top: 130px"></span>
@@ -46,7 +56,7 @@
   <div class="at portrait sm" id="portrait-king" style="left: 960px; top: 130px; --pc: #6B44A8"></div>
 
   <!-- buttons -->
-  <button class="btn at" id="btn-seal" type="button" style="left: 10px; top: 310px"><img src="{{official}}" alt="" style="width: 26px; height: 26px; margin-left: -8px">Seal my ballot</button>
+  <button class="btn at" id="btn-seal" type="button" style="left: 10px; top: 310px"><span id="btn-seal-ico" style="display: block; width: 26px; height: 26px; margin-left: -8px"></span>Seal my ballot</button>
   <button class="btn at" id="btn-open" type="button" style="left: 300px; top: 310px">Open polls</button>
   <button class="btn at" id="btn-close" type="button" style="left: 520px; top: 310px">Close polls</button>
   <button class="btn gold at" id="btn-declare" type="button" style="left: 740px; top: 310px">Declare the result</button>

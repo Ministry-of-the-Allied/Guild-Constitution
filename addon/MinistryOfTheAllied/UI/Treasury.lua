@@ -13,7 +13,7 @@ local PAGE_ID = "treasury"
 local PARCH = M.slots.parch
 local LEFT, TOP = PARCH.x + 34, PARCH.y + 20
 local WIDTH, HEIGHT = PARCH.w - 60, PARCH.h - 42
-local ASIDE_W, GAP = 206, 20 -- the same column as the Ring
+local ASIDE_W, GAP = 236, 20 -- the Treasury board's column (the Ring's is narrower)
 local MAIN_X = ASIDE_W + GAP
 local MAIN_W = WIDTH - MAIN_X
 local ROW_H = 30
@@ -23,7 +23,7 @@ local HEAD_H = 36 + 12 -- the same height as a page's ribbons
 local ROWS = math.floor((HEIGHT - HEAD_H - CHECK_H - PAGER_H - 12 - ROW_H) / ROW_H)
 local CHECK_ROWS = 2
 
-local root, coffer, counted, accounts, inOut, openBtn
+local root, coffer, notCounted, counted, accounts, term, openBtn
 local rows, pager, prev, nextB, emptyLine
 local checkTitle, checkLine, checkRows
 local first = 1
@@ -50,22 +50,64 @@ local function amountRow(parent, y, label, w)
   return value
 end
 
-local function buildAside()
-  local plate = panel(root, nil, 0, 0, ASIDE_W, 158)
-  Kit:AccentArt(plate, "kitBlue", "BACKGROUND"):SetAllPoints()
-  local seal = UI:Piece(plate, "hseal_official", "ARTWORK", nil, nil, nil, plate)
-  seal:ClearAllPoints()
-  seal:SetSize(44, 44)
-  seal:SetPoint("TOP", plate, "TOP", 0, -14)
-  Kit:Label(plate, "kitTiny", "C9D6F5", 0.28, "The Guild Coffers"):SetPoint("TOP", plate, "TOP", 0, -63)
-  coffer = Kit:Text(plate, "kitStage", "F3D98A", "CENTER")
-  coffer:SetPoint("TOP", plate, "TOP", 0, -80)
-  coffer:SetWidth(ASIDE_W - 16)
-  counted = Kit:Text(plate, "kitSmallest", "C9D5F0", "CENTER")
-  counted:SetPoint("TOP", coffer, "BOTTOM", 0, -3)
-  counted:SetWidth(ASIDE_W - 16)
+-- .bar: a short track with a coloured fill (top and bottom colours), as on the board.
+local BAR_W = ASIDE_W - 34 - 102 -- between the label and the amount
+local function bar(parent, top, bottom)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(BAR_W, 12)
+  local track = f:CreateTexture(nil, "BACKGROUND")
+  track:SetAllPoints()
+  Kit:Solid(track, "6E4F17", 0.16)
+  Kit:Outline(f, "6E4F17", 0.55)
+  local fill = f:CreateTexture(nil, "ARTWORK")
+  fill:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
+  fill:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1, 1)
+  Kit:Gradient(fill, top, bottom)
+  local shine = f:CreateTexture(nil, "OVERLAY")
+  shine:SetPoint("TOPLEFT", fill, "TOPLEFT", 0, 0)
+  shine:SetPoint("TOPRIGHT", fill, "TOPRIGHT", 0, 0)
+  shine:SetHeight(1)
+  Kit:Solid(shine, "FFFFFF", 0.3)
+  -- frac is 0 to 1 of the track
+  function f:SetFraction(frac)
+    local w = (BAR_W - 2) * math.max(0, math.min(1, frac or 0))
+    fill:SetWidth(math.max(0.001, w))
+    fill:SetShown(w >= 1)
+    shine:SetShown(w >= 1)
+  end
+  return f
+end
 
-  local acc = panel(root, "plain", 0, 170, ASIDE_W, 118)
+-- One row of the "This term" block: a label, a bar and the amount.
+local function termRow(parent, y, label, top, bottom)
+  Kit:Label(parent, "kitTiny", "7A5719", 0.2, label):SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(y + 1))
+  local amount = Kit:Amount(parent, "kitSmall", "1B3570")
+  amount:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -y)
+  local b = bar(parent, top, bottom)
+  b:SetPoint("TOPLEFT", parent, "TOPLEFT", 34, -(y + 1))
+  return { bar = b, amount = amount }
+end
+
+local COFFER_H = 202 -- the board's coffer plate, with a larger seal (74; the board's icon is 46)
+
+local function buildAside()
+  local plate = panel(root, nil, 0, 0, ASIDE_W, COFFER_H)
+  Kit:PlateArt(plate, "kitBlue", "BACKGROUND")
+  local seal = UI:Piece(plate, "hseal_treasury", "ARTWORK", nil, nil, nil, plate) -- the Seal of the State, Treasury form (crossed keys)
+  seal:ClearAllPoints()
+  seal:SetSize(74, 74)
+  seal:SetPoint("TOP", plate, "TOP", 0, -14)
+  Kit:Label(plate, "kitTiny", "C9D6F5", 0.28, "The Guild Coffers"):SetPoint("TOP", plate, "TOP", 0, -96)
+  coffer = Kit:Coffer(plate, ASIDE_W - 32)
+  coffer:SetPoint("TOP", plate, "TOP", 0, -116)
+  notCounted = Kit:Text(plate, "kitStage", "F3D98A", "CENTER")
+  notCounted:SetPoint("TOP", plate, "TOP", 0, -129)
+  notCounted:SetWidth(ASIDE_W - 32)
+  counted = Kit:Text(plate, "kitSmallest", "C9D5F0", "CENTER")
+  counted:SetPoint("TOP", plate, "TOP", 0, -165)
+  counted:SetWidth(ASIDE_W - 32)
+
+  local acc = panel(root, "plain", 0, COFFER_H + 14, ASIDE_W, 118)
   Kit:Label(acc, "kitSection", "1B3570", 0.22, "The accounts"):SetPoint("TOPLEFT", acc, "TOPLEFT", 14, -12)
   Kit:Rule(acc, ASIDE_W - 28):SetPoint("TOPLEFT", acc, "TOPLEFT", 14, -30)
   accounts = {
@@ -74,9 +116,14 @@ local function buildAside()
     ex = amountRow(acc, 86, "Exchange"),
   }
 
-  local since = panel(root, "sunk", 0, 300, ASIDE_W, 86)
-  Kit:Label(since, "kitTiny", "7A5719", 0.2, "Since the books opened"):SetPoint("TOPLEFT", since, "TOPLEFT", 14, -12)
-  inOut = { moneyIn = amountRow(since, 32, "In"), moneyOut = amountRow(since, 56, "Out") }
+  -- "This term": money in and out, as bars against the larger of the two.
+  -- The add-on doesn't track terms yet, so for now it counts from when the books opened.
+  local block = panel(root, nil, 0, COFFER_H + 14 + 118 + 14, ASIDE_W, 70)
+  Kit:Label(block, "kitSection", "1B3570", 0.22, "This term"):SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
+  term = {
+    moneyIn = termRow(block, 24, "In", "3E9A6E", "1F6B4A"),
+    moneyOut = termRow(block, 46, "Out", "C2413C", "8A161C"),
+  }
 
   local foot = panel(root, nil, 0, HEIGHT - 58, ASIDE_W, 58)
   local line = foot:CreateTexture(nil, "ARTWORK")
@@ -85,7 +132,8 @@ local function buildAside()
   line:SetPoint("TOPRIGHT", foot, "TOPRIGHT", 0, 0)
   line:SetHeight(1)
   Kit:Label(foot, "kitTiny", "7A5719", 0.02, "Minister of the Treasury"):SetPoint("TOPLEFT", foot, "TOPLEFT", 46, -7)
-  local portrait = UI:Piece(foot, "portrait", "ARTWORK", nil, nil, nil, foot)
+  -- the initials circle wears the window skin's colour (Exchange red, Crown plum...)
+  local portrait = UI:SkinPiece(foot, "portrait", "metal", "ARTWORK", nil, nil, nil, nil, foot)
   portrait:ClearAllPoints()
   portrait:SetSize(36, 36)
   portrait:SetPoint("TOPLEFT", foot, "TOPLEFT", 0, -14)
@@ -109,7 +157,7 @@ local function column(row, font, hex, justify, x, w)
   return t
 end
 
-local DATE_W, MONEY_W = 58, 84
+local DATE_W, MONEY_W = 58, 88
 local function buildLedger()
   local heading = Kit:Text(root, "kitChamber", "1B3570")
   heading:SetPoint("TOPLEFT", root, "TOPLEFT", MAIN_X, -8)
@@ -143,8 +191,10 @@ local function buildLedger()
     local r = panel(sheet, nil, 0, i * ROW_H, MAIN_W, ROW_H)
     r.date = column(r, "kitTiny", "5E4B33", "LEFT", 8, DATE_W - 10)
     r.entry = column(r, "kitSmall", "2A1F14", "LEFT", DATE_W + 10, entryW)
-    r.moneyIn = column(r, "kitSmall", "1F6B4A", "RIGHT", MAIN_W - MONEY_W * 2 - 12, MONEY_W)
-    r.moneyOut = column(r, "kitSmall", "8E1B1B", "RIGHT", MAIN_W - MONEY_W - 8, MONEY_W)
+    r.moneyIn = Kit:Amount(r, "kitSmall", "1F6B4A")
+    r.moneyIn:SetPoint("RIGHT", r, "LEFT", MAIN_W - MONEY_W - 12, 0)
+    r.moneyOut = Kit:Amount(r, "kitSmall", "8E1B1B")
+    r.moneyOut:SetPoint("RIGHT", r, "LEFT", MAIN_W - 8, 0)
     rows[i] = r
   end
   emptyLine = Kit:Text(sheet, "kitItalic", "5E4B33", "CENTER")
@@ -200,15 +250,22 @@ function Page:Refresh()
 
   local function setAmount(box, copper)
     box:SetShown(opened)
-    box:SetGold((copper or 0) / 10000)
+    box:SetCopper(copper or 0, 2)
   end
-  coffer:SetText(opened and MOTA:Money(data.balance) or "Not yet counted")
+  coffer:SetShown(opened)
+  if opened then coffer:SetCopper(data.balance) end
+  notCounted:SetShown(not opened)
+  notCounted:SetText("Not yet counted")
   counted:SetText(opened and ("Counted · " .. date("%d %b", data.balanceAt)) or "The books aren't open")
   setAmount(accounts.treasury, data.treasury)
   setAmount(accounts.sh, MOTA.Party:Funds("sh"))
   setAmount(accounts.ex, MOTA.Party:Funds("ex"))
-  setAmount(inOut.moneyIn, data.moneyIn)
-  setAmount(inOut.moneyOut, data.moneyOut)
+  local biggest = math.max(data.moneyIn or 0, data.moneyOut or 0)
+  for key, row in pairs(term) do
+    setAmount(row.amount, data[key])
+    row.bar:SetShown(opened)
+    row.bar:SetFraction(biggest > 0 and (data[key] or 0) / biggest or 0)
+  end
 
   local canOpen = isCrown and not opened
   openBtn:SetShown(canOpen)
@@ -226,8 +283,10 @@ function Page:Refresh()
     if line then
       r.date:SetText(date("%d %b", line.t):upper())
       r.entry:SetText(lineText(line))
-      r.moneyIn:SetText(line.io ~= "w" and MOTA:Money(line.amt) or "")
-      r.moneyOut:SetText(line.io == "w" and MOTA:Money(line.amt) or "")
+      r.moneyIn:SetShown(line.io ~= "w")
+      r.moneyOut:SetShown(line.io == "w")
+      r.moneyIn:SetCopper(line.amt, 2)
+      r.moneyOut:SetCopper(line.amt, 2)
     end
   end
   emptyLine:SetShown(total == 0)

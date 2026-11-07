@@ -454,7 +454,7 @@ max3.slash("skin silverhand")
 check("/mota skin silverhand puts Silverhand's skin on the Crown's screen at once", crown_ns.skin.KEY == "SILVERHAND"
       and skin_tex(crown_tab2().bgRest) == "skin_silverhand.tga" and skin_tex(crown_ns.UI.crest) == "skin_silverhand.tga")
 check("Silverhand's skin brings the silver metal", skin_tex(crown_ns.UI.tabs[1].bgOn) == "frame_silver.tga")
-check("The lit tab's label takes the party blue", rgb255(crown_ns.UI.tabs[crown_ns.UI.page].label) == (0x1F, 0x42, 0x90))
+check("The lit tab's label takes the party blue", rgb255(crown_ns.UI.tabs[crown_ns.UI.page].label.letters[1]) == (0x1F, 0x42, 0x90))  # live text: each letter is a FontString
 max3.slash("skin exchange")
 check("The Exchange's skin is gold again", crown_ns.skin.KEY == "AZEROTH_EXCHANGE" and skin_tex(crown_ns.UI.tabs[1].bgOn) == "frame_gold.tga")
 max3.slash("skin bogus")
@@ -617,6 +617,9 @@ vc.slash("voice off")
 check("...or switched off", vns.db.settings.voice)
 vc.slash("constitution")
 check("/mota constitution opens the Statute Book", VL.MinistryOfTheAlliedFrame.shown and vns.UI.heading.text == "The Statute Book")
+for view_name in ("force", "wait", "court", "charter"):
+    vns.StatutesPage.Select(vns.StatutesPage, view_name)
+check("Statute Book: every view opens without errors", True)
 check("The board's layout replaces the page heading", not vns.UI.heading.shown and not vns.UI.divider.shown)
 check("The Charter text is there", any(b[2] == "Preamble" for b in vns.Charter.values()))
 vns.ConstitutionPage.Press(vns.ConstitutionPage, 3)

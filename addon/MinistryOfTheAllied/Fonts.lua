@@ -12,8 +12,10 @@ local FALLBACK = STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
 local FILES = {
   cinzelSemi = "Cinzel-SemiBold.ttf",
   cinzel = "Cinzel-Bold.ttf",
-  decoBold = "CinzelDecorative-Bold.ttf",
-  decoBlack = "CinzelDecorative-Black.ttf",
+  -- Ministry Decorative: Cinzel Decorative with its joined "h" pairs (as in "the") spaced
+  -- normally, the double O kept (tools/fonts/make_ministry_decorative.py; renamed as the OFL asks)
+  decoBold = "MinistryDecorative-Bold.ttf",
+  decoBlack = "MinistryDecorative-Black.ttf",
   garamond = "EBGaramond-Regular.ttf",
   garamondMedium = "EBGaramond-Medium.ttf",
   garamondItalic = "EBGaramond-Italic.ttf",
@@ -28,6 +30,8 @@ local STYLES = {
   whoSmall = { "garamondMedium", 12.5, true },
   initials = { "decoBold", 13, true },      -- .portrait.sm
   foot = { "cinzelSemi", 10.5, true },      -- .win-foot
+  tabLabel = { "cinzel", 12 },              -- .tab (spaced out, see Tracked)
+  tabSmall = { "garamondMedium", 12.5 },    -- .tab small
   tool = { "garamond", 13 },                -- small print in tool windows
   eyebrow = { "cinzel", 9.5 },              -- .herald .eyebrow (spaced out, see Tracked)
   heraldTitle = { "decoBold", 21 },         -- .herald h3
@@ -40,6 +44,8 @@ local STYLES = {
   kitButton = { "cinzel", 11 },             -- .btn.sm
   kitRibbon = { "cinzel", 11 },             -- .ribbon
   kitStage = { "cinzel", 17 },              -- the event plate's stage
+  kitCofferBig = { "cinzel", 30 },          -- the coffer's gold figure
+  kitCofferSmall = { "cinzel", 18 },        -- its silver and copper
   kitName = { "cinzel", 14 },               -- .h-name at 14
   kitNameSmall = { "cinzel", 12 },          -- a full character name in a narrow place
   kitMotto = { "garamondItalic", 17 },      -- the party banner's motto
@@ -54,6 +60,7 @@ local STYLES = {
   kitDuelist = { "garamond", 14.5 },        -- .duelist, .entry
   kitDuelistBold = { "garamondMedium", 14.5 },
   kitSmallest = { "garamond", 13 },
+  kitLawTitle = { "decoBold", 25 },         -- .h-page at 25 (a statute's title)
   kitProse = { "garamond", 15.5 },          -- .prose on the Statute Book
   kitRoman = { "cinzel", 13 },              -- .roman
   constitutionPart = { "decoBold", 17 },    -- The Constitution page
@@ -102,6 +109,20 @@ function MOTA:Font(name)
     font:SetShadowOffset(0, -1)
   end
   self.fonts[name] = font
+  return font
+end
+
+-- A font by its file key (FILES) at any size, for text laid over the canvas
+-- pictures (UI/LiveText.lua). Sizes are kept to half points so few are made.
+local sized = {}
+function MOTA:FontAt(key, size)
+  size = math.max(4, math.floor(size * 2 + 0.5) / 2)
+  local id = key .. "@" .. size
+  if sized[id] then return sized[id] end
+  local font = CreateFont(("MinistryOfTheAlliedFont_%s_%s"):format(key, (tostring(size):gsub("%.", "_"))))
+  local ok = font:SetFont(DIR .. (FILES[key] or FILES.garamond), size, "")
+  if ok == false or not font:GetFont() then font:SetFont(FALLBACK, size, "") end
+  sized[id] = font
   return font
 end
 
