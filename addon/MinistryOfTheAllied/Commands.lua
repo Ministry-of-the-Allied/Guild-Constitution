@@ -367,6 +367,30 @@ add("games", "[result <title>: <first>, <second>, ...]", "the games log; the Cro
   end
 end)
 
+add("lottery", "[open <name>, <gold per ticket>, <days>, draw]", "the Royal Lottery: tickets are bought at the guild bank", function(arg)
+  if not needGuild() then return end
+  local Lo = MOTA.Lottery
+  local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
+  local rec, err
+  if word == "open" then
+    local parts = {}
+    for part in rest:gmatch("[^,]+") do parts[#parts + 1] = strtrim(part) end
+    if #parts < 3 then return MOTA:Print("Usage: /mota lottery open <name>, <gold per ticket>, <days of sales>") end
+    rec, err = Lo:Open(parts[1], parts[2], parts[3])
+  elseif word == "draw" then
+    rec, err = Lo:Draw()
+  else
+    local L = Lo:Current()
+    MOTA:Print((L and (L.name .. ": ") or "") .. Lo:Line(L))
+    local mine = L and Lo:TicketsOf(MOTA.me, L) or 0
+    if L and Lo:Stage(L) == "selling" then
+      MOTA:Print(mine > 0 and ("You hold " .. mine .. (mine == 1 and " ticket." or " tickets.")) or "Buy tickets at the guild bank: deposit gold and choose Lottery tickets as the reason.")
+    end
+    return
+  end
+  if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
+end)
+
 add("honour", "<name>, <order>, [citation] or remove <name>, <order>", "the Crown confers an order (crown, lion, quill or star)", function(arg)
   if not needGuild() then return end
   local H = MOTA.Honours

@@ -13,10 +13,10 @@ MOTA.BankPrompt = Prompt
 local REASONS = {
   d = {
     { "tax", "Tax" }, { "ring_fee", "Ring entry fee" }, { "fine", "Treasury fine" }, { "donation", "Donation" },
-    { "party_sh", "Silverhand donation" }, { "party_ex", "Exchange donation" }, { "other", "Other" },
+    { "lottery", "Lottery tickets" }, { "party_sh", "Silverhand donation" }, { "party_ex", "Exchange donation" }, { "other", "Other" },
   },
   w = {
-    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" }, { "ring_refund", "Ring refund" },
+    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" }, { "ring_refund", "Ring refund" }, { "lottery_prize", "Lottery prize" },
     { "party_sh", "Silverhand funds" }, { "party_ex", "Exchange funds" }, { "other", "Other" },
   },
 }

@@ -67,6 +67,10 @@ local function list()
       text = "The Gladiator of Stormwind, by victory in Old Town.", button = { label = "Dismiss", style = "quiet" } } },
     { "A game won", { seal = "official", eyebrow = "The Games", title = A .. " wins Round the Lake",
       text = "Then " .. B .. ", then Mira. Well played, all.", button = { label = "Dismiss", style = "quiet" } } },
+    { "Lottery open", { seal = "treasury", eyebrow = "The Royal Lottery", title = "Spring Draw is open",
+      text = "Tickets 1g each, bought at the guild bank (choose Lottery as the reason). The draw is after 12 Nov. The winner takes 70% of the pot.", button = { label = "Dismiss", style = "quiet" } } },
+    { "Lottery won", { seal = "treasury", eyebrow = "The Royal Lottery", title = "You've won the lottery!",
+      text = "Ticket 14 of 40 takes 28g. 12g goes to the Treasury. The prize is paid from the guild bank.", button = { label = "Dismiss", style = "quiet" } } },
     { "An honour conferred", { seal = "crown", eyebrow = "By royal decree", title = B .. ", Order of the Lion",
       text = "Held the bridge at Southshore. Conferred by " .. A .. ", for valour in battle.", button = { label = "Dismiss", style = "quiet" } } },
   }

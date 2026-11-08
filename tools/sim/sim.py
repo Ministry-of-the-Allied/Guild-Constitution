@@ -2050,6 +2050,65 @@ check("Throne Room: honours and results are among the decrees", E(eb, TH + 'for 
 throne_draws(ek, "five Cabinet posts")
 check("Tooltip: an honoured name shows its letters", E(ek, 'local seal = MinistryOfTheAlliedMinimapButton; seal.scripts.OnEnter(seal); seal.scripts.OnLeave(seal) for _, s in ipairs(M.OnlineTip.state.sections) do for _, n in ipairs(s.names) do if n:find("^Bram |cffC9A24AKC") then return true end end end return false') is True)
 
+print("== 15g. the Royal Lottery")
+def jump(seconds):
+    """Every copy's server clock moves on, without running the timers in between."""
+    for c in clients:
+        c.lua.globals().CLOCK_START = (c.lua.globals().CLOCK_START or 0) + seconds
+LO = 'local Lo = M.Lottery '
+def deposit(c, gold, reason="lottery"):
+    E(c, 'M.Book:Write("bank.move", { io = "d", amt = %d, r = "%s", at = GetServerTime() }) return 1' % (int(gold * 10000), reason))
+check("Lottery: a citizen can't open one", "Only the Crown" in E(em, LO + 'local _, e = Lo:Open("x", 1, 3) return e'))
+ekk.slash("lottery open Spring Draw, 1, 3")
+run(1)
+check("Lottery: the Minister of Games opens one, seen by everyone",
+      E(em, LO + 'local L = Lo:Current() return L.name .. "|" .. L.price .. "|" .. Lo:Stage()') == "Spring Draw|10000|selling")
+check("Lottery: only the secret's hash is published", E(em, LO + 'local L = Lo:Current() return #L.c == 17 - 1 and M.guild.records.Kael ~= nil') is True
+      and E(ekk, LO + 'return MOTADB.lotterySecrets[Lo:Current().id] ~= nil') is True and E(em, 'return MOTADB.lotterySecrets == nil') is True)
+check("Lottery: only one at a time", "already under way" in E(ek, LO + 'local _, e = Lo:Open("Two", 1, 3) return e'))
+check("Lottery: the bank prompt offers Lottery tickets", E(em, 'for _, r in ipairs(M.BankPrompt.REASONS.d) do if r[1] == "lottery" then return r[2] end end') == "Lottery tickets")
+em.log.clear()
+deposit(em, 2.5)
+deposit(eb, 1)
+deposit(eb, 0.5)
+deposit(ekk, 3)
+run(1)
+check("Lottery: each whole ticket price buys a ticket", E(ek, LO + 'return Lo:TicketsOf("Mira") .. "," .. Lo:TicketsOf("Bram")') == "2,1")
+check("Lottery: the buyer is told", em.said(r"You bought 2 tickets in Spring Draw"))
+check("Lottery: the organiser can't buy tickets in their own draw", E(ek, LO + 'return Lo:TicketsOf("Kael")') == 0 and ekk.said(r"you can't buy tickets in it"))
+check("Lottery: the pot and the split", E(eb, LO + 'local L = Lo:Current() return L.pot .. "," .. L.prize .. "," .. L.treasury') == "30000,21000,9000")
+check("Throne Room: the lottery shows in What's on", E(em, TH + 'for _, e in ipairs(T:Live()) do if e.key == "lottery" then return e.line end end').endswith("you hold 2"))
+check("Lottery: no draw before sales close", "still open" in E(ekk, LO + 'local _, e = Lo:Draw() return e'))
+jump(3 * 86400 + 60)
+deposit(em, 1)
+run(1)
+check("Lottery: gold after the close buys nothing", E(ek, LO + 'return Lo:TicketsOf("Mira") .. "|" .. Lo:Stage()') == "2|closed")
+check("Throne Room: the organiser is told to draw", E(ekk, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Draw Spring Draw") then return true end end return false') is True)
+check("Lottery: another can't draw it before the week's out", "draws it" in E(ek, LO + 'local _, e = Lo:Draw() return e'))
+ekk.slash("lottery draw")
+run(2)
+winner = E(ek, LO + 'return Lo:Current().winner')
+check("Lottery: drawn, every copy finds the same winner", winner in ("Mira", "Bram") and E(em, LO + 'return Lo:Current().winner') == winner and E(eb, LO + 'return Lo:Current().winner') == winner)
+check("Lottery: anyone can check the draw from the secret and the tickets",
+      E(em, LO + 'local L = Lo:Current() return M.Account.Hash(L.drawn.s) == L.c and Lo:Pick(L.drawn.s, L.tickets) == L.win') is True)
+check("Lottery: the result goes into the games log, without a medal", E(em, 'local e = M.Games:Log()[1] return e.g .. "|" .. e.places[1]') == "lottery|" + winner
+      and E(ek, 'return M.Honours:Has("%s", "laurel")' % winner) is (winner == "Bram"))  # Bram won races before
+check("Lottery: the prize is owed, as a duty", E(ekk, LO + 'return Lo:Owed()') == 21000
+      and E(ekk, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("lottery prize") then return true end end return false') is True)
+E(ekk, 'M.Book:Write("bank.move", { io = "w", amt = 21000, r = "lottery_prize", at = GetServerTime() }) return 1')
+run(1)
+check("Lottery: once paid, nothing's owed", E(em, LO + 'return Lo:Owed()') == 0 and "paid" in E(em, LO + 'return Lo:Line()'))
+E(ekk, 'M.Lottery:Open("Second Draw", 0.5, 1) return 1')
+run(1)
+jump(86400 + 60)
+E(em, 'M.Book:Write("lottery.draw", { id = M.Lottery:Current().id, s = "guess" }) return 1')
+run(1)
+check("Lottery: a draw with the wrong secret, or by someone else, doesn't count", E(ek, LO + 'return Lo:Stage()') == "closed")
+jump(7 * 86400)
+check("Lottery: a week after the close, the Crown may draw without the secret", E(ek, LO + 'return Lo:Draw() ~= nil') is True)
+run(1)
+check("Lottery: drawn with no tickets sold", E(em, LO + 'return Lo:Stage() .. "|" .. tostring(Lo:Current().winner)') == "drawn|nil")
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

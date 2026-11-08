@@ -180,6 +180,14 @@ function Throne:Live()
     end
   end
 
+  local L = MOTA.Lottery and MOTA.Lottery:Current()
+  local ls = L and MOTA.Lottery:Stage(L)
+  if ls == "selling" or ls == "closed" or (ls == "drawn" and now < L.drawn.t + 3 * DAY) then
+    local mine = MOTA.Lottery:TicketsOf(me, L)
+    out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.treasury, button = "Open",
+      line = MOTA.Lottery:Line(L) .. (ls == "selling" and mine > 0 and (" · you hold " .. mine) or ""), ends = ls == "selling" and L.closes or nil }
+  end
+
   local ring = MOTA.Ring and MOTA.Ring:Current()
   if ring then
     if ring.stage == "signup" then
@@ -211,6 +219,13 @@ function Throne:Duties()
   if not me or not MOTA.guild then return out end
   local Co, El, Bench, Party = MOTA.Contest, MOTA.Elect, MOTA.Bench, MOTA.Party
   local function add(text, page) out[#out + 1] = { text = text, page = page } end
+
+  local Lo = MOTA.Lottery
+  local L = Lo and Lo:Current()
+  if L and MOTA.Games:CanRun(me) then
+    if Lo:Stage(L) == "closed" and (MOTA:IsMe(L.by) or GetServerTime() >= L.closes + Lo.LATE) then add("Draw " .. L.name .. " (/mota lottery draw)", nil) end
+    if Lo:Owed(L) > 0 then add("Pay " .. MOTA:Short(L.winner) .. " the lottery prize, " .. MOTA:Money(Lo:Owed(L)) .. " (Lottery prize)", PAGES.treasury) end
+  end
 
   if MOTA:IsCrown(me) then
     for _, p in ipairs({ "sh", "ex" }) do
@@ -294,6 +309,8 @@ function Throne:Decrees(limit)
       e = { text = "|cff2A1F14" .. MOTA:Short(d.v) .. "|r is made " .. MOTA.Honours.ORDER[d.o].title, hex = GEM.crown }
     elseif r.k == "game.result" and type(d.places) == "table" and d.places[1] then
       e = { text = "|cff2A1F14" .. MOTA:Short(d.places[1]) .. "|r wins " .. tostring(d.name), hex = GEM.ring }
+    elseif r.k == "lottery.open" and type(d.price) == "number" then
+      e = { text = "|cff2A1F14" .. tostring(d.name) .. "|r is open, tickets " .. MOTA:Money(d.price), hex = GEM.ring, page = PAGES.treasury }
     elseif r.k == "ring.result" and d.s == 7 and d.w then
       e = { text = "|cff2A1F14" .. MOTA:Short(d.w) .. "|r is champion of the Ring", hex = GEM.ring, page = PAGES.ring }
     end
