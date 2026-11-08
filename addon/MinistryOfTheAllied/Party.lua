@@ -11,6 +11,10 @@
 -- Party money comes from the reasons on bank.move records (Bank.lua).
 -- The Crown stands apart: a Crown rank can't ask or be admitted. Someone who
 -- leaves waits 14 days before the other party can admit them.
+--
+-- Membership is the player's, not one character's (Account.lua): the
+-- character admitted holds it, and every alt on the account shares it. An alt
+-- can't ask to join another party, and leaving on any character leaves.
 
 local _, MOTA = ...
 local Party = {}
@@ -26,6 +30,7 @@ local SEALS = { sh = "silverhand", ex = "exchange" }
 
 local rules = MOTA.Book.rules
 local function crown(author) return MOTA:IsCrown(author) end
+local function alts(name) return MOTA.Account:Alts(name) end
 rules["party.join"] = function() return true end
 rules["party.leave"] = function() return true end
 rules["party.decline"] = crown
@@ -36,25 +41,44 @@ local cache
 
 local function build()
   local roll = { joined = {}, members = {}, pending = {}, left = {}, floor = {}, paid = {}, funds = { sh = 0, ex = 0 } }
+  -- The character on name's account that holds the membership, if any.
+  local function held(name)
+    for _, n in ipairs(alts(name)) do
+      if roll.members[n] then return n end
+    end
+  end
+  -- The account's latest time leaving a party.
+  local function leftOf(name)
+    local out
+    for _, n in ipairs(alts(name)) do
+      local l = roll.left[n]
+      if l and (not out or l.t > out.t) then out = l end
+    end
+    return out
+  end
+  roll.held, roll.leftOf = held, leftOf
   local list = MOTA.Book:Latest()
   for i = #list, 1, -1 do
     local r = list[i]
     local d = r.d or {}
     local p, v = d.p, d.v
     if r.k == "party.join" and SKINS[p] then
-      if not roll.members[r.a] and not MOTA:IsCrown(r.a) then roll.pending[r.a] = { p = p, t = r.t } end
+      if not held(r.a) and not MOTA:IsCrownAccount(r.a) then
+        for _, n in ipairs(alts(r.a)) do roll.pending[n] = nil end -- one request per player
+        roll.pending[r.a] = { p = p, t = r.t }
+      end
     elseif r.k == "party.decline" and v then
       if roll.pending[v] and roll.pending[v].p == p then roll.pending[v] = nil end
     elseif r.k == "party.admit" and v then
-      local asked, left = roll.pending[v], roll.left[v]
+      local asked, left = roll.pending[v], leftOf(v)
       local waited = not left or left.p == p or r.t - left.t >= Party.WAIT
-      if asked and asked.p == p and not roll.members[v] and not MOTA:IsCrown(v) and waited then
+      if asked and asked.p == p and not held(v) and not MOTA:IsCrownAccount(v) and waited then
         roll.members[v] = p
         roll.joined[v] = r.t
         roll.pending[v] = nil
       end
     elseif (r.k == "party.leave" or r.k == "party.remove") then
-      local who = r.k == "party.leave" and r.a or v
+      local who = held(r.k == "party.leave" and r.a or v)
       local from = who and roll.members[who]
       if from then
         roll.members[who] = nil
@@ -90,8 +114,32 @@ function Party:Roll()
   return cache
 end
 
+-- name's party: the account's, whichever character was admitted.
 function Party:Of(name)
-  return name and self:Roll().members[name]
+  if not name then return nil end
+  local roll = self:Roll()
+  local who = roll.held(name)
+  return who and roll.members[who]
+end
+
+-- When the account joined its party.
+function Party:Joined(name)
+  local roll = self:Roll()
+  local who = name and roll.held(name)
+  return who and roll.joined[who]
+end
+
+-- The account's latest leaving: { p, t }.
+function Party:Left(name)
+  return name and self:Roll().leftOf(name)
+end
+
+-- The character on name's account that asked to join, and the request.
+function Party:Asked(name)
+  local roll = self:Roll()
+  for _, n in ipairs(alts(name)) do
+    if roll.pending[n] then return roll.pending[n], n end
+  end
 end
 
 -- Names on a party's roll, sorted.
@@ -133,7 +181,7 @@ end
 
 -- When a person may next be admitted to party p (nil if they already may).
 function Party:WaitUntil(name, p)
-  local left = self:Roll().left[name]
+  local left = self:Left(name)
   if not left or left.p == p then return nil end
   local at = left.t + self.WAIT
   if at > GetServerTime() then return at end
@@ -143,15 +191,15 @@ end
 function Party:JoinState(p)
   local me, roll = MOTA.me, self:Roll()
   if not me or not MOTA.guild then return "Waiting for the guild", false end
-  if MOTA:IsCrown(me) then return "The Crown stands apart", false, nil, "The Crown belongs to no party." end
-  local mine = roll.members[me]
-  if mine == p then return "Leave the party", true, "leave", "You are a member. Leaving is announced to the whole guild." end
+  if MOTA:IsCrownAccount(me) then return "The Crown stands apart", false, nil, "The Crown belongs to no party, on any character." end
+  local mine = self:Of(me)
+  if mine == p then return "Leave the party", true, "leave", "You are a member, on all your characters. Leaving is announced to the whole guild." end
   if mine then return "Leave your party first", false end
   local at = self:WaitUntil(me, p)
   if at then return "Can join on " .. date("%d %b", at), false, nil, "You left another party, so you must wait 14 days." end
-  local asked = roll.pending[me]
+  local asked, asker = self:Asked(me)
   if asked and asked.p == p then
-    local paid = self:Paid(me, p)
+    local paid = self:Paid(asker, p)
     if paid >= self.FEE then return "Awaiting the Crown", false, nil, "Your donation is noted. The Crown will record you as a member." end
     return "Awaiting your fee", false, nil, "Deposit " .. MOTA:Money(self.FEE) .. " in the guild bank and choose this party as the reason."
   end
@@ -200,6 +248,7 @@ end
 
 MOTA:Listen("GUILD_READY", changed)
 MOTA:Listen("ROSTER_UPDATED", changed)
+MOTA:Listen("ACCOUNT_CHANGED", changed)
 MOTA:Listen("RECORD_ADDED", function(self, rec)
   local d = rec.d or {}
   if rec.k:sub(1, 5) == "bank." then return changed() end

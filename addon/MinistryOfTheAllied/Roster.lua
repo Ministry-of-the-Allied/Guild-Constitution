@@ -131,9 +131,9 @@ function MOTA:IsActive(fullName)
 end
 
 function MOTA:ActiveCitizens()
-  local n = 0
+  local set = {}
   for name in pairs(roster) do
-    if self:IsActive(name) then n = n + 1 end
+    if self:IsActive(name) then set[name] = true end
   end
-  return n
+  return self.Account and self.Account:CountPlayers(set) or 0 -- players, not characters
 end

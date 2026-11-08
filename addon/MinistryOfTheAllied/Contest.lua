@@ -220,7 +220,7 @@ function Contest:Eligible(name, p)
     if not hadOne then return true end
   end
   local cur = data.cur
-  local joined = MOTA.Party:Roll().joined[name]
+  local joined = MOTA.Party:Joined(name)
   if cur and joined and joined > openAt(cur) - self.JOIN_WAIT then
     return false, "You must join 14 days before a contest opens."
   end
@@ -346,6 +346,10 @@ local function myVotes()
   return MOTA.db.contestVotes
 end
 
+-- My votes are kept by account (MOTADB is shared by every character on it),
+-- so an alt sees the vote another character cast (Account.lua).
+local function meKey() return MOTA.Account:Key(MOTA.me) end
+
 local function kingsOnline()
   local out = {}
   for _, name in ipairs(MOTA:CrownMembers()) do
@@ -357,7 +361,7 @@ end
 function Contest:MyVote(p)
   local cur = self:Current()
   if not cur then return nil end
-  return myVotes()[cur.id .. "|" .. cur.parties[p].round .. "|" .. p .. "|" .. MOTA.me]
+  return myVotes()[cur.id .. "|" .. cur.parties[p].round .. "|" .. p .. "|" .. meKey()]
 end
 
 local function deliver(key, v)
@@ -373,13 +377,13 @@ function Contest:Vote(cand)
   if self:Stage(p) ~= "voting" then return nil, "Voting isn't open." end
   local ok, why = self:Eligible(MOTA.me, p)
   if not ok then return nil, why end
-  if self:MyVote(p) then return nil, "You've already voted, and a vote can't be changed." end
+  if self:MyVote(p) then return nil, "You've already voted on this account, and a vote can't be changed." end
   local found = false
   for _, c in ipairs(self:Candidates(p)) do found = found or c.name == cand end
   if not found then return nil, "They aren't standing." end
   local round = cur.parties[p].round
   local v = { id = cur.id, round = round, p = p, cand = cand }
-  myVotes()[cur.id .. "|" .. round .. "|" .. p .. "|" .. MOTA.me] = v
+  myVotes()[cur.id .. "|" .. round .. "|" .. p .. "|" .. meKey()] = v
   deliver(nil, v)
   MOTA:Fire("CONTEST_CHANGED")
   return true
@@ -390,7 +394,10 @@ local function record(id, round, p, voter, cand)
   local key = id .. "|" .. round .. "|" .. p
   local t = MOTA.db.contestTally[key] or {}
   MOTA.db.contestTally[key] = t
-  if t[voter] then return false end -- the first vote stands
+  -- The first vote stands: one per player, on whichever character.
+  for who in pairs(t) do
+    if who == voter or MOTA.Account:Same(who, voter) then return false end
+  end
   t[voter] = cand
   MOTA:Fire("CONTEST_CHANGED")
   return true
@@ -411,7 +418,7 @@ end)
 
 Comm:Handle("LR", function(self, sender, channel, f)
   if channel ~= "WHISPER" or not self:IsCrown(sender) then return end
-  local v = myVotes()[f[1] .. "|" .. f[2] .. "|" .. f[3] .. "|" .. self.me]
+  local v = myVotes()[f[1] .. "|" .. f[2] .. "|" .. f[3] .. "|" .. meKey()]
   if v and not v.delivered then
     v.delivered = true
     self:Fire("CONTEST_CHANGED")
@@ -427,7 +434,7 @@ end)
 MOTA:Listen("HELLO_HEARD", function(self, name)
   if not self:IsCrown(name) or not self.db then return end
   for key, v in pairs(myVotes()) do
-    if not v.delivered and key:sub(-#self.me) == self.me then
+    if not v.delivered and key:sub(-#meKey() - 1) == "|" .. meKey() then
       Comm:Send(Comm:Pack("LV", v.id, v.round, v.p, v.cand), "WHISPER", name)
     end
   end

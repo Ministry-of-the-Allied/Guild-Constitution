@@ -58,7 +58,7 @@ class Client:
     # and on add-on message senders. Forever writes one that differs from one
     # player's screen to another's ("CAMWOWEU5Realm7PvE" on one, "...Realm1PvE"
     # on the next), and refuses a whisper addressed with it.
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None, place=False):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None, place=False, link=False, bnet=None):
         self.name = name
         self.full = name + "-" + REALM
         self.tag = tag or REALM
@@ -84,6 +84,8 @@ class Client:
         g.py_roster_request = self.roster_request
         self.lua.execute(open(os.path.join(HERE, "mock.lua"), encoding="utf-8").read())
         self.lua.execute(open(os.path.join(HERE, "mock_ui.lua"), encoding="utf-8").read())
+        if bnet:  # the player's BattleTag, as BNGetInfo gives it
+            self.lua.execute('function BNGetInfo() return 1, "%s" end' % bnet)
         if saved:
             self.lua.execute(saved)
         ns = self.lua.table()
@@ -97,6 +99,8 @@ class Client:
         ns.db.settings.voice = voice  # the narration has its own checks (section 12)
         if not place:  # placing yourself in a district writes a record; it has its own checks (section 100b)
             ns.District.PLACE_DELAY = 10 ** 9
+        if not link:  # linking the account writes a record too; its checks are in section 15e
+            ns.Account.LINK_DELAY = 10 ** 9
         g.mock_fire("PLAYER_LOGIN")
         g.mock_fire("PLAYER_ENTERING_WORLD", True, False)
 
@@ -185,7 +189,7 @@ check("/mota who names who's online without the add-on", max_.said(r"Online with
 print("== 1b. Kael's game doesn't know the realm at login")
 kael = Client("Kael", realm_late=True)
 clients.append(kael)
-run(12)  # replies to a hello come 0.5 to 3 seconds after it, at random
+run(16)  # its hello goes later, once the realm is known  # replies to a hello come 0.5 to 3 seconds after it, at random
 kael.slash("who")
 check("Kael doesn't list himself", not kael.said(r"Kael · v") and kael.said(r"Bram · v"))
 kael.slash("test from Kael")
@@ -1347,7 +1351,7 @@ check("The Crown view shows the live count and both Kings", MP.shown == "count" 
 
 print("  -- counts that partly overlap are shown as differing")
 outcome = ev(max_, f'''MinistryOfTheAllied.Ballot:Compare("Aldric", {{ b = "{BID}", c = {{ 1, 1 }},
-    n = {{ ["Bram"] = MinistryOfTheAllied.Ballot:Tally("{BID}").counted["Bram"], ["Zed"] = "1" }}, r = 0, p = 1 }})''')
+    n = {{ ["c:Bram"] = MinistryOfTheAllied.Ballot:Tally("{BID}").counted["c:Bram"], ["c:Zed"] = "1" }}, r = 0, p = 1 }})''')
 check("A partly overlapping count is kept apart, not merged", outcome == "differ" and counts(max_) == "2,1|1")
 ex(max_, "P:Refresh()")
 check("...and the Crown view says the counts differ", "differ" in "".join(
@@ -1936,6 +1940,62 @@ check("Polling day: the Ballot Hall's form is filled in with the election and bo
 E(ek, 'Co:Current().at = GetServerTime() - 1 return 1')  # as if polling day had come
 check("Polling day: opening the polls is on the Crown's duties", E(ek, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Polling day") then return true end end return false') is True)
 check("Polling day: not on a citizen's", E(eb, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Polling day") then return false end end return true') is True)
+
+print("== 15e. one player, many characters")
+set_online("Wren", True)
+wren = Client("Wren", link=True, bnet="Wren#2231")
+clients.append(wren)
+run(6)
+wkey = E(ek, 'return M.Account:Key("Wren")')
+check("Accounts: a character links itself to its account at login", isinstance(wkey, str) and wkey.startswith("b"))
+check("Accounts: the key is a hash, never the BattleTag itself", "Wren#2231" not in wkey and "wren" not in wkey.lower())
+saved_w = logout(wren)
+set_online("Oswin", True)
+oswin = Client("Oswin", link=True, saved=saved_w.replace("Wren#2231", ""))  # same WoW account, same computer
+clients.append(oswin)
+run(6)
+check("Accounts: with no BattleTag, alts on one computer share the saved account ID",
+      E(ek, 'return M.Account:Key("Oswin")').startswith("a") and E(oswin, 'return M.Account:Key(M.me) == MOTADB.accountId and false or M.Account:Key(M.me)') == E(ek, 'return M.Account:Key("Oswin")'))
+logout(oswin)
+# Bram's alt Tobin, on the same Battle.net account (the same BattleTag on another computer).
+active_before = E(ek, 'return El:CountActive()')
+set_online("Tobin", True)
+tobin = Client("Tobin", link=True, bnet="Bram#1111")
+clients.append(tobin)
+E(eb, 'M.Account.myKey = nil; BNGetInfo = function() return 1, "Bram#1111" end; M.Book:Write("acct.link", { h = M.Account:MyKey() }) return 1')
+run(30)  # Tobin's copy catches up with the book
+check("Accounts: two characters with one BattleTag are one player, on every copy",
+      E(em, 'return M.Account:Same("Bram", "Tobin")') is True and E(ek, 'local a = M.Account:Alts("Tobin") return #a == 2 and a[1] .. "," .. a[2]') == "Bram,Tobin")
+check("Accounts: the tooltip shows Tobin as Bram's alt", E(ek, 'return M:MainOf("Tobin")') == "Bram" and E(ek, 'return M:MainOf("Bram")') is None)
+check("Accounts: active players count players, not characters", E(ek, 'return El:CountActive()') == active_before + 0)
+check("Party: an alt shares the account's party", E(em, 'return M.Party:Of("Tobin")') == "sh" and E(tobin, 'return M.Party:Of(M.me)') == "sh")
+check("Party: an alt can't ask to join the other party", E(tobin, 'return select(3, M.Party:JoinState("ex"))') is None
+      and "Leave your party first" in E(tobin, 'return (M.Party:JoinState("ex"))'))
+E(tobin, 'M.Book:Write("party.join", { p = "ex" }) return 1')
+run(1)
+E(ek, 'M.Book:Write("party.admit", { v = "Tobin", p = "ex" }) return 1')
+run(1)
+check("Party: the Crown's admit of an alt into a second party doesn't count", E(em, 'return M.Party:Of("Tobin")') == "sh" and "Tobin" not in [E(em, 'return M.Party:Members("ex")[%d]' % i) for i in range(1, 4)])
+check("Party: the party's count is of players (Bram and Kael, not Tobin)", E(em, 'local m = M.Party:Members("sh") return #m == 2 and m[1] .. "," .. m[2]') == "Bram,Kael")
+ek.log.clear()
+ek.slash("alts")
+check("Accounts: /mota alts shows the Crown who's one player", ek.said(r"Bram, Tobin"))
+eb.log.clear()
+eb.slash("alts")
+check("Accounts: but not a citizen", eb.said(r"Only the Crown"))
+# A ballot: one vote per player.
+E(ek, 'local b = M.Ballot:Current() if b and M.Ballot:Stage(b) == "open" then M.Ballot:Close() end return 1')
+run(1)
+E(ek, 'M.Ballot:Open("Alt test", "general", { { n = "Bram", p = "sh" }, { n = "Mira", p = "ex" } }) return 1')
+run(5)
+check("Ballot: Bram votes", E(eb, 'return M.Ballot:Seal(1) ~= nil') is True)
+run(3)
+check("Ballot: Tobin is told his account has voted", "on this account" in (E(tobin, 'local _, e = M.Ballot:Seal(2) return e') or ""))
+check("Ballot: and his state shows as sent", E(tobin, 'return M.Ballot:MyState(M.Ballot:Current())') == "sent")
+check("Ballot: a second ballot from an alt is refused by the King", E(ek, 'return M.Ballot:Receive("Tobin", M.Ballot:Current().id, 2, "x")') == "dup")
+check("Ballot: only one is counted", E(ek, 'local t = M.Ballot:Tally(M.Ballot:Current().id) return t.counts[1] .. "," .. t.counts[2]') == "1,0")
+check("No confidence: a King's alt doesn't vote", E(ek, 'return M:IsCrownAccount("Max")') is True and E(em, 'return M:IsCrownAccount("Tobin")') is False)
+logout(tobin)
 
 print()
 print("Lua errors:", len(errors))

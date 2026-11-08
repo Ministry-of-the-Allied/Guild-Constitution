@@ -167,7 +167,10 @@ function District:PlaceMe()
   local me = MOTA.me
   if not me or not MOTA.guild or MOTA:IsCrown(me) or state().of[me] then return nil end
   if not MOTA.roster[me] then return nil end
-  local code = self:Smallest()
+  -- An alt lives where the player's other characters do (Account.lua).
+  local code
+  for _, n in ipairs(MOTA.Account:Alts(me)) do code = code or state().of[n] end
+  code = code or self:Smallest()
   local rec = MOTA.Book:Write("citizen.district", { who = me, d = code })
   if rec then
     local d = byCode[code]

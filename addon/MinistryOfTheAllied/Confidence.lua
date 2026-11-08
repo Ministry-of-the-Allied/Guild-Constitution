@@ -87,10 +87,11 @@ end
 -- Active citizens, without the Crown (Charter 5.3, and 1.5).
 function Confidence:Electorate()
   local n = 0
+  local set = {}
   for name in pairs(MOTA.roster) do
-    if MOTA:IsActive(name) and not MOTA:IsCrown(name) then n = n + 1 end
+    if MOTA:IsActive(name) and not MOTA:IsCrownAccount(name) then set[name] = true end
   end
-  return n
+  return MOTA.Account:CountPlayers(set) -- players, not characters
 end
 
 function Confidence:Need(active)
@@ -109,10 +110,12 @@ end
 -- A citizen's vote
 ---------------------------------------------------------------------------
 
+-- Kept by account, so every character on it shares one vote (Account.lua).
 local function mine()
   MOTA.db.ncVote = MOTA.db.ncVote or {}
   return MOTA.db.ncVote
 end
+local function meKey() return MOTA.Account:Key(MOTA.me) end
 
 local function kingsOnline()
   local out = {}
@@ -124,7 +127,7 @@ end
 
 -- Have I voted in the motion now open (or in the one my vote will open)?
 function Confidence:MyVote()
-  local v = mine()[MOTA.me]
+  local v = mine()[meKey()]
   if not v then return nil end
   local m = self:Motion()
   if m and v.seq == m.seq then return self:IsOpen() and v or nil end
@@ -138,8 +141,8 @@ local function deliver(v)
 end
 
 function Confidence:Vote()
-  if MOTA:IsCrown(MOTA.me) then return nil, "The Crown stands apart, and doesn't vote no confidence (Charter 1.5)." end
-  if self:MyVote() then return nil, "You've already voted no confidence in this motion." end
+  if MOTA:IsCrownAccount(MOTA.me) then return nil, "The Crown stands apart, and doesn't vote no confidence (Charter 1.5)." end
+  if self:MyVote() then return nil, "You've already voted no confidence in this motion, on this account." end
   local m = self:Motion()
   local id, seq
   if self:IsOpen() then id, seq = m.id, m.seq
@@ -149,7 +152,7 @@ function Confidence:Vote()
     id = "new"
   end
   local v = { id = id, seq = seq, at = GetServerTime() }
-  mine()[MOTA.me] = v
+  mine()[meKey()] = v
   deliver(v)
   MOTA:Fire("CONFIDENCE_CHANGED")
   return true
@@ -157,7 +160,7 @@ end
 
 Comm:Handle("NR", function(self, sender, channel, f)
   if channel ~= "WHISPER" or not self:IsCrown(sender) then return end
-  local v = mine()[self.me]
+  local v = mine()[meKey()]
   if v and not v.delivered then
     v.delivered, v.seq = true, tonumber(f[1])
     local m = Confidence:Motion()
@@ -202,12 +205,14 @@ local function writeCount()
 end
 
 local function eligible(name)
-  return MOTA:IsGuildMember(name) and MOTA:IsActive(name) and not MOTA:IsCrown(name)
+  return MOTA:IsGuildMember(name) and MOTA:IsActive(name) and not MOTA:IsCrownAccount(name)
 end
 
 local function count(id, voter)
   local t = tally(id)
-  if t[voter] then return false end
+  for who in pairs(t) do -- one vote per player, on whichever character
+    if who == voter or MOTA.Account:Same(who, voter) then return false end
+  end
   t[voter] = true
   writeCount()
   return true
@@ -243,7 +248,7 @@ end)
 -- A King comes online: held votes go to them, and Kings share their counts.
 MOTA:Listen("HELLO_HEARD", function(self, name)
   if not self.db or not self:IsCrown(name) then return end
-  local v = mine()[self.me]
+  local v = mine()[meKey()]
   if v and not v.delivered then Comm:Send(Comm:Pack("NV", v.seq and tostring(v.seq) or "new"), "WHISPER", name) end
   if self:IsCrown(self.me) then
     local m = Confidence:Motion()

@@ -94,6 +94,19 @@ add("missing", "", "guild members without the add-on, newest to the guild first,
   for _, line in ipairs(lines) do MOTA:Print(line) end
 end)
 
+add("alts", "", "the Crown only: players with more than one character in the guild", function()
+  if not needGuild() then return end
+  if not MOTA:IsCrown(MOTA.me) then return MOTA:Print("Only the Crown sees which characters are one player.") end
+  local groups = MOTA.Account:Groups()
+  if #groups == 0 then return MOTA:Print("No player has linked more than one character yet.") end
+  MOTA:Print(#groups, #groups == 1 and "player has" or "players have", "more than one character (the first named is the first linked):")
+  for _, names in ipairs(groups) do
+    local shown = {}
+    for i, n in ipairs(names) do shown[i] = MOTA:Short(n) end
+    MOTA:Print(table.concat(shown, ", "))
+  end
+end)
+
 add("test", "<text>", "write a test record and send it to the guild", function(text)
   if not needGuild() then return end
   if text == "" then text = "Hear ye!" end

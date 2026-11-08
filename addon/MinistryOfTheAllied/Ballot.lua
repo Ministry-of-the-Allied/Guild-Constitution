@@ -226,14 +226,24 @@ end
 -- The voter's side
 ---------------------------------------------------------------------------
 
--- Saved per character: guild.myBallots[me][ballot] =
+-- Saved per account (Account.lua), so an alt can't vote again:
+-- guild.myBallots[account key][ballot] =
 --   { choice, tok, sealedN, held, delivered, late, receiptAt }
 -- The choice is deleted as soon as a receipt arrives.
 local function mine()
   local g = MOTA.guild
   g.myBallots = g.myBallots or {}
-  g.myBallots[MOTA.me] = g.myBallots[MOTA.me] or {}
-  return g.myBallots[MOTA.me]
+  local key = MOTA.Account:Key(MOTA.me)
+  g.myBallots[key] = g.myBallots[key] or {}
+  return g.myBallots[key]
+end
+
+-- Has any character on this account voted in ballot b?
+local function anyVoted(b)
+  for _, n in ipairs(MOTA.Account:Alts(MOTA.me)) do
+    if b.voted[n] then return true end
+  end
+  return false
 end
 
 function Ballot:Mine(id)
@@ -250,7 +260,7 @@ function Ballot:MyState(b)
     if e.held then return "held" end
     return "sending"
   end
-  if b.voted[MOTA.me] then return "sent" end
+  if anyVoted(b) then return "sent" end
   return "none"
 end
 
@@ -281,7 +291,7 @@ function Ballot:Seal(choice)
   choice = tonumber(choice)
   if not choice or not b.d.cands[choice] then return nil, "Mark one name first." end
   local my = mine()
-  if my[b.id] or b.voted[MOTA.me] then return nil, "You have already voted in this election." end
+  if my[b.id] or anyVoted(b) then return nil, "You have already voted in this election, on this account." end
   local e = { choice = choice, tok = GetServerTime() .. "." .. math.random(1000, 9999) }
   my[b.id] = e
   local kings = self:OnlineKings()
@@ -389,6 +399,8 @@ function Ballot:Receive(voter, id, choice, tok, sealedN)
   if not choice or not b.d.cands[choice] or choice ~= math.floor(choice) then return "bad" end
   tok = tostring(tok or "")
   local t = self:Tally(id)
+  local voterName = voter
+  voter = MOTA.Account:Key(voter) -- one ballot per player, on whichever character
   -- Only a voter this King has already counted is refused (also after a
   -- hand-over), not one merely on the public voted list: the other King may
   -- have counted the very same ballot.
@@ -399,13 +411,13 @@ function Ballot:Receive(voter, id, choice, tok, sealedN)
     return "dup"
   end
   if self:Stage(b) == "closed" then
-    local s = b.sealed[voter]
+    local s = b.sealed[voterName]
     if not s then return sealedN and "wait" or "closed" end
     if s.t > self:CloseTime(b) then return "closed" end
   end
   t.counts[choice] = (t.counts[choice] or 0) + 1
   t.counted[voter] = tok
-  if not b.voted[voter] then Book:Write("ballot.voted", { b = id, v = voter }) end
+  if not b.voted[voterName] then Book:Write("ballot.voted", { b = id, v = voterName }) end
   self:ScheduleHandover(id)
   changed()
   return "ok"
@@ -526,7 +538,7 @@ function Ballot:HeldCount(b)
   for name in pairs(heardSealed[b.id] or {}) do names[name] = true end
   local n = 0
   for name in pairs(names) do
-    if not b.voted[name] and not t.counted[name] then n = n + 1 end
+    if not b.voted[name] and not t.counted[MOTA.Account:Key(name)] then n = n + 1 end
   end
   return n
 end

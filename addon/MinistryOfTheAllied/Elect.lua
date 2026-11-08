@@ -84,11 +84,11 @@ function Elect:CountActive()
     if r.t < since then break end
     seen[r.a] = true
   end
-  local n = 0
+  local set = {}
   for name in pairs(seen) do
-    if MOTA.roster[name] then n = n + 1 end
+    if MOTA.roster[name] then set[name] = true end
   end
-  return n
+  return MOTA.Account:CountPlayers(set) -- players, not characters
 end
 
 -- { players, sh, ex, ok }

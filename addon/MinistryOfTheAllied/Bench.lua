@@ -30,9 +30,9 @@ local cache
 -- When someone stopped being a member of p, counting from a time they were one.
 -- math.huge if they still are, without a break.
 local function goneAt(name, p, since)
-  local roll = MOTA.Party:Roll()
-  if roll.members[name] == p and (roll.joined[name] or 0) <= since then return math.huge end
-  local left = roll.left[name]
+  local Party = MOTA.Party
+  if Party:Of(name) == p and (Party:Joined(name) or 0) <= since then return math.huge end
+  local left = Party:Left(name)
   if left and left.t >= since then return left.t end
   return since
 end
