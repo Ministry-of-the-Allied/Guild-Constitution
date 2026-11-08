@@ -182,7 +182,7 @@ function Throne:Live()
 
   local L = MOTA.Lottery and MOTA.Lottery:Current()
   local ls = L and MOTA.Lottery:Stage(L)
-  if ls == "selling" or ls == "closed" or (ls == "drawn" and now < L.drawn.t + 3 * DAY) then
+  if ls == "selling" or ls == "closed" or (ls == "drawn" and now < L.drawn.t + 3 * DAY) or (ls == "cancelled" and MOTA.Lottery:Owed(L) > 0) then
     local mine = MOTA.Lottery:TicketsOf(me, L)
     out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.games, button = "Open",
       line = MOTA.Lottery:Line(L) .. (ls == "selling" and mine > 0 and (" · you hold " .. mine) or ""), ends = ls == "selling" and L.closes or nil }
@@ -224,7 +224,8 @@ function Throne:Duties()
   local L = Lo and Lo:Current()
   if L and MOTA.Games:CanRun(me) then
     if Lo:Stage(L) == "closed" and (MOTA:IsMe(L.by) or GetServerTime() >= L.closes + Lo.LATE) then add("Draw " .. L.name .. " (/mota lottery draw)", nil) end
-    if Lo:Owed(L) > 0 then add("Pay " .. MOTA:Short(L.winner) .. " the lottery prize, " .. MOTA:Money(Lo:Owed(L)) .. " (Lottery prize)", PAGES.treasury) end
+    if Lo:Owed(L) > 0 and L.winner then add("Pay " .. MOTA:Short(L.winner) .. " the lottery prize, " .. MOTA:Money(Lo:Owed(L)) .. " (Lottery payout)", PAGES.games) end
+    if Lo:Owed(L) > 0 and L.cancelled then add("Refund the cancelled " .. L.name .. ", " .. MOTA:Money(Lo:Owed(L)) .. " left (Lottery payout)", PAGES.games) end
   end
 
   if MOTA:IsCrown(me) then

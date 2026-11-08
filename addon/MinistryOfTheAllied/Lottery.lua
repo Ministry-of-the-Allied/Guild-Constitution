@@ -5,6 +5,7 @@
 --
 --   lottery.open  the Crown or the Minister of Games  { name, price, closes, c }
 --   lottery.draw  the one who opened it                { id, s }
+--   lottery.cancel  the one who opened it, or the Crown  { id }  before the draw
 --
 -- A fair draw that every copy can check: on opening, the organiser's add-on
 -- picks a secret and publishes only its hash (c). At the draw it reveals the
@@ -16,7 +17,9 @@
 -- If the organiser hasn't drawn within 7 days of the close, the Crown or the
 -- Minister of Games may draw without a secret, from the tickets alone.
 --
--- The prize is paid by hand: a withdrawal with "Lottery prize" as its reason.
+-- The prize is paid by hand: a withdrawal with "Lottery payout" as its reason.
+-- A cancelled lottery owes every ticket back, paid the same way; a payout goes
+-- to the newest lottery that still owes something (a prize or refunds).
 
 local _, MOTA = ...
 local Lottery = {}
@@ -41,6 +44,10 @@ MOTA.Book.rules["lottery.draw"] = function(a, rec)
   local d = rec and rec.d or {}
   -- The organiser draws, even if they've left the post since; or, late, another.
   return str(d.id, 60) and (d.s == nil or str(d.s, 40)) and (canRun(a) or d.id:match("^(.-)#%d+$") == a)
+end
+MOTA.Book.rules["lottery.cancel"] = function(a, rec)
+  local d = rec and rec.d or {}
+  return str(d.id, 60) and (MOTA:IsCrown(a) or d.id:match("^(.-)#%d+$") == a)
 end
 
 -- The winning ticket, 1 to total, from the secret and the tickets in order.
@@ -77,7 +84,7 @@ local function build()
         -- Tickets go to the lottery that was selling when the gold went in.
         for j = #out.all, 1, -1 do
           local L = out.all[j]
-          if at >= L.t and at <= L.closes and not L.drawn then
+          if at >= L.t and at <= L.closes and not L.drawn and (not L.cancelled or at < L.cancelled.t) then
             if MOTA.Account:Same(who, L.by) then
               L.refused[who] = (L.refused[who] or 0) + d.amt
             else
@@ -89,7 +96,8 @@ local function build()
       elseif d.io == "w" and d.r == Lottery.PRIZE_REASON then
         for j = #out.all, 1, -1 do
           local L = out.all[j]
-          if L.drawn and at >= L.drawn.t then L.paid = L.paid + d.amt break end
+          local ended = L.drawn or L.cancelled
+          if ended and at >= ended.t and L.paid < (L.owe or 0) then L.paid = L.paid + d.amt break end
         end
       end
     elseif r.k == "lottery.draw" and byId[d.id] and not byId[d.id].drawn then
@@ -101,8 +109,13 @@ local function build()
         if #L.tickets > 0 then
           L.win = Lottery:Pick(d.s, L.tickets)
           L.winner = L.tickets[L.win].who
+          L.owe = math.floor(#L.tickets * L.price * Lottery.SHARE)
         end
       end
+    elseif r.k == "lottery.cancel" and byId[d.id] and not byId[d.id].drawn and not byId[d.id].cancelled then
+      local L = byId[d.id]
+      L.cancelled = { t = r.t, by = r.a }
+      L.owe = #L.tickets * L.price -- every ticket is owed back
     end
   end
   for _, L in ipairs(out.all) do
@@ -123,11 +136,12 @@ end
 function Lottery:Current() return get().cur end
 function Lottery:All() return get().all end
 
--- "selling", "closed" (waiting for the draw), "drawn", or nil.
+-- "selling", "closed" (waiting for the draw), "drawn", "cancelled", or nil.
 function Lottery:Stage(L)
   L = L or self:Current()
   if not L then return nil end
   if L.drawn then return "drawn" end
+  if L.cancelled then return "cancelled" end
   if GetServerTime() <= L.closes then return "selling" end
   return "closed"
 end
@@ -204,11 +218,47 @@ function Lottery:Draw()
   return rec
 end
 
--- What's left to pay the winner.
+-- What's left to pay out: the winner's prize, or a cancelled lottery's refunds.
 function Lottery:Owed(L)
   L = L or self:Current()
-  if not L or not L.winner then return 0 end
-  return math.max(0, L.prize - L.paid)
+  if not L or not L.owe then return 0 end
+  return math.max(0, L.owe - L.paid)
+end
+
+-- A cancelled lottery's refunds, one per player: { { name, amt } }, most first.
+function Lottery:Refunds(L)
+  L = L or self:Current()
+  local out, byKey = {}, {}
+  if not L or not L.cancelled then return out end
+  for _, t in ipairs(L.tickets) do
+    local k = MOTA.Account:Key(t.who)
+    if not byKey[k] then
+      byKey[k] = { name = t.who, amt = 0 }
+      out[#out + 1] = byKey[k]
+    end
+    byKey[k].amt = byKey[k].amt + L.price
+  end
+  table.sort(out, function(a, b)
+    if a.amt ~= b.amt then return a.amt > b.amt end
+    return a.name < b.name
+  end)
+  return out
+end
+
+-- The organiser, or any King, may cancel before the draw.
+function Lottery:CanCancel(name, L)
+  L = L or self:Current()
+  local s = self:Stage(L)
+  if s ~= "selling" and s ~= "closed" then return false end
+  return MOTA:IsCrown(name) or name == L.by
+end
+
+function Lottery:Cancel()
+  local L = self:Current()
+  local s = self:Stage(L)
+  if s ~= "selling" and s ~= "closed" then return nil, "There's no lottery to cancel." end
+  if not self:CanCancel(MOTA.me, L) then return nil, "Only " .. MOTA:Short(L.by) .. ", who opened it, or the Crown can cancel it." end
+  return MOTA.Book:Write("lottery.cancel", { id = L.id })
 end
 
 -- One line on the lottery now, for /mota lottery and the Throne Room.
@@ -221,6 +271,10 @@ function Lottery:Line(L)
     return "Tickets " .. MOTA:Money(L.price) .. " each · " .. pot .. " · sales close " .. date("%d %b %H:%M", L.closes)
   elseif stage == "closed" then
     return "Sales are closed · " .. pot .. " · waiting for " .. MOTA:Short(L.by) .. " to draw"
+  elseif stage == "cancelled" then
+    local owed = self:Owed(L)
+    if #L.tickets == 0 then return "Cancelled, with no tickets sold." end
+    return "Cancelled · " .. (owed > 0 and (MOTA:Money(owed) .. " of refunds still to pay") or "everyone refunded")
   elseif L.winner then
     local owed = self:Owed(L)
     return MOTA:Short(L.winner) .. " won " .. MOTA:Money(L.prize) .. (owed > 0 and " · not yet paid" or " · paid")
@@ -243,7 +297,7 @@ MOTA:Listen("ACCOUNT_CHANGED", changed)
 MOTA:Listen("RECORD_ADDED", function(self, rec)
   local d = rec.d or {}
   local k = rec.k
-  if k ~= "lottery.open" and k ~= "lottery.draw" and not ((k == "bank.move" or k == "bank.fill") and (d.r == Lottery.REASON or d.r == Lottery.PRIZE_REASON)) then
+  if k ~= "lottery.open" and k ~= "lottery.draw" and k ~= "lottery.cancel" and not ((k == "bank.move" or k == "bank.fill") and (d.r == Lottery.REASON or d.r == Lottery.PRIZE_REASON)) then
     if k == "party.post" or k == "ballot.result" then cache = nil end
     return
   end
@@ -267,6 +321,15 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
     else
       self:Print("The lottery was drawn, but no tickets were sold.")
     end
+  elseif k == "lottery.cancel" and L and L.cancelled and H then
+    local mine = 0
+    for _, e in ipairs(Lottery:Refunds(L)) do
+      if self.Account:Same(e.name, self.me) then mine = e.amt end
+    end
+    H:Announce({ seal = "treasury", eyebrow = "The Royal Lottery", title = L.name .. " is cancelled",
+      text = (#L.tickets == 0 and "No tickets had been sold." or "Everyone who bought tickets gets their gold back from the guild bank.")
+        .. (mine > 0 and (" You're owed " .. self:Money(mine) .. ".") or ""),
+      button = { label = "Dismiss", style = "quiet" } })
   elseif (k == "bank.move" or k == "bank.fill") and d.r == Lottery.REASON and L then
     local who = k == "bank.fill" and d.who or rec.a
     if self:IsMe(who) then

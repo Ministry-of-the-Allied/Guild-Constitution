@@ -16,7 +16,7 @@ local REASONS = {
     { "lottery", "Lottery tickets" }, { "party_sh", "Silverhand donation" }, { "party_ex", "Exchange donation" }, { "other", "Other" },
   },
   w = {
-    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" }, { "ring_refund", "Ring refund" }, { "lottery_prize", "Lottery prize" },
+    { "supplies", "Guild supplies" }, { "repairs", "Repairs" }, { "ring_prize", "Ring prize" }, { "ring_refund", "Ring refund" }, { "lottery_prize", "Lottery payout" },
     { "party_sh", "Silverhand funds" }, { "party_ex", "Exchange funds" }, { "other", "Other" },
   },
 }

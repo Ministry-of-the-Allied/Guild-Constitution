@@ -367,7 +367,7 @@ add("games", "[result <title>: <first>, <second>, ...]", "the games log; the Cro
   end
 end)
 
-add("lottery", "[open <name>, <gold per ticket>, <days>, draw]", "the Royal Lottery: tickets are bought at the guild bank", function(arg)
+add("lottery", "[open <name>, <gold per ticket>, <days>, draw, cancel]", "the Royal Lottery: tickets are bought at the guild bank", function(arg)
   if not needGuild() then return end
   local Lo = MOTA.Lottery
   local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
@@ -379,10 +379,16 @@ add("lottery", "[open <name>, <gold per ticket>, <days>, draw]", "the Royal Lott
     rec, err = Lo:Open(parts[1], parts[2], parts[3])
   elseif word == "draw" then
     rec, err = Lo:Draw()
+  elseif word == "cancel" then
+    rec, err = Lo:Cancel()
   else
     local L = Lo:Current()
     MOTA:Print((L and (L.name .. ": ") or "") .. Lo:Line(L))
     local mine = L and Lo:TicketsOf(MOTA.me, L) or 0
+    if L and Lo:Stage(L) == "cancelled" and Lo:Owed(L) > 0 then
+      for _, e in ipairs(Lo:Refunds(L)) do MOTA:Print(MOTA:Short(e.name), "is owed", MOTA:Money(e.amt)) end
+      MOTA:Print("Pay them from the guild bank with Lottery payout as the reason.")
+    end
     if L and Lo:Stage(L) == "selling" then
       MOTA:Print(mine > 0 and ("You hold " .. mine .. (mine == 1 and " ticket." or " tickets.")) or "Buy tickets at the guild bank: deposit gold and choose Lottery tickets as the reason.")
     end

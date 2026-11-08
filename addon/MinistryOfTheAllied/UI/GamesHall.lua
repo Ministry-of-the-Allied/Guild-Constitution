@@ -144,6 +144,8 @@ local function refreshAside()
     p.when:SetText("in the pot · sales close in " .. left(L.closes - GetServerTime()))
   elseif stage == "closed" then
     p.when:SetText("in the pot · waiting for the draw")
+  elseif stage == "cancelled" then
+    p.when:SetText(Lo:Owed(L) > 0 and "cancelled · refunds being paid" or "cancelled · everyone refunded")
   elseif stage == "drawn" then
     p.when:SetText(L.winner and ("won by " .. MOTA:Short(L.winner)) or "drawn, with no tickets sold")
   else
@@ -209,7 +211,8 @@ local function buildLottery()
   local head = panel(sheet, nil, 0, 0, SHEET_W, ROW_H)
   Kit:Label(head, "kitTiny", "7A5719", 0.2, "Ticket holders"):SetPoint("LEFT", head, "LEFT", 12, 0)
   Kit:Label(head, "kitTiny", "7A5719", 0.2, "Tickets"):SetPoint("RIGHT", head, "RIGHT", -86, 0)
-  Kit:Label(head, "kitTiny", "7A5719", 0.2, "Chance"):SetPoint("RIGHT", head, "RIGHT", -12, 0)
+  v.chanceHead = Kit:Label(head, "kitTiny", "7A5719", 0.2, "Chance")
+  v.chanceHead:SetPoint("RIGHT", head, "RIGHT", -12, 0)
   for i = 1, ROWS do
     local rule = sheet:CreateTexture(nil, "BORDER")
     Kit:Solid(rule, "3A63B8", i == 1 and 0.45 or 0.28)
@@ -272,8 +275,22 @@ local function buildLottery()
   local desk = panel(v, "plain", sx, 116, SIDE_W, 124)
   Kit:Label(desk, "kitSection", BLUE, 0.22, "Organiser's desk"):SetPoint("TOPLEFT", desk, "TOPLEFT", 14, -12)
   desk.line = line(desk, "kitSmallest", nil, 14, 30, SIDE_W - 28)
-  desk.draw = Kit:Button(desk, SIDE_W - 28, 28, "Draw now", "blue", function() report(MOTA.Lottery:Draw()) end)
+  local half = (SIDE_W - 28 - 8) / 2
+  desk.draw = Kit:Button(desk, half, 28, "Draw now", "blue", function() report(MOTA.Lottery:Draw()) end)
   desk.draw:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 14, 46)
+  -- Cancelling asks once more: the first press says "Sure?", the second cancels.
+  desk.cancel = Kit:Button(desk, half, 28, "Cancel", "quiet", function(b)
+    if not b.sure then
+      b.sure = true
+      b:SetLabel("Sure?")
+      C_Timer.After(4, function() b.sure = nil; b:SetLabel("Cancel") end)
+      return
+    end
+    b.sure = nil
+    b:SetLabel("Cancel")
+    report(MOTA.Lottery:Cancel())
+  end)
+  desk.cancel:SetPoint("BOTTOMRIGHT", desk, "BOTTOMRIGHT", -14, 46)
   desk.open = Kit:Button(desk, SIDE_W - 28, 28, "Open a lottery", "quiet", function() form:Show() end)
   desk.open:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 14, 12)
   v.desk = desk
@@ -330,18 +347,23 @@ local function refreshLottery(v)
       r.mine:SetShown(h.me)
       r.name:SetText(MOTA:Short(h.name) .. (h.me and " |cff5E4B33(you)|r" or ""))
       r.n:SetText(tostring(h.n))
-      r.chance:SetText(pct(h.n, total))
+      r.chance:SetText(L.cancelled and MOTA:Money(h.n * L.price) or pct(h.n, total))
     end
   end
+  v.chanceHead:SetText(L and L.cancelled and "Refund" or "Chance")
   v.more:SetText(#holders > #v.rows and ("and " .. (#holders - #v.rows) .. " more") or "")
   v.empty:SetShown(#holders == 0)
   v.empty:SetText(stage == "selling" and "No tickets sold yet. Be the first."
+    or (stage == "cancelled" and "Cancelled, with no tickets sold." or nil)
     or (stage == "drawn" and "This lottery has been drawn. See Past draws below." or "No lottery is running."))
 
   -- The fair draw.
   if not L then
     v.fair.text:SetText("Each draw is sealed before the first ticket sells, and every add-on checks the winner for itself.")
     v.fair.seal:SetText("")
+  elseif stage == "cancelled" then
+    v.fair.text:SetText("Cancelled by " .. MOTA:Short(L.cancelled.by) .. " before the draw. Every ticket is refunded.")
+    v.fair.seal:SetText("Seal never opened")
   elseif stage == "drawn" and L.winner then
     v.fair.text:SetText("Drawn by " .. MOTA:Short(L.drawn.by) .. ". Every add-on worked it out: ticket " .. L.win .. " of " .. #L.tickets .. ".")
     v.fair.seal:SetText(L.drawn.s and "Seal opened and checked" or "Drawn without the seal")
@@ -351,7 +373,7 @@ local function refreshLottery(v)
   end
 
   -- The organiser's desk, or how to buy.
-  local runs = MOTA.Games:CanRun(MOTA.me)
+  local runs = MOTA.Games:CanRun(MOTA.me) or (L ~= nil and Lo:CanCancel(MOTA.me, L))
   v.desk:SetShown(runs)
   v.buy:SetShown(not runs)
   if not runs then v.form:Hide() end
@@ -362,13 +384,18 @@ local function refreshLottery(v)
     v.desk.line:SetText("Sales close " .. date("%d %b, %H:%M", L.closes) .. ".")
   elseif stage == "closed" then
     v.desk.line:SetText(canDraw and "Sales are closed. Ready to draw." or (MOTA:Short(L.by) .. " draws it, or another from " .. date("%d %b", L.closes + Lo.LATE) .. "."))
+  elseif owed > 0 and L.cancelled then
+    v.desk.line:SetText("Refunds: " .. MOTA:Money(owed) .. " left. Withdraw it as Lottery payout.")
   elseif owed > 0 then
-    v.desk.line:SetText("Pay " .. MOTA:Short(L.winner) .. " " .. MOTA:Money(owed) .. ": withdraw it as Lottery prize.")
+    v.desk.line:SetText("Pay " .. MOTA:Short(L.winner) .. " " .. MOTA:Money(owed) .. ": withdraw it as Lottery payout.")
   else
     v.desk.line:SetText("No lottery running.")
   end
   v.desk.draw:SetEnabled(canDraw)
   v.desk.draw:SetAlpha(canDraw and 1 or 0.45)
+  local canCancel = L ~= nil and Lo:CanCancel(MOTA.me, L)
+  v.desk.cancel:SetEnabled(canCancel)
+  v.desk.cancel:SetAlpha(canCancel and 1 or 0.45)
   v.desk.open:SetEnabled(canOpen)
   v.desk.open:SetAlpha(canOpen and 1 or 0.45)
 
@@ -376,15 +403,16 @@ local function refreshLottery(v)
   local drawn = {}
   local all = Lo:All()
   for i = #all, 1, -1 do
-    if all[i].drawn then drawn[#drawn + 1] = all[i] end
+    if all[i].drawn or all[i].cancelled then drawn[#drawn + 1] = all[i] end
   end
   for i, r in ipairs(v.past.rows) do
     local d = drawn[i]
     r.text:SetShown(d ~= nil)
     r.amt:SetShown(d ~= nil and d.winner ~= nil)
     if d then
-      r.text:SetText("|cff5E4B33" .. date("%d %b", d.drawn.t) .. " ·|r " .. d.name .. " · "
-        .. (d.winner and (MOTA:Short(d.winner) .. ", ticket " .. d.win .. " of " .. #d.tickets) or "no tickets sold"))
+      local ended = d.drawn or d.cancelled
+      r.text:SetText("|cff5E4B33" .. date("%d %b", ended.t) .. " ·|r " .. d.name .. " · "
+        .. (d.cancelled and "cancelled, tickets refunded" or (d.winner and (MOTA:Short(d.winner) .. ", ticket " .. d.win .. " of " .. #d.tickets) or "no tickets sold")))
       if d.winner then r.amt:SetCopper(d.prize) end
     end
   end
