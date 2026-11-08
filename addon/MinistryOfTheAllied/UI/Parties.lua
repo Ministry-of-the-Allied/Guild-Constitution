@@ -149,7 +149,8 @@ local function buildPublic(key)
 
   -- The shadow cabinet, public, in two columns of three.
   local benchY = 22 + #party.pillars * 34 + 14
-  Kit:Label(v.standsFor, "kitSection", "1B3570", 0.22, "Shadow cabinet"):SetPoint("TOPLEFT", v.standsFor, "TOPLEFT", 0, -benchY)
+  v.benchHead = Kit:Label(v.standsFor, "kitSection", "1B3570", 0.22, "Shadow cabinet")
+  v.benchHead:SetPoint("TOPLEFT", v.standsFor, "TOPLEFT", 0, -benchY)
   v.bench = {}
   for i = 2, #MOTA.Bench.POSTS do
     local post = MOTA.Bench.POSTS[i]
@@ -404,7 +405,11 @@ local function buildCrown()
     b:SetPoint(point, desk, point, x, y)
     return b
   end
-  act("BOTTOMLEFT", 82, 54, 156, "Set: days away", "quiet", function() return MOTA.Contest:SetDate(days:GetText()) end)
+  days:Hide() -- testing: /mota contest date <days>
+  v.callBtn = act("BOTTOMLEFT", 16, 54, 222, "Begin the first election", "gold", function()
+    if MOTA.Elect:Government() then return MOTA.Elect:CallSnap() end
+    return MOTA.Elect:BeginFirst()
+  end)
   v.openBtn = act("BOTTOMLEFT", 244, 54, 156, "Open contests", "gold", function() return MOTA.Contest:Open() end)
   act("BOTTOMRIGHT", -16 - 194 - 8, 16, 200, "Ratify Silverhand", "blue", function() return MOTA.Contest:Ratify("sh") end)
   act("BOTTOMRIGHT", -16, 16, 194, "Ratify Exchange", "blue", function() return MOTA.Contest:Ratify("ex") end)
@@ -537,7 +542,25 @@ end
 local function refreshCrown()
   local Co = MOTA.Contest
   local cur = Co:Current()
-  crownView.electionLine:SetText(cur and ("The election is on " .. date("%d %b %Y", Co:PollAt()) .. "." .. (cur.emergency and " Moved back 14 days for an emergency contest." or "")) or "No election has been called. Enter how many days away, at least 28.")
+  local El = MOTA.Elect
+  local gov = El:Government()
+  local line
+  if El:Underway() then
+    line = Co:Kind() .. " on " .. date("%d %b %Y", Co:PollAt()) .. "." .. (cur.emergency and " Moved back 14 days for an emergency contest." or "")
+  elseif gov then
+    line = "Prime Minister " .. MOTA:Short(gov.name) .. ", term ends " .. date("%d %b %Y", gov.ends) .. "."
+      .. (cur and cur.at > GetServerTime() and (" Next General Election " .. date("%d %b", Co:PollAt()) .. ".") or "")
+  else
+    local g = El:Gates()
+    line = ("Recruiting: %d of %d active players with the add-on. Silverhand %d of %d members, Exchange %d of %d."):format(
+      g.players, El.GATE_PLAYERS, g.sh, El.GATE_PARTY, g.ex, El.GATE_PARTY)
+  end
+  crownView.electionLine:SetText(line)
+  local canCall = (not El:Begun() and El:Gates().ok) or (gov ~= nil and not El:Underway())
+  crownView.callBtn:SetLabel(gov and "Dissolve: Snap Election" or "Begin the first election")
+  crownView.callBtn:SetShown(not El:Underway())
+  crownView.callBtn:SetEnabled(canCall)
+  crownView.callBtn:SetAlpha(canCall and 1 or 0.45)
   local function state(p)
     local counts, _, total = Co:Count(p)
     local bits = {}
@@ -546,7 +569,7 @@ local function refreshCrown()
     return Co:Stage(p) .. (#bits > 0 and (": " .. table.concat(bits, ", ")) or "")
   end
   crownView.contestLine:SetText("Silverhand · " .. state("sh") .. "\nExchange · " .. state("ex"))
-  crownView.openBtn:SetShown(cur ~= nil and not cur.openedAt)
+  crownView.openBtn:SetShown(cur ~= nil and cur.kind ~= "snap" and not cur.openedAt and El:Underway())
   local requests = MOTA.Party:Requests()
   crownView.empty:SetShown(#requests == 0)
   for i, r in ipairs(crownView.rows) do
@@ -653,6 +676,7 @@ function Page:Refresh()
     local deputy = MOTA.Bench:Holder(key, "deputy")
     v.values.Deputy:SetText(deputy and MOTA:Short(deputy) or "Not yet named")
     refreshBench(key, v, v.bench)
+    v.benchHead:SetText(MOTA.Elect:BenchName(key))
     v.values.Funds:SetText(gold(Party:Funds(key)))
     v.values.Members:SetText(namesLine(Party:Members(key)))
     setJoin(v.ask, key, v.joinNote)

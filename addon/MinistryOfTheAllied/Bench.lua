@@ -12,15 +12,15 @@ local _, MOTA = ...
 local Bench = {}
 MOTA.Bench = Bench
 
--- The shadow posts follow the Cabinet in Charter 2.2.
-Bench.POSTS = { "deputy", "treasury", "war", "trade", "recruitment", "justice" }
+-- The posts follow the Cabinet in Charter 2.2, less Justice: the Crown appoints
+-- the Minister of Justice (Duncan, 2026-11-08; the Charter's wording is to follow).
+Bench.POSTS = { "deputy", "treasury", "war", "trade", "recruitment" }
 Bench.TITLES = {
   deputy = "Deputy Leader",
   treasury = "Treasury",
   war = "War",
   trade = "Trade",
   recruitment = "Recruitment",
-  justice = "Justice Minister", -- liaises with the High Judiciary; the Justices themselves are the Crown's (Charter 2.2, Part VI)
 }
 local VALID = {}
 for _, post in ipairs(Bench.POSTS) do VALID[post] = true end

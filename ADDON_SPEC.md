@@ -1152,7 +1152,8 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 - [ ] **Heralds:** long names and titles fit.
 - [ ] **Front bench (0.6.5):** the leader names a Deputy and the five shadow posts in the Chamber; the public page shows them; the leader leaves and the Deputy takes the lead with a herald.
 - [ ] **Emergency contest (0.6.6):** a party whose contest ends with no leader (nobody stood, or leader and Deputy both left) gets one emergency contest; polling day moves back 14 days, with a herald; `/mota contest emergency sh` by hand.
-- [ ] Anything built after this note: the General Election.
+- [ ] **Election cycle (0.6.7):** the Crown's desk shows the gates (20 active players with the add-on, 6 members per party); Begin the first election (28 days); a ballot result makes the Prime Minister, sets the next General Election 3 months on, and starts the 48-hour Cabinet and shadow cabinet reminders; Dissolve: Snap Election (14 days, no contests). `/mota contest date <days>` skips the gates for testing.
+- [ ] Anything built after this note: the Vote of No Confidence.
 
 **Before launch:** `Party.FEE` in `Party.lua` is already the real fee, 5000 (50 silver, set 2026-11-08); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
 

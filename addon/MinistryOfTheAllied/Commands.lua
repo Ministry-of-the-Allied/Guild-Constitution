@@ -286,6 +286,7 @@ add("contest", "[advance, ratify sh, declare sh <name>, emergency sh]", "Crown: 
   if word == "advance" then rec, err = Co:Advance()
   elseif word == "ratify" then rec, err = Co:Ratify(rest)
   elseif word == "emergency" then rec, err = Co:CallEmergency(rest)
+  elseif word == "date" then rec, err = Co:SetDate(rest) -- testing: skips the gates
   elseif word == "declare" then
     local p, name = rest:match("^(%a+)%s+(.+)$")
     rec, err = Co:Ratify(p, name)

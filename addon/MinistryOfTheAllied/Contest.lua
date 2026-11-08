@@ -2,7 +2,9 @@
 -- (ADDON_SPEC.md, section 10.16). Candidates and platforms are public records.
 -- Votes go by hidden whisper to the Kings, and are published with the result.
 --
---   election.date    Crown   { at }                  the latest stands
+--   election.date    Crown   { at, kind }            the latest stands; kind "snap" has no
+--                                                    leadership contests (Charter 3.6). Elect.lua
+--                                                    sets these: the first, each term's end, snaps
 --   contest.open     Crown   { id }                  the ceremony; the system opens it anyway after 2 days
 --   contest.advance  Crown   { id, stage, p? }       moves on early: "voting" or "counting"
 --                                                    (with p, only that party's emergency contest)
@@ -59,7 +61,8 @@ local function build()
     local r = list[i]
     local d = r.d or {}
     if r.k == "election.date" and type(d.at) == "number" then
-      cur = { id = r.a .. "#" .. r.n, at = d.at, parties = { sh = newParty(), ex = newParty() } }
+      cur = { id = r.a .. "#" .. r.n, at = d.at, t = r.t, kind = d.kind == "snap" and "snap" or "general",
+        parties = { sh = newParty(), ex = newParty() } }
       out.cur = cur
     elseif cur and d.id == cur.id then
       local p = d.p and cur.parties[d.p]
@@ -124,12 +127,19 @@ function clock(cur, party)
   return open, voteAt, cur.countAt or (voteAt + VOTE)
 end
 
+-- The election's own name for the page: "General Election" or "Snap Election".
+function Contest:Kind()
+  local cur = self:Current()
+  return cur and (cur.kind == "snap" and "Snap Election" or "General Election")
+end
+
 -- none, standing, voting, counting or done, for one party.
 function Contest:Stage(p)
   local cur = self:Current()
   if not cur then return "none" end
   local party = cur.parties[p]
   if party.result then return "done" end
+  if cur.kind == "snap" then return "none" end -- no contests in a Snap Election
   local now = GetServerTime()
   local open, voteAt, countAt = clock(cur, party)
   if now < open then return "none" end
@@ -164,7 +174,7 @@ end
 -- Charter 3.6: has this party's contest ended with no leader, in time to try again?
 function Contest:Failed(p)
   local cur = self:Current()
-  if not cur or cur.emergency then return false end
+  if not cur or cur.emergency or cur.kind == "snap" then return false end
   local now = GetServerTime()
   if now < openAt(cur) or now >= cur.at then return false end
   local stage = self:Stage(p)
@@ -232,6 +242,7 @@ end
 function Contest:Open()
   local cur = self:Current()
   if not cur then return nil, "Set the election date first." end
+  if cur.kind == "snap" then return nil, "A Snap Election has no leadership contests." end
   if cur.openedAt then return nil, "The contests are already open." end
   if GetServerTime() < cur.at - OPEN_BEFORE then return nil, "Contests open 28 days before the election." end
   return Book:Write("contest.open", { id = cur.id })
@@ -518,7 +529,7 @@ local function remind()
   local cur = Contest:Current()
   if not cur then return end
   local now = GetServerTime()
-  if self:IsCrown(self.me) and not cur.openedAt and now >= cur.at - OPEN_BEFORE and now < cur.at - AUTO_BEFORE then
+  if self:IsCrown(self.me) and cur.kind ~= "snap" and not cur.openedAt and now >= cur.at - OPEN_BEFORE and now < cur.at - AUTO_BEFORE then
     self:Print("The leadership contests are ready for the Crown to open, on the Chamber ribbon of The Parties.")
   end
   local p = self.Party:Of(self.me)
