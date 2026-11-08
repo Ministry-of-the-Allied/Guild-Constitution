@@ -46,61 +46,124 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
   --wax:radial-gradient(circle at 35% 30%,#FFF6CF,#E9C877 35%,#C9A24A 62%,#8A6420);--wax-ink:#4F0F3B;
   --home:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 25%,#C9A24A 60%,#A47A2A 100%);--home-ink:#3E0A2F}
 
-/* ---------- the map window frame, in the proportions of the game's own ---------- */
-.mw{position:absolute;width:800px;height:595px}
+
+/* ---------- the game's Map & Quest Log, quest log docked (Max's screenshot, 8 Nov), at 2/3 size ---------- */
+.mw{position:absolute;width:1100px;height:749px}
 .mw-rim{position:absolute;inset:0;padding:2px;border-radius:8px;background:var(--metal);
   box-shadow:0 0 0 1px var(--dk),0 26px 60px rgba(0,0,0,.75),0 6px 16px rgba(0,0,0,.55)}
 .mw-hide{position:relative;width:100%;height:100%;border-radius:6px;background:var(--hide);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.65),inset 0 2px 0 rgba(255,255,255,.1),inset 0 0 34px rgba(0,0,0,.5)}
 .mw-hide::before{content:"";position:absolute;inset:4px;border:1px solid var(--rule);border-radius:4px;pointer-events:none}
-.mw-seal{position:absolute;left:-26px;top:-28px;width:92px;height:92px;z-index:20;filter:drop-shadow(0 10px 10px rgba(0,0,0,.65)) drop-shadow(0 0 18px rgba(243,217,138,.18))}
-.mw-seal.crest{left:-30px;top:-42px;width:100px;height:112px}
+.mw-seal{position:absolute;left:-34px;top:-38px;width:118px;height:118px;z-index:20;filter:drop-shadow(0 10px 10px rgba(0,0,0,.65)) drop-shadow(0 0 18px rgba(243,217,138,.18))}
+.mw-seal.crest{left:-40px;top:-54px;width:126px;height:141px}
 
-.mw-title{position:absolute;left:96px;right:96px;top:3px;height:25px;display:flex;align-items:center;justify-content:center;gap:12px;z-index:3}
-.mw-title::before,.mw-title::after{content:"";width:46px;height:1px;background:linear-gradient(90deg,rgba(0,0,0,0),var(--hi))}
+.mw-title{position:absolute;left:120px;right:120px;top:6px;height:34px;display:flex;align-items:center;justify-content:center;gap:14px;z-index:3}
+.mw-title::before,.mw-title::after{content:"";width:60px;height:1px;background:linear-gradient(90deg,rgba(0,0,0,0),var(--hi))}
 .mw-title::after{transform:scaleX(-1)}
-.mw-title h3{margin:0;font-family:'Ministry Decorative','Cinzel Decorative','Cinzel',Georgia,serif;font-weight:900;font-size:14px;letter-spacing:.14em;line-height:1;white-space:nowrap;
+.mw-title h3{margin:0;font-family:'Ministry Decorative','Cinzel Decorative','Cinzel',Georgia,serif;font-weight:900;font-size:18px;letter-spacing:.14em;line-height:1;white-space:nowrap;
   background:var(--title);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.7))}
-.mw-sep{position:absolute;left:2px;right:2px;top:28px;height:3px;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1px,var(--sep,var(--hi)) 1px 2px,rgba(0,0,0,.35) 2px 3px)}
+.mw-sep{position:absolute;left:2px;right:2px;top:44px;height:3px;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1px,var(--hi) 1px 2px,rgba(0,0,0,.35) 2px 3px)}
 
-/* enlarge and close: square, sitting flush in the top-right corner like the game's own */
 .mw-btns{position:absolute;right:2px;top:2px;display:flex;gap:2px;z-index:4}
-.mw-knob{width:29px;height:26px;border-radius:2px;display:grid;place-items:center;border:none;padding:0;cursor:pointer;color:var(--knob-ink);background:var(--knob);
+.mw-knob{width:36px;height:38px;border-radius:2px;display:grid;place-items:center;border:none;padding:0;cursor:pointer;color:var(--knob-ink);background:var(--knob);
   box-shadow:inset 0 0 0 1.5px var(--hi),inset 0 0 0 2.5px rgba(0,0,0,.55),inset 0 4px 5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.5)}
 .mw-knob.wax{color:var(--wax-ink);background:var(--wax);border-top-right-radius:6px}
-.mw-knob svg{width:13px;height:13px}
+.mw-knob svg{width:16px;height:16px}
 
-.mw-nav{position:absolute;left:77px;right:9px;top:36px;height:33px;display:flex;align-items:stretch;padding:2px;background:var(--bar);border-radius:2px;z-index:2;
+/* the location bar: home, steps, the current place underlined in gold */
+.mw-nav{position:absolute;left:100px;top:56px;width:536px;height:36px;box-sizing:border-box;display:flex;align-items:stretch;padding:2px;background:var(--bar);border-radius:2px;z-index:2;
   box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px rgba(0,0,0,.6),inset 0 2px 6px rgba(0,0,0,.5)}
-.crumb{position:relative;display:flex;align-items:center;gap:6px;padding:0 24px 0 22px;margin-right:-9px;border:none;cursor:pointer;white-space:nowrap;
-  font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:11.5px;letter-spacing:.08em;color:var(--crumb-ink);background:var(--crumb);
-  clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%,11px 50%)}
-.crumb.home{padding-left:14px;color:var(--home-ink);background:var(--home);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%)}
+.crumb{position:relative;display:flex;align-items:center;gap:7px;padding:0 26px 0 24px;margin-right:-9px;border:none;cursor:pointer;white-space:nowrap;
+  font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:12.5px;letter-spacing:.08em;color:var(--crumb-ink);background:var(--crumb);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%)}
+.crumb.home{padding-left:16px;color:var(--home-ink);background:var(--home);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%)}
 .crumb.cur{color:var(--cur-ink)}
-.crumb.cur::after{content:"";position:absolute;left:20px;right:22px;bottom:4px;height:2px;background:var(--line)}
-.crumb svg{width:10px;height:10px;flex:none}
-.nav-drop{margin-left:auto;width:28px;flex:none;border:none;padding:0;display:grid;place-items:center;cursor:pointer;color:var(--knob-ink);background:var(--knob);box-shadow:inset 0 0 0 1px var(--hi)}
-.nav-drop svg{width:12px;height:12px}
+.crumb.cur::after{content:"";position:absolute;left:22px;right:24px;bottom:4px;height:2px;background:var(--line)}
+.crumb svg{width:11px;height:11px;flex:none}
 
-.mw-map{position:absolute;left:9px;top:79px;width:782px;height:507px;overflow:hidden;background:#3a2c14;
-  box-shadow:0 0 0 1px var(--dk),0 0 0 2px var(--map-ring,var(--hi)),0 0 0 3px rgba(0,0,0,.6)}
-.mw-map img{display:block;width:100%;height:100%;object-fit:cover}
+/* the tracking filter and its reset cross, beside the bar */
+.mw-track{position:absolute;left:650px;top:58px;width:38px;height:32px;border:none;padding:0;border-radius:2px;display:grid;place-items:center;cursor:pointer;z-index:3;
+  color:var(--knob-ink);background:var(--knob);box-shadow:inset 0 0 0 1.5px var(--hi),inset 0 0 0 2.5px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.6)}
+.mw-track svg{width:15px;height:15px}
+.mw-reset{position:absolute;left:676px;top:48px;width:19px;height:19px;border-radius:50%;border:none;padding:0;display:grid;place-items:center;cursor:pointer;z-index:4;color:#FBEFC4;
+  background:radial-gradient(circle at 35% 30%,#D2584A,#8E1F17 60%,#3C0805);box-shadow:0 0 0 1.5px var(--hi),0 0 0 2.5px var(--dk),0 2px 4px rgba(0,0,0,.6)}
+.mw-reset svg{width:9px;height:9px}
+
+/* the quest log's header strip: search, count, gear */
+.mw-search{position:absolute;left:704px;top:58px;width:226px;height:30px;box-sizing:border-box;display:flex;align-items:center;gap:7px;padding:0 10px;z-index:2;
+  background:var(--bar);box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px rgba(0,0,0,.6),inset 0 2px 6px rgba(0,0,0,.6);border-radius:2px;
+  font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:14px;color:var(--crumb-ink)}
+.mw-search svg{width:13px;height:13px;flex:none;color:var(--hi)}
+.mw-count{position:absolute;left:936px;top:58px;width:118px;height:30px;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 10px;z-index:2;
+  background:var(--crumb);box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px rgba(0,0,0,.6);border-radius:2px;
+  font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:11px;letter-spacing:.08em;color:var(--crumb-ink)}
+.mw-count b{font-family:'EB Garamond',Georgia,serif;font-size:15px;letter-spacing:0;color:var(--cur-ink)}
+.mw-gear{position:absolute;left:1060px;top:58px;width:30px;height:30px;border-radius:2px;border:none;padding:0;display:grid;place-items:center;cursor:pointer;z-index:3;
+  color:var(--knob-ink);background:var(--knob);box-shadow:inset 0 0 0 1.5px var(--hi),inset 0 0 0 2.5px rgba(0,0,0,.55),inset 0 4px 5px rgba(255,255,255,.16),0 0 0 1px rgba(0,0,0,.6)}
+.mw-gear svg{width:15px;height:15px}
+
+/* the map: the game's own art and pins */
+.mw-map{position:absolute;left:26px;top:100px;width:668px;height:638px;overflow:hidden;background:#3a2c14;
+  box-shadow:0 0 0 1px var(--dk),0 0 0 2px var(--hi),0 0 0 3px rgba(0,0,0,.6)}
+.mw-map img{display:block;width:100%;height:100%;object-fit:cover;object-position:0 0}
 .mw-map::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 16px rgba(0,0,0,.5);pointer-events:none}
-.mw-round{position:absolute;top:87px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:none;padding:0;cursor:pointer;z-index:3;
+.mw-round{position:absolute;left:36px;top:110px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:none;padding:0;cursor:pointer;z-index:3;
   color:var(--knob-ink);background:var(--knob);box-shadow:0 0 0 2px var(--hi),0 0 0 3px var(--dk),0 2px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
-.mw-round.tl{left:17px}
-.mw-round.tr{left:755px}
 .mw-round svg{width:14px;height:14px}
-.mw-toggle{position:absolute;left:739px;top:550px;width:44px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:1px;border:none;padding:0;cursor:pointer;z-index:3;
-  color:var(--knob-ink);background:var(--knob);box-shadow:0 0 0 2px var(--hi),0 0 0 3px var(--dk),0 2px 6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.3)}
-.mw-toggle svg{width:15px;height:15px}
-/* the Crown's gold filigree ornaments, on the two bottom corners, kept inside the frame */
-.mw-corner{position:absolute;width:44px;height:44px;background:url(/_blob/6d5fbe8d4c5384d8cf626886038701ac) 0 0/contain no-repeat;pointer-events:none;z-index:6}
+/* the position plate (Leatrix Maps' or OpenMap's), dressed to match */
+.mw-plate{position:absolute;left:476px;top:704px;width:170px;height:28px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:3;
+  background:var(--bar);border-radius:2px;box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px var(--hi),0 0 0 2px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.5)}
+.mw-plate span{font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:10.5px;letter-spacing:.1em;color:var(--crumb-ink)}
+.mw-plate b{font-family:'EB Garamond',Georgia,serif;font-weight:600;font-size:15px;color:var(--cur-ink)}
+/* the quest log's show/hide toggle, at the map's bottom right */
+.mw-toggle{position:absolute;left:654px;top:704px;width:36px;height:28px;border-radius:2px;display:flex;align-items:center;justify-content:center;border:none;padding:0;cursor:pointer;z-index:3;
+  color:var(--knob-ink);background:var(--knob);box-shadow:inset 0 0 0 1.5px var(--hi),inset 0 0 0 2.5px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.6)}
+.mw-toggle svg{width:13px;height:13px}
+
+/* the divider between map and log */
+.mw-div{position:absolute;left:696px;top:98px;width:6px;height:642px;z-index:2;
+  background:linear-gradient(90deg,rgba(0,0,0,.6) 0 1px,var(--hi) 1px 2px,rgba(0,0,0,.45) 2px 4px,var(--hi) 4px 5px,rgba(0,0,0,.6) 5px 6px)}
+
+/* the quest log: our frame, the game's rows */
+.mw-log{position:absolute;left:704px;top:98px;width:364px;height:642px;overflow:hidden;background:var(--bar);
+  box-shadow:inset 0 0 0 1px var(--rule),inset 0 0 24px rgba(0,0,0,.6)}
+.mw-zone{position:absolute;left:8px;top:6px;width:346px;height:28px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 12px;z-index:2;
+  background:var(--crumb);border-radius:2px;box-shadow:inset 0 0 0 1px var(--rule),0 0 0 1px rgba(0,0,0,.6),0 2px 4px rgba(0,0,0,.4)}
+.mw-zone span{font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--cur-ink)}
+.mw-zone i{display:block;width:12px;height:2px;background:var(--hi)}
+.mw-rows{position:absolute;left:4px;top:40px;width:352px;height:auto;mix-blend-mode:lighten}
+.mw-scroll{position:absolute;left:1072px;top:98px;width:18px;height:642px;z-index:2;background:linear-gradient(90deg,rgba(0,0,0,.65),rgba(0,0,0,.4));
+  box-shadow:inset 0 0 0 1px var(--rule)}
+.mw-arrow{position:absolute;left:0;width:18px;height:18px;border:none;padding:0;display:grid;place-items:center;cursor:pointer;color:var(--knob-ink);background:var(--knob);
+  box-shadow:inset 0 0 0 1px var(--hi)}
+.mw-arrow.up{top:0}
+.mw-arrow.dn{bottom:0}
+.mw-arrow svg{width:10px;height:10px}
+.mw-thumb{position:absolute;left:3px;top:24px;width:12px;height:110px;border-radius:6px;background:var(--metal);box-shadow:0 0 0 1px var(--dk),inset 0 1px 0 rgba(255,255,255,.4)}
+
+.mw-corner{position:absolute;width:52px;height:52px;background:url(/_blob/6d5fbe8d4c5384d8cf626886038701ac) 0 0/contain no-repeat;pointer-events:none;z-index:6}
 .mw-corner.bl{left:-1px;bottom:-1px;transform:scaleY(-1)}
 .mw-corner.br{right:-1px;bottom:-1px;transform:scale(-1,-1)}
 
+/* ---------- the district tooltip, as the add-on draws it ---------- */
+.dtip{position:absolute;width:196px;box-sizing:border-box;padding:10px 14px;background:linear-gradient(180deg,var(--t-top),var(--t-dark));
+  box-shadow:inset 0 0 0 2px var(--t-edge),inset 0 0 0 3px rgba(0,0,0,.65),0 8px 18px rgba(0,0,0,.55)}
+.dtip::before{content:"";position:absolute;inset:5px;border:1px solid var(--t-rule);opacity:.55;pointer-events:none}
+.dtip h4{margin:0;font-family:'EB Garamond',Georgia,serif;font-weight:500;font-size:16px;line-height:20px}
+.dtip .yours{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:13px;line-height:15px;color:var(--t-pale)}
+.dtip hr{border:none;height:1px;margin:6px 0 5px;background:var(--t-rule);opacity:.55}
+.dtip dl{margin:0;display:grid;grid-template-columns:auto 1fr}
+.dtip dt{font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:10px;letter-spacing:.1em;line-height:17px;color:var(--t-head)}
+.dtip dd{margin:0;text-align:right;font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:13px;line-height:17px;color:var(--t-pale)}
+.t-min{--t-top:#3460B4;--t-dark:#142B5E;--t-edge:#C9A24A;--t-rule:#C9A24A;--t-head:#F3D98A;--t-pale:#AFC0E6}
+.t-sh{--t-top:#3460B4;--t-dark:#142B5E;--t-edge:#AEB8C6;--t-rule:#D6DEE9;--t-head:#F1F4F8;--t-pale:#C6D2EA}
+.t-ex{--t-top:#B8343C;--t-dark:#2E0609;--t-edge:#C9A24A;--t-rule:#C9A24A;--t-head:#F3D98A;--t-pale:#F2CDBE}
+.t-cr{--t-top:#86296A;--t-dark:#2A0720;--t-edge:#C9A24A;--t-rule:#C9A24A;--t-head:#F3D98A;--t-pale:#EBCBDF}
+.closeup{position:absolute;width:560px;height:333px;overflow:hidden;box-shadow:0 0 0 1px #6E4F17,0 8px 20px rgba(0,0,0,.35)}
+.closeup img{display:block;width:100%;height:100%;object-fit:cover}
+
 /* ---------- captions and the setting ---------- */
-.cap{position:absolute;display:flex;flex-direction:column;gap:5px;width:800px}
+.cap{position:absolute;display:flex;flex-direction:column;gap:5px;width:1100px}
 .cap .board-label{position:static}
 .cap .board-note{position:static}
 .setrow{display:flex;align-items:center;justify-content:space-between;gap:20px}
@@ -111,14 +174,15 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 .seg button.on{color:#F3D98A;background:linear-gradient(180deg,#2E58AA,#1B3570)}
 </style>
 </helmet>
-<div class="stage" style="width: 1800px; height: 1790px">
+<div class="stage" style="width: 2440px; height: 2580px">
 
-  <span class="board-label" style="left: 64px; top: 44px">The game's own map window · dressed by party</span>
-  <span class="board-note" style="left: 64px; top: 72px">Only the frame changes, in the game's own proportions. The map art, its pins and markers stay exactly as the game draws them.</span>
+  <span class="board-label" style="left: 64px; top: 44px">The game's Map &amp; Quest Log · quest log docked · dressed by party</span>
+  <span class="board-note" style="left: 64px; top: 72px; width: 1500px">Drawn on the real Forever layout from Max's screenshot (8 Nov). Our frame is laid round and over the game's: rim and leather, title, seal, knobs, location bar, tracking filter, the quest log's search, count, zone headers and scroll bar, the position plate and the toggle. The map art, its pins and the quest rows' words and icons stay exactly as the game draws them. On Stormwind City the districts show: yours gold, the one under the cursor brighter.</span>
 
   <!-- Silverhand -->
-  <div class="mw sk-sh" style="left: 64px; top: 170px">
+  <div class="mw sk-sh" style="left: 64px; top: 200px">
     <div class="mw-rim"><div class="mw-hide"></div></div>
+    
     <img class="mw-seal" src="/_blob/dd8568019d0ff8be3c87935987cf352a" alt="Silverhand seal">
     <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
     <div class="mw-sep"></div>
@@ -129,22 +193,33 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
     <nav class="mw-nav" aria-label="Map location">
       <button class="crumb home" type="button">World</button>
       <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Stormwind City<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
     </nav>
-    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
-    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
-    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
-    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-track" type="button" aria-label="Map tracking filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"></path></svg></button>
+    <button class="mw-reset" type="button" aria-label="Reset tracking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    <div class="mw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 20 20"></path></svg>Search Quest Log</div>
+    <div class="mw-count">Quests: <b>14/40</b></div>
+    <button class="mw-gear" type="button" aria-label="Quest log options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg></button>
+    <div class="mw-map"><img src="/_blob/0cb29caddfa023b87f829f7a6a699995" alt="Stormwind City as the game draws it, with the district outlines: yours gold, the Arcane Ward under the cursor"></div>
+    <button class="mw-round" type="button" aria-label="Map pins filter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <div class="mw-plate"><span>Player</span><b>62.2, 72.9</b></div>
+    <button class="mw-toggle" type="button" aria-label="Hide quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <div class="mw-div"></div>
+    <div class="mw-log">
+      <div class="mw-zone"><span>Elwynn Forest</span><i></i></div>
+      <img class="mw-rows" src="/_blob/01ef5edff75994b337990bbbc9ecfb10" alt="The quest rows, exactly as the game draws them">
+    </div>
+    <div class="mw-scroll"><button class="mw-arrow up" type="button" aria-label="Scroll up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button><span class="mw-thumb"></span><button class="mw-arrow dn" type="button" aria-label="Scroll down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
   </div>
-  <div class="cap" style="left: 64px; top: 787px">
+  <div class="cap" style="left: 64px; top: 969px">
     <span class="board-label">Silverhand</span>
     <span class="board-note">Silver metalwork and argent wax on the party blue, under the blue hand.</span>
   </div>
 
   <!-- Azeroth Exchange -->
-  <div class="mw sk-ex" style="left: 968px; top: 170px">
+  <div class="mw sk-ex" style="left: 1274px; top: 200px">
     <div class="mw-rim"><div class="mw-hide"></div></div>
+    
     <img class="mw-seal" src="/_blob/2548a4e779105c6802c9276a14f27592" alt="Azeroth Exchange seal">
     <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
     <div class="mw-sep"></div>
@@ -155,24 +230,34 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
     <nav class="mw-nav" aria-label="Map location">
       <button class="crumb home" type="button">World</button>
       <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Stormwind City<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
     </nav>
-    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
-    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
-    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
-    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-track" type="button" aria-label="Map tracking filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"></path></svg></button>
+    <button class="mw-reset" type="button" aria-label="Reset tracking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    <div class="mw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 20 20"></path></svg>Search Quest Log</div>
+    <div class="mw-count">Quests: <b>14/40</b></div>
+    <button class="mw-gear" type="button" aria-label="Quest log options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg></button>
+    <div class="mw-map"><img src="/_blob/0cb29caddfa023b87f829f7a6a699995" alt="Stormwind City as the game draws it, with the district outlines: yours gold, the Arcane Ward under the cursor"></div>
+    <button class="mw-round" type="button" aria-label="Map pins filter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <div class="mw-plate"><span>Player</span><b>62.2, 72.9</b></div>
+    <button class="mw-toggle" type="button" aria-label="Hide quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <div class="mw-div"></div>
+    <div class="mw-log">
+      <div class="mw-zone"><span>Elwynn Forest</span><i></i></div>
+      <img class="mw-rows" src="/_blob/01ef5edff75994b337990bbbc9ecfb10" alt="The quest rows, exactly as the game draws them">
+    </div>
+    <div class="mw-scroll"><button class="mw-arrow up" type="button" aria-label="Scroll up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button><span class="mw-thumb"></span><button class="mw-arrow dn" type="button" aria-label="Scroll down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
   </div>
-  <div class="cap" style="left: 968px; top: 787px">
+  <div class="cap" style="left: 1274px; top: 969px">
     <span class="board-label">Azeroth Exchange</span>
     <span class="board-note">Crimson leather and gold, with a gold coin to close, under the coin-scale.</span>
   </div>
 
-  <!-- The Crown -->
-  <div class="mw sk-cr" style="left: 64px; top: 900px">
+  <!-- Crown -->
+  <div class="mw sk-cr" style="left: 64px; top: 1090px">
     <div class="mw-rim"><div class="mw-hide"></div></div>
     <span class="mw-corner bl"></span><span class="mw-corner br"></span>
-    <img class="mw-seal crest" src="/_blob/95cd0584f50217d5706a3ab342656520" alt="Crown crest">
+    <img class="mw-seal crest" src="/_blob/95cd0584f50217d5706a3ab342656520" alt="Crown seal">
     <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
     <div class="mw-sep"></div>
     <div class="mw-btns">
@@ -182,23 +267,34 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
     <nav class="mw-nav" aria-label="Map location">
       <button class="crumb home" type="button">World</button>
       <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Stormwind City<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
     </nav>
-    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
-    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
-    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
-    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-track" type="button" aria-label="Map tracking filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"></path></svg></button>
+    <button class="mw-reset" type="button" aria-label="Reset tracking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    <div class="mw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 20 20"></path></svg>Search Quest Log</div>
+    <div class="mw-count">Quests: <b>14/40</b></div>
+    <button class="mw-gear" type="button" aria-label="Quest log options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg></button>
+    <div class="mw-map"><img src="/_blob/0cb29caddfa023b87f829f7a6a699995" alt="Stormwind City as the game draws it, with the district outlines: yours gold, the Arcane Ward under the cursor"></div>
+    <button class="mw-round" type="button" aria-label="Map pins filter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <div class="mw-plate"><span>Player</span><b>62.2, 72.9</b></div>
+    <button class="mw-toggle" type="button" aria-label="Hide quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <div class="mw-div"></div>
+    <div class="mw-log">
+      <div class="mw-zone"><span>Elwynn Forest</span><i></i></div>
+      <img class="mw-rows" src="/_blob/01ef5edff75994b337990bbbc9ecfb10" alt="The quest rows, exactly as the game draws them">
+    </div>
+    <div class="mw-scroll"><button class="mw-arrow up" type="button" aria-label="Scroll up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button><span class="mw-thumb"></span><button class="mw-arrow dn" type="button" aria-label="Scroll down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
   </div>
-  <div class="cap" style="left: 64px; top: 1517px">
+  <div class="cap" style="left: 64px; top: 1859px">
     <span class="board-label">The Crown</span>
-    <span class="board-note">Royal purple leather and gold, with a gold coin to close, under the Crown crest.</span>
+    <span class="board-note">Royal purple leather and gold, gold filigree on the bottom corners, under the Crown crest.</span>
   </div>
 
-  <!-- Ministry default -->
-  <div class="mw sk-min" style="left: 968px; top: 900px">
+  <!-- Ministry -->
+  <div class="mw sk-min" style="left: 1274px; top: 1090px">
     <div class="mw-rim"><div class="mw-hide"></div></div>
-    <img class="mw-seal crest" src="/_blob/7c545901b08ed0754c9e9eaf3000577b" alt="Stormwind Alliance crest">
+    
+    <img class="mw-seal crest" src="/_blob/7c545901b08ed0754c9e9eaf3000577b" alt="Ministry seal">
     <div class="mw-title"><h3>Map &amp; Quest Log</h3></div>
     <div class="mw-sep"></div>
     <div class="mw-btns">
@@ -208,31 +304,72 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
     <nav class="mw-nav" aria-label="Map location">
       <button class="crumb home" type="button">World</button>
       <button class="crumb" type="button">Eastern Kingdoms<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="crumb cur" type="button" aria-current="location">Elwynn Forest<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-      <button class="nav-drop" type="button" aria-label="Map options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button class="crumb cur" type="button" aria-current="location">Stormwind City<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
     </nav>
-    <div class="mw-map"><img src="/_blob/0f3fbc8484892f0e09cdb3de2b7bf1f5" alt="Elwynn Forest map, as the game draws it"></div>
-    <button class="mw-round tl" type="button" aria-label="Map tracking"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
-    <button class="mw-round tr" type="button" aria-label="Quest notices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg></button>
-    <button class="mw-toggle" type="button" aria-label="Show quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <button class="mw-track" type="button" aria-label="Map tracking filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8z"></path></svg></button>
+    <button class="mw-reset" type="button" aria-label="Reset tracking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    <div class="mw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5 20 20"></path></svg>Search Quest Log</div>
+    <div class="mw-count">Quests: <b>14/40</b></div>
+    <button class="mw-gear" type="button" aria-label="Quest log options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg></button>
+    <div class="mw-map"><img src="/_blob/0cb29caddfa023b87f829f7a6a699995" alt="Stormwind City as the game draws it, with the district outlines: yours gold, the Arcane Ward under the cursor"></div>
+    <button class="mw-round" type="button" aria-label="Map pins filter"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4l6.5 8-6.5 8-6.5-8z"></path></svg></button>
+    <div class="mw-plate"><span>Player</span><b>62.2, 72.9</b></div>
+    <button class="mw-toggle" type="button" aria-label="Hide quest log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l6 6-6 6"></path></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 8.5a3.5 3.5 0 1 1 4.9 3.2c-.9.4-1.4 1.1-1.4 2v.8"></path><circle cx="12" cy="18.5" r="1.3" fill="currentColor" stroke="none"></circle></svg></button>
+    <div class="mw-div"></div>
+    <div class="mw-log">
+      <div class="mw-zone"><span>Elwynn Forest</span><i></i></div>
+      <img class="mw-rows" src="/_blob/01ef5edff75994b337990bbbc9ecfb10" alt="The quest rows, exactly as the game draws them">
+    </div>
+    <div class="mw-scroll"><button class="mw-arrow up" type="button" aria-label="Scroll up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button><span class="mw-thumb"></span><button class="mw-arrow dn" type="button" aria-label="Scroll down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></div>
   </div>
-  <div class="cap" style="left: 968px; top: 1517px">
+  <div class="cap" style="left: 1274px; top: 1859px">
     <span class="board-label">Ministry default</span>
     <span class="board-note">For citizens in no party: the add-on's own blue and gold, under the Alliance crest.</span>
   </div>
 
-  <span class="board-label" style="left: 64px; top: 1610px">Settings · in the game's options</span>
-  <div class="page" style="position: absolute; left: 64px; top: 1646px; width: 940px; height: 84px">
+  <span class="board-label" style="left: 64px; top: 1990px">Hovering a district · its tooltip, in each skin</span>
+  <span class="board-note" style="left: 64px; top: 2018px; width: 960px">Shows where the game's own tooltip shows (bottom right, or wherever Edit Mode or ElvUI moved it). A pin's tooltip always wins.</span>
+
+  <div class="dtip t-sh" style="left: 64px; top: 2070px">
+    <h4 style="color: #A68FCB">Arcane Ward</h4>
+    <hr>
+    <dl><dt>REP.</dt><dd>Aldric</dd><dt>CITIZENS</dt><dd>9</dd></dl>
+  </div>
+
+  <div class="dtip t-ex" style="left: 280px; top: 2070px">
+    <h4 style="color: #D0A177">Iron District</h4>
+    <hr>
+    <dl><dt>REP.</dt><dd>Brannoc</dd><dt>CITIZENS</dt><dd>8</dd></dl>
+  </div>
+
+  <div class="dtip t-cr" style="left: 496px; top: 2070px">
+    <h4 style="color: #BB807A">Old Quarter</h4>
+    <hr>
+    <dl><dt>REP.</dt><dd>Vacant</dd><dt>CITIZENS</dt><dd>5</dd></dl>
+  </div>
+
+  <div class="dtip t-min" style="left: 712px; top: 2070px">
+    <h4 style="color: #8BB6DD">Cathedral Ward</h4><div class="yours">Your district</div>
+    <hr>
+    <dl><dt>REP.</dt><dd>Vacant</dd><dt>CITIZENS</dt><dd>6</dd></dl>
+  </div>
+
+  <span class="board-label" style="left: 1274px; top: 1990px">The outlines on the world map · full size</span>
+  <span class="board-note" style="left: 1274px; top: 2018px; width: 1100px">Dashes about 1.6 times as thick as the page's, on a thin dark edge, so they stand off yellow and green art alike. Yours keeps the gold edge. The Districts page keeps its own lines.</span>
+  <div class="closeup" style="left: 1274px; top: 2070px"><img src="/_blob/f2529571895ea75da8db7b6bb10ba03d" alt="Close-up: the Cathedral Ward in gold, the Iron District and the Old Quarter dashed with a dark edge"></div>
+
+  <span class="board-label" style="left: 64px; top: 2440px">Settings · in the game's options</span>
+  <div class="page" style="position: absolute; left: 64px; top: 2476px; width: 1100px; height: 84px">
     <div class="parch plain" style="padding: 0 24px; display: flex; align-items: center">
       <div class="setrow" style="width: 100%">
-        <label>World map skin<small>Party shows the Crown skin to the Crown, and the Ministry skin to citizens in no party.</small></label>
+        <label>World map skin<small>Party shows the Crown skin to the Crown, and the Ministry skin to citizens in no party. On from the start; your choice is remembered.</small></label>
         <div class="seg" role="group" aria-label="World map skin"><button class="on" type="button" aria-pressed="true">Party</button><button type="button" aria-pressed="false">Ministry</button><button type="button" aria-pressed="false">Plain</button></div>
       </div>
     </div>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1800,"height":1790}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2440,"height":2580}}'>
 class Component extends DCLogic {
   renderVals() {
     return {};

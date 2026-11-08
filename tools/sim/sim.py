@@ -509,14 +509,24 @@ def open_settings(client):
     return panel
 bram_panel = open_settings(ui_client)
 check("A citizen sees no Window skin row", skin_parts(bram_panel) and not any(p.shown for p in skin_parts(bram_panel)))
-skin_btn = bram_panel.controls[8]
+skin_btn = bram_panel.controls[11]
 skin_btn.scripts.OnClick(skin_btn)
 check("...and clicking it anyway changes nothing", ns.db.settings.windowSkin == "party" and ns.skin.KEY == "SILVERHAND")
+# the World map skin row (D5f): everyone's, Party at first; Plain takes the dress off at once
+map_btns = [bram_panel.controls[7], bram_panel.controls[8], bram_panel.controls[9]]
+check("A citizen sees the World map skin row, Party chosen", map_btns[0].on.shown and map_btns[1].off.shown and map_btns[2].off.shown
+      and ns.db.settings.mapSkin == "party")
+ui_client.lua.execute('MAP_SKIN_HEARD = 0; MinistryOfTheAllied:Listen("MAP_SKIN_CHANGED", function() MAP_SKIN_HEARD = MAP_SKIN_HEARD + 1 end)')
+map_btns[2].scripts.OnClick(map_btns[2])
+check("...Plain chosen, the map is told", ns.db.settings.mapSkin == "plain" and map_btns[2].on.shown and map_btns[0].off.shown
+      and ui_client.lua.globals().MAP_SKIN_HEARD == 1)
+map_btns[0].scripts.OnClick(map_btns[0])
+check("...and Party again", ns.db.settings.mapSkin == "party" and map_btns[0].on.shown)
 max_panel = open_settings(max3)
-party_btn = max_panel.controls[7]
+party_btn = max_panel.controls[10]
 check("The Crown sees the Window skin row, Party chosen", party_btn.on.shown and not party_btn.off.shown
-      and max_panel.controls[8].off.shown and sum(1 for p in skin_parts(max_panel) if p.shown) == len(skin_parts(max_panel)) - 2)
-ministry_btn = max_panel.controls[8]
+      and max_panel.controls[11].off.shown and sum(1 for p in skin_parts(max_panel) if p.shown) == len(skin_parts(max_panel)) - 2)
+ministry_btn = max_panel.controls[11]
 ministry_btn.scripts.OnClick(ministry_btn)
 check("...and can use it", crown_ns.db.settings.windowSkin == "ministry" and crown_ns.skin.KEY == "UNREGISTERED")
 crown_ns.db.settings.windowSkin = "party"
@@ -1704,7 +1714,107 @@ check("World map: opens in combat without trouble", WM.layer.shown)
 d4c.lua.execute('WorldMapFrame:SetMapID(1429)')
 check("World map: gone again on Elwynn Forest", not WM.layer.shown)
 d4c.lua.execute('WorldMapFrame:SetMapID(1453)')
-glow_row = open(os.path.join(ADDON, "UI", "Settings.lua"), encoding="utf-8").read().split('key = "glow"')[1].split("},")[0]
+
+# D4b: the hover name. A pretend cursor on the map (0 to 1 across the canvas),
+# the map's scroll box it must be over, and the game's tooltip's owner.
+d4c.lua.execute('''
+  CURSOR_N, OVER_MAP = nil, true
+  WorldMapFrame.ScrollContainer = CreateFrame("Frame", nil, WorldMapFrame)
+  function WorldMapFrame.ScrollContainer:IsMouseOver() return OVER_MAP end
+  function WorldMapFrame:GetNormalizedCursorPosition()
+    if CURSOR_N then return CURSOR_N[1], CURSOR_N[2] end
+    return -1, -1
+  end
+  function GameTooltip:GetOwner() return self.owner end
+  function GameTooltip:SetOwner(o) self.owner = o end
+  GameTooltip:SetOwner(nil); GameTooltip:Hide() -- nothing hovered yet
+''')
+DZM = WG.MinistryOfTheAllied.Media.districts
+
+def cursor_at(x, y):
+    """A cursor at screenshot pixels (x, y) of the whole Stormwind screenshot."""
+    d4c.lua.execute(f'CURSOR_N = {{ {x / DZM.shot.w}, {y / DZM.shot.h} }}')
+    WM.Hover(WM)
+
+names = {}
+for code in ("OLD", "ARC", "IRON", "CATH", "HARB"):
+    s = DZM.spots[code]
+    cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+    names[code] = WM.tipState.code if (WM.tip is not None and WM.tip.shown) else None
+check("World map hover: each meeting place names its own district", all(names[c] == c for c in names))
+wm_src = open(os.path.join(ADDON, "UI", "WorldMap.lua"), encoding="utf-8").read()
+check("World map hover: the layer still takes no mouse (clicks reach the map)",
+      "layer:EnableMouse(false)" in wm_src and "EnableMouse(true)" not in wm_src)
+cursor_at(1010, 760)  # the Trade District, between the five
+check("World map hover: the Trade District names none", not WM.tip.shown and WM.drawn.hovered is None)
+s = DZM.spots["CATH"]
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+ts = WM.tipState
+check("World map hover: your own district says so", ts.yours is True and ts.name == "Cathedral Ward")
+check("World map hover: Rep and citizen count shown", ts.rep == "Vacant" and ts.count >= 1)
+s = DZM.spots["ARC"]
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+check("World map hover: another district isn't called yours", WM.tipState.yours is False)
+arc_lit = Q(d4c, '''local l = M.WorldMap.looks.ARC
+  return l.rest.alpha == 1 and l.fill.shown and not M.WorldMap.looks.OLD.fill.shown''')
+check("World map hover: the outline under the cursor brightens", arc_lit is True)
+d4c.lua.execute('GameTooltip:SetOwner({}); GameTooltip:Show()')
+WM.Hover(WM)
+check("World map hover: a pin's tooltip wins, ours hides", not WM.tip.shown)
+check("World map hover: the pin's tooltip is left alone", WG.GameTooltip.shown)
+d4c.lua.execute('GameTooltip:Hide(); GameTooltip:SetOwner(nil)')
+WM.Hover(WM)
+check("World map hover: ours back once the pin's tooltip goes", WM.tip.shown)
+# Where it shows: the game's own tooltip spot (Max, 8 Nov).
+p = WM.tip.points[1]
+check("World map tooltip: before the game's tooltip has shown, the screen's bottom right",
+      WM.tipAt == "default" and p[1] == "BOTTOMRIGHT" and p[4] == -13 and p[5] == 64)
+d4c.lua.execute('''
+  GameTooltip.anchorType = "ANCHOR_NONE"
+  function GameTooltip:GetAnchorType() return self.anchorType end
+  GameTooltip:ClearAllPoints()
+  GameTooltip:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -250, 180) -- moved in Edit Mode or by ElvUI
+  GameTooltip:Show(); GameTooltip:Hide()
+''')
+cursor_at(1010, 760)
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+p = WM.tip.points[1]
+check("World map tooltip: shows where the game's tooltip shows",
+      WM.tipAt == "game" and p[1] == "BOTTOMRIGHT" and p[4] == -250 and p[5] == 180)
+d4c.lua.execute('''
+  GameTooltip.anchorType = "ANCHOR_CURSOR"
+  GameTooltip:ClearAllPoints(); GameTooltip:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 5, 5)
+  GameTooltip:Show(); GameTooltip:Hide(); GameTooltip:SetOwner(nil)
+''')
+cursor_at(1010, 760)
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+check("World map tooltip: a tooltip some add-on pinned to the cursor doesn't move ours",
+      WM.tip.points[1][4] == -250)
+d4c.lua.execute('ElvUI = { { private = { tooltip = { enable = true } }, db = { tooltip = { cursorAnchor = true } } } }')
+cursor_at(1010, 760)
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+check("World map tooltip: ElvUI set to tooltips at the cursor, ours follows the cursor", WM.tipAt == "cursor")
+d4c.lua.execute('ElvUI = nil')
+cursor_at(1010, 760)
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+d4c.lua.execute('OVER_MAP = false')
+WM.Hover(WM)
+check("World map hover: off the map (the quest log), no tooltip", not WM.tip.shown)
+d4c.lua.execute('OVER_MAP = true')
+cursor_at(s.x + DZM.crop.x, s.y + DZM.crop.y)
+d4c.lua.execute('COMBAT = true')
+run(1)
+check("World map hover: works in combat (OnUpdate, no errors)", WM.tip.shown)
+d4c.lua.execute('COMBAT = false')
+d4c.lua.execute('WorldMapFrame:SetMapID(1429)')
+check("World map hover: leaving Stormwind City hides the tooltip", not WM.tip.shown)
+d4c.lua.execute('WorldMapFrame:SetMapID(1453); CURSOR_N = nil')
+WM.Hover(WM)
+wm_tex = WG.MinistryOfTheAllied.Media.pieces["dz_CATH_wmlit"]
+check("World map: the heavier outlines have their own texture", wm_tex is not None and wm_tex.tex == "districts_wm"
+      and WM.looks.CATH.lit.piece.tex == "districts_wm" and WM.looks.ARC.rest.piece.tex == "districts_wm")
+check("Districts page: keeps its own lines", WG.MinistryOfTheAllied.Media.pieces["dz_CATH_lit"].tex == "districts")
+glow_row =open(os.path.join(ADDON, "UI", "Settings.lua"), encoding="utf-8").read().split('key = "glow"')[1].split("},")[0]
 check("Settings: District glow is live (no '· later') and tells the map", "later" not in glow_row and "GLOW_CHANGED" in glow_row)
 # the Districts page footer
 d4c.slash("")
@@ -1716,6 +1826,442 @@ WG.MinistryOfTheAllied.UI.SelectPage(WG.MinistryOfTheAllied.UI, 1)
 check("Other pages: footer keeps the place and day", "GLOWS" not in WG.MinistryOfTheAllied.UI.footRight.text)
 clients.remove(d4c)
 clients.remove(d4k)
+
+print("== 102c. the world map's dress (D5c)")
+d5k = Client("Max")
+clients.append(d5k)
+run(1)
+d5c = Client("Bram")
+clients.append(d5c)
+run(8)
+# A pretend Map & Quest Log with the parts this client has (names as Leatrix Maps and
+# EllesmereUI read them in Max's game): the border frame and its knobs, the location bar and
+# its crumbs, the tracking filter and reset, the quest log with its search box, count, gear,
+# zone headers and scroll bar, and the side panel toggle. Each has some art of its own.
+d5c.lua.execute('''
+  local function art(f, w) local t = f:CreateTexture(nil, "ARTWORK") t:SetSize(w or 60, 20) return t end
+  local function button(parent)
+    local b = CreateFrame("Button", nil, parent)
+    b.n, b.p, b.hi = art(b), art(b), b:CreateTexture(nil, "HIGHLIGHT")
+    function b:GetNormalTexture() return self.n end
+    function b:GetPushedTexture() return self.p end
+    function b:GetHighlightTexture() return self.hi end
+    b.label = b:CreateFontString(nil, "OVERLAY")
+    b.text = b.label
+    b:SetSize(24, 24)
+    return b
+  end
+  local m = CreateFrame("Frame", "WorldMapFrame", UIParent)
+  m.shown = false
+  m:SetSize(1343, 703)
+  m.level = 10
+  local canvas = CreateFrame("Frame", nil, m)
+  canvas:SetSize(1002, 668)
+  function m:GetCanvas() return canvas end
+  function m:GetMapID() return 1453 end
+  function m:OnMapChanged() end
+  function m:Maximize() end
+  function m:Minimize() end
+  local bf = CreateFrame("Frame", nil, m)
+  bf:SetSize(1343, 703)
+  m.BorderFrame = bf
+  bf.edge = art(bf)
+  bf.NineSlice = CreateFrame("Frame", nil, bf)
+  bf.NineSlice.corner = art(bf.NineSlice)
+  bf.PortraitContainer = CreateFrame("Frame", nil, bf)
+  bf.PortraitContainer.portrait = art(bf.PortraitContainer)
+  bf.CloseButton = button(bf)
+  bf.MaximizeMinimizeFrame = CreateFrame("Frame", nil, bf)
+  bf.MaximizeMinimizeFrame.MaximizeButton = button(bf.MaximizeMinimizeFrame)
+  bf.MaximizeMinimizeFrame.MinimizeButton = button(bf.MaximizeMinimizeFrame)
+  local nav = CreateFrame("Frame", nil, m)
+  m.NavBar = nav
+  nav:SetSize(600, 34)
+  nav.bar = art(nav, 600)
+  nav.InsetBorderBottom = art(nav)
+  nav.homeButton = button(nav)
+  -- a crumb past home has the game's dropdown arrow button, at its foot as in Max's game
+  local function crumb(bar)
+    local b = button(bar)
+    b.MenuArrowButton = button(b)
+    b.MenuArrowButton.Art = art(b.MenuArrowButton, 12)
+    b.MenuArrowButton:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -4, 0)
+    return b
+  end
+  nav.navList = { nav.homeButton, crumb(nav), crumb(nav) }
+  function NavBar_AddButton(bar) table.insert(bar.navList, crumb(bar)) end
+  m.ScrollContainer = CreateFrame("Frame", nil, m)
+  m.ScrollContainer.level = 12
+  local tb = button(m)
+  m.WorldMapTrackingOptionsButton = tb
+  tb.ResetButton = button(tb)
+  local tg = CreateFrame("Frame", nil, m)
+  m.SidePanelToggle = tg
+  tg.OpenButton, tg.CloseButton = button(tg), button(tg)
+  local qm = CreateFrame("Frame", "QuestMapFrame", m)
+  qm.VerticalSeparator = art(qm)
+  qm.Background = art(qm, 300)
+  local qs = CreateFrame("Frame", "QuestScrollFrame", qm)
+  qs.Background = art(qs, 300)
+  local sb = CreateFrame("EditBox", nil, qs)
+  qs.SearchBox = sb
+  sb.Left, sb.Middle, sb.Right = art(sb, 8), art(sb, 100), art(sb, 8)
+  sb.searchIcon = art(sb, 14)
+  sb.instructions = sb:CreateFontString(nil, "OVERLAY")
+  qs.SettingsDropdown = button(qs)
+  qs.SettingsDropdown:SetSize(16, 16) -- smaller than its picture, as in Max's game
+  local bar = CreateFrame("Frame", nil, qs)
+  qs.ScrollBar = bar
+  bar.Track = CreateFrame("Frame", nil, bar)
+  bar.Track.groove = art(bar.Track, 10)
+  bar.Track.Thumb = CreateFrame("Frame", nil, bar.Track)
+  bar.Track.Thumb.knob = art(bar.Track.Thumb, 10)
+  bar.Back, bar.Forward = button(bar), button(bar)
+  local headers = {}
+  for i = 1, 2 do
+    local h = button(qs)
+    h.band = art(h, 300)
+    h.minus = art(h, 14)
+    headers[i] = h
+  end
+  qs.headerFramePool = { active = headers }
+  function qs.headerFramePool:EnumerateActive()
+    local i = 0
+    return function() i = i + 1 return self.active[i] end
+  end
+  function QuestLogQuests_Update() end
+  local count = CreateFrame("Frame", "QuestLogCount", qm)
+  count:SetSize(118, 30)
+  count.bg = art(count)
+  count.text = count:CreateFontString(nil, "OVERLAY")
+  count.text:SetFont("Fonts\FRIZQT__.TTF", 12, "")
+  count.text:SetText("Quests: 14/40")
+  local pin = button(m)
+  m.WorldMapTrackingPinButton = pin
+  pin.Icon, pin.ActiveTexture = art(pin, 20), art(pin, 20)
+  pin:SetPoint("TOPLEFT", m.ScrollContainer, "TOPLEFT", 8, -8)
+  local co = CreateFrame("Frame", nil, m)
+  co.PlayerCoords = CreateFrame("Frame", nil, co)
+  co.PlayerCoords.bg = art(co.PlayerCoords, 120)
+  co.PlayerCoords.Label = co.PlayerCoords:CreateFontString(nil, "OVERLAY")
+  co.PlayerCoords.Value = co.PlayerCoords:CreateFontString(nil, "OVERLAY")
+  m.overlayFrames = { CreateFrame("Frame", nil, m), co }
+  for _, fs in ipairs({ nav.homeButton.text, co.PlayerCoords.Label }) do fs:SetFont("Fonts\FRIZQT__.TTF", 12, "") end
+  nav:SetPoint("TOPLEFT", bf, "TOPLEFT", 60, -30)
+  WorldMapFramePortrait = art(bf)
+  mock_fire("ADDON_LOADED", "Blizzard_WorldMap")
+  WorldMapFrame:Show()
+''')
+G5 = d5c.lua.globals()
+WS = G5.MinistryOfTheAllied.WorldMapSkin
+
+
+def dressed_with(frame_expr, tex):
+    """How many of the frame's own textures wear a picture from the texture tex."""
+    return Q(d5c, f'''local n = 0
+      for _, r in ipairs({{ {frame_expr}:GetRegions() }}) do
+        if r.kind == "Texture" and r.shown and type(r.texture) == "string" and r.texture:find("{tex}", 1, true) then n = n + 1 end
+      end
+      return n''')
+
+
+def wears(frame_expr, name, tex="wmap_ministry", skin="ministry"):
+    """The frame wears piece name: one of its textures starts at the piece's top-left texcoords."""
+    return Q(d5c, f'''local p = M.Media.pieces["wm_{skin}:{name}"]
+      for _, r in ipairs({{ {frame_expr}:GetRegions() }}) do
+        local c = r.coords
+        if r.kind == "Texture" and r.shown and c and type(r.texture) == "string" and r.texture:find("{tex}", 1, true)
+          and math.abs(math.min(c[1], c[2]) - p.l) < 1e-6 and math.abs(math.min(c[3], c[4]) - p.t) < 1e-6 then return true end
+      end
+      return false''') is True
+
+
+check("Map dress: on from the start (Party), as the window", G5.MinistryOfTheAllied.db.settings.mapSkin == "party"
+      and WS.on == G5.MinistryOfTheAllied.skin.KEY)
+check("Map dress: the game's border art faded (border, nine-slice, portrait)",
+      Q(d5c, 'local bf = WorldMapFrame.BorderFrame return bf.edge.alpha == 0 and bf.NineSlice.corner.alpha == 0 and WorldMapFramePortrait.alpha == 0') is True)
+check("Map dress: our leather, grain and rim are on", WS.back.shown and WS.back.leather.shown and WS.back.grain.shown
+      and WS.front.shown and WS.front.rim.parts[1].shown)
+check("Map dress: the title and the seal are on", WS.front.title.shown and WS.front.seal.shown)
+check("Map dress: the close knob wears ours, its own art faded",
+      wears("WorldMapFrame.BorderFrame.CloseButton", "knobClose")
+      and Q(d5c, 'local b = WorldMapFrame.BorderFrame.CloseButton return b.n.alpha == 0 and b.p.alpha == 0 and b.hi.alpha == 0') is True)
+check("Map dress: enlarge wears the enlarge knob, shrink the same turned about",
+      wears("WorldMapFrame.BorderFrame.MaximizeMinimizeFrame.MaximizeButton", "knobEnlarge")
+      and Q(d5c, '''for _, r in ipairs({ WorldMapFrame.BorderFrame.MaximizeMinimizeFrame.MinimizeButton:GetRegions() }) do
+          if r.coords and type(r.texture) == "string" and r.texture:find("wmap_") then return r.coords[1] > r.coords[2] and r.coords[3] > r.coords[4] end
+        end''') is True)
+check("Map dress: the buttons keep their own words", Q(d5c, 'return WorldMapFrame.BorderFrame.CloseButton.label.alpha == 1') is True)
+check("Map dress: the location bar and its crumbs (home, step, the current place)",
+      wears("WorldMapFrame.NavBar", "nav") and wears("WorldMapFrame.NavBar.homeButton", "crumbHome")
+      and wears("WorldMapFrame.NavBar.navList[2]", "crumbStep") and wears("WorldMapFrame.NavBar.navList[3]", "crumbCur")
+      and Q(d5c, 'return WorldMapFrame.NavBar.bar.alpha == 0 and WorldMapFrame.NavBar.InsetBorderBottom.alpha == 0') is True)
+d5c.lua.execute('NavBar_AddButton(WorldMapFrame.NavBar)')
+check("Map dress: a new crumb is the current place, the one before a step",
+      wears("WorldMapFrame.NavBar.navList[4]", "crumbCur") and wears("WorldMapFrame.NavBar.navList[3]", "crumbStep")
+      and not wears("WorldMapFrame.NavBar.navList[3]", "crumbCur"))
+check("Map dress: the tracking filter and its reset",
+      wears("WorldMapFrame.WorldMapTrackingOptionsButton", "track") and wears("WorldMapFrame.WorldMapTrackingOptionsButton.ResetButton", "reset"))
+check("Map dress: the search box wears ours and keeps its magnifier",
+      wears("QuestScrollFrame.SearchBox", "search")
+      and Q(d5c, 'local sb = QuestScrollFrame.SearchBox return sb.Left.alpha == 0 and sb.Middle.alpha == 0 and sb.searchIcon.alpha == 1') is True)
+check("Map dress: the quest count and the gear", wears("QuestLogCount", "count") and wears("QuestScrollFrame.SettingsDropdown", "gear")
+      and Q(d5c, 'return QuestLogCount.bg.alpha == 0') is True)
+cf = WS.countFrame
+check("Map dress: the count's words are ours: 'QUESTS:' and the number, the game's hidden",
+      cf is not None and cf.label.text == "QUESTS:" and cf.num.text == "14/40"
+      and Q(d5c, 'return QuestLogCount.text.alpha == 0') is True)
+d5c.lua.execute('QuestLogCount.text:SetText("Quests: 15/40")')
+check("Map dress: the count follows the game's", cf.num.text == "15/40")
+check("Map dress: the zone headers: band faded, the game's +/- kept, ours under",
+      wears("QuestScrollFrame.headerFramePool.active[1]", "zone")
+      and Q(d5c, 'local h = QuestScrollFrame.headerFramePool.active[2] return h.band.alpha == 0 and h.minus.alpha == 1') is True)
+check("Map dress: the scroll bar and its thumb; its arrows out of sight (Max, 8 Nov)",
+      wears("QuestScrollFrame.ScrollBar", "scroll") and wears("QuestScrollFrame.ScrollBar.Track.Thumb", "thumb")
+      and not wears("QuestScrollFrame.ScrollBar.Back", "arrowUp")
+      and Q(d5c, 'local b = QuestScrollFrame.ScrollBar return b.Track.groove.alpha == 0 and b.Back.alpha == 0 and b.Forward.alpha == 0') is True)
+check("Map dress: the map pin button is our gold diamond; the game's 'pin active' look kept",
+      wears("WorldMapFrame.WorldMapTrackingPinButton", "round")
+      and Q(d5c, 'local p = WorldMapFrame.WorldMapTrackingPinButton return p.Icon.alpha == 0 and p.ActiveTexture.alpha == 1') is True)
+check("Map dress: the position plate wears ours, its words in the board's fonts",
+      wears("WorldMapFrame.overlayFrames[2].PlayerCoords", "plate")
+      and Q(d5c, """local p = WorldMapFrame.overlayFrames[2].PlayerCoords
+        return p.bg.alpha == 0 and p.Label.fontPath:find("Cinzel") ~= nil and p.Value.fontPath:find("EBGaramond") ~= nil""") is True)
+check("Map dress: the quest log's own backgrounds and divider faded",
+      Q(d5c, 'return QuestMapFrame.Background.alpha == 0 and QuestMapFrame.VerticalSeparator.alpha == 0 and QuestScrollFrame.Background.alpha == 0') is True)
+check("Map dress: the quest log toggle (open and close)",
+      wears("WorldMapFrame.SidePanelToggle.OpenButton", "toggle") and wears("WorldMapFrame.SidePanelToggle.CloseButton", "toggle"))
+check("Map dress: with the log open, its panel and the divider show", WS.back.log.parts[5].shown and WS.back.divider.parts[5].shown)
+d5c.lua.execute('QuestMapFrame:Hide()')
+check("Map dress: the log closed, its panel and the divider go", not WS.back.log.parts[5].shown and not WS.back.divider.parts[5].shown)
+d5c.lua.execute('QuestMapFrame:Show()')
+check("Map dress: the log open again, back they come", WS.back.log.parts[5].shown)
+check("Map dress: the leather on the map frame's level, the front just over it (the game's buttons over our rim)",
+      WS.back.level == 10 and WS.front.level == 11)
+wms_src = open(os.path.join(ADDON, "UI", "WorldMapSkin.lua"), encoding="utf-8").read()
+check("Map dress: our frames take no mouse (the game's buttons keep their clicks)",
+      "back:EnableMouse(false)" in wms_src and "front:EnableMouse(false)" in wms_src and "EnableMouse(true)" not in wms_src)
+check("Map dress: nothing of Blizzard's replaced (hooks only)",
+      "hooksecurefunc" in wms_src and not re.search(r"\b(WorldMapFrame|map|QuestMapFrame)\.\w+\s*=\s*function", wms_src))
+# the stretched pieces: corners whole, the middle stretched
+rim = Q(d5c, '''local s = M.WorldMapSkin.front.rim.parts
+  local p1, p5 = s[1].points, s[5].points
+  return p1[1][1] == "TOPLEFT" and p1[1][3] == "TOPLEFT" and p5[2][3] == "BOTTOMRIGHT"''')
+check("Map dress: the rim is a nine-slice laid round the frame", rim is True)
+# another skin
+d5c.lua.execute('MinistryOfTheAllied.ApplySkin("CROWN")')
+check("Map dress: a new skin, new pictures (the Crown's)",
+      wears("WorldMapFrame.BorderFrame.CloseButton", "knobClose", "wmap_crown", "crown")
+      and wears("WorldMapFrame.NavBar.homeButton", "crumbHome", "wmap_crown", "crown") and WS.on == "CROWN")
+check("Map dress: the Crown's filigree on the bottom corners", WS.front.cornerL.shown and WS.front.cornerR.shown)
+crumb_inks = Q(d5c, '''local nav = WorldMapFrame.NavBar
+  local function is(fs, hex) local r, g, b = M:RGB(hex) local c = fs.color
+    return c and math.abs(c[1] - r) < 1e-6 and math.abs(c[2] - g) < 1e-6 and math.abs(c[3] - b) < 1e-6 end
+  return is(nav.homeButton.text, "3E0A2F") and is(nav.navList[2].text, "EBCBDF") and is(nav.navList[4].text, "FFF3C4")''')
+check("Map dress: crumb words in the board's inks (dark on the Crown's gold home crumb)", crumb_inks is True)
+# the board's layout (canvas units x k, k = the map's top below the frame's / 100)
+layout = Q(d5c, """local WS = M.WorldMapSkin
+  local k = WS.k
+  local function near(a, b) return type(a) == "number" and math.abs(a - b) < 1e-6 end
+  local function at(f, i) return f.points[i or 1] or {} end
+  local bf, nav, sc = WorldMapFrame.BorderFrame, WorldMapFrame.NavBar, WorldMapFrame.ScrollContainer
+  local close, mm = bf.CloseButton, bf.MaximizeMinimizeFrame
+  local tb = WorldMapFrame.WorldMapTrackingOptionsButton
+  local gear, sb = QuestScrollFrame.SettingsDropdown, QuestScrollFrame.SearchBox
+  local ok = {}
+  local c = at(close)
+  ok.close = c[1] == "TOPRIGHT" and c[2] == bf and near(c[4], -2 * k) and near(c[5], -2 * k) and near(close.w, 36 * k) and near(close.h, 38 * k)
+  local e = at(mm)
+  ok.enlarge = e[2] == close and e[3] == "TOPLEFT" and near(e[4], -2 * k) and near(mm.w, 36 * k)
+  -- the bar the board's 36 deep at 56 (the leather above and below it), its crumbs 32;
+  -- from the board's gap past the seal to 14 short of the filter
+  local sp = M.Media.pieces["wm_" .. (WS.on == "CROWN" and "crown" or "ministry") .. ":seal"]
+  local kh = 703 / 749 * 0.7
+  local d = math.max(0, (sp.y + sp.h) * (kh - k))
+  local left = (sp.x + sp.w) * kh - d + (100 - sp.x - sp.w) * k
+  ok.nav = at(nav, 1)[2] == bf and near(at(nav, 1)[4], left) and near(at(nav, 1)[5], -56 * k)
+    and at(nav, 2)[2] == tb and at(nav, 2)[3] == "TOPLEFT" and near(at(nav, 2)[4], -14 * k) and near(nav.h, 36 * k)
+  ok.crumbs = near(nav.homeButton.h, 32 * k) and near(nav.navList[3].h, 32 * k)
+  -- the filter as tall as the bar and level with it, the board's shape, its right edge 6 in from the map's
+  local t = at(tb)
+  local th = 36 * k
+  local tw = th * 38 / 32
+  ok.filter = t[1] == "TOPRIGHT" and t[2] == sc and near(t[4], -6 * k) and near(t[5], 44 * k) and near(tb.w, tw) and near(tb.h, th)
+  local r = at(tb.ResetButton)
+  ok.reset = r[2] == tb and near(r[4], 26 * th / 32) and near(r[5], 10 * th / 32) and near(tb.ResetButton.w, 19 * th / 32)
+  -- the scroll bar beside the log's panel, from 2 above the map's top: clear of the gear
+  local sbar = QuestScrollFrame.ScrollBar
+  local b = at(sbar)
+  ok.scroll = b[1] == "TOPRIGHT" and b[2] == bf and near(b[4], -10 * k) and near(b[5], -98 * k) and near(sbar.w, 18 * k)
+  -- the log's panel from 2 above the map's top (the search row on the leather above it)
+  local lb = WS.back.logBox
+  ok.logPanel = lb.points[1][1] == "TOPRIGHT" and near(lb.points[1][4], -32 * k) and near(lb.points[1][5], -98 * k)
+    and lb.points[2][2] == sc and near(lb.points[2][5], -2 * k)
+  local g = at(gear)
+  ok.gear = g[2] == bf and near(g[4], -10 * k) and near(g[5], -58 * k) and near(gear.w, 30 * k) and near(gear.h, 30 * k)
+  local q = at(QuestLogCount)
+  ok.count = q[2] == gear and q[3] == "TOPLEFT" and near(q[4], -6 * k) and near(QuestLogCount.w, 118 * k) and near(QuestLogCount.h, 30 * k)
+  local s = at(sb)
+  ok.search = s[2] == QuestLogCount and near(s[4], -6 * k) and near(sb.w, 226 * k) and near(sb.h, 30 * k)
+  local ti = WS.front.title
+  ok.title = ti.points[1][1] == "CENTER" and near(ti.points[1][5], -26.8 * k)
+  ok.rule = near(WS.front.sepBox.points[1][5], -44 * k)
+  -- the map pin 10 in from the map's top-left corner
+  local pin = WorldMapFrame.WorldMapTrackingPinButton
+  local pp = at(pin)
+  ok.pin = pp[1] == "TOPLEFT" and pp[2] == sc and pp[3] == "TOPLEFT" and near(pp[4], 10 * k) and near(pp[5], -10 * k)
+  -- each crumb's chevron 7 past its words, level with them, the board's 11
+  local function chev(b)
+    local ma, fs = b.MenuArrowButton, b.text
+    local a = at(ma)
+    return a[1] == "LEFT" and a[2] == fs and a[3] == "LEFT" and near(a[4], fs:GetStringWidth() + 7 * k) and a[5] == 0
+      and near(ma.w, 11 * k) and near(ma.h, 11 * k)
+  end
+  ok.chevrons = chev(nav.navList[2]) and chev(nav.navList[4])
+  local bad = {}
+  for name, v in pairs(ok) do if not v then bad[#bad + 1] = name end end
+  table.sort(bad)
+  return table.concat(bad, ",")""")
+check("Map dress: the header on the board's layout (knobs flush, bar 36 and crumbs 32, filter as tall as the bar, reset, "
+      "search 226, count 118, gear 30, title, rule, the log's panel and scroll bar under the row) "
+      + (layout or ""), layout == "")
+joins = Q(d5c, """local nav = WorldMapFrame.NavBar
+  local function joined(b, nextOne)
+    for _, r in ipairs({ b:GetRegions() }) do
+      if r.kind == "Texture" and r.shown and type(r.texture) == "string" and r.texture:find("wmap_") then
+        for _, pt in ipairs(r.points) do if pt[2] == nextOne and pt[3]:find("LEFT") then return true end end
+      end
+    end
+    return false
+  end
+  return joined(nav.homeButton, nav.navList[2]) and joined(nav.navList[2], nav.navList[3]) and not joined(nav.navList[4], nav.navList[5])""")
+check("Map dress: each crumb reaches into the next one's notch (no gap); the last ends at its own edge", joins is True)
+check("Map dress: a crumb's arrow is the board's chevron in its ink, the game's arrow faded, still clickable round it",
+      wears("WorldMapFrame.NavBar.navList[2].MenuArrowButton", "chev", "wmap_crown", "crown")
+      and Q(d5c, """local ma = WorldMapFrame.NavBar.navList[2].MenuArrowButton
+        local r, g, b = M:RGB("EBCBDF")
+        for _, t in ipairs({ ma:GetRegions() }) do
+          if t.kind == "Texture" and type(t.texture) == "string" and t.texture:find("wmap_crown", 1, true) then
+            local c = rawget(t, "color")
+            if c and (math.abs(c[1] - r) > 1e-6 or math.abs(c[3] - b) > 1e-6) then return false end
+          end
+        end
+        local m = -5 * M.WorldMapSkin.k
+        return ma.Art.alpha == 0 and ma.n.alpha == 0 and ma.hitInsets[1] == m and ma.hitInsets[4] == m""") is True)
+# the quest list: the game's begins above our panel (as in Max's game); its first row goes 6 under the panel's top
+d5c.lua.execute('''
+  local bf, qs, qm = WorldMapFrame.BorderFrame, QuestScrollFrame, QuestMapFrame
+  qs:ClearAllPoints()
+  qs:SetPoint("TOPLEFT", qm, "TOPLEFT", 0, -30)
+  qs:SetPoint("BOTTOMRIGHT", qm, "BOTTOMRIGHT", 0, 0)
+  qs.shown = true
+  function bf:GetTop() return 703 end
+  function qs:GetTop() return 673 + self.points[1][5] end            -- 643 as the game has it
+  for _, h in ipairs(qs.headerFramePool.active) do h.shown = true end
+  local h1, h2 = qs.headerFramePool.active[1], qs.headerFramePool.active[2]
+  function h1:GetTop() return qs:GetTop() - 4 + qs:GetVerticalScroll() end  -- 4 under the list's top
+  function h2:GetTop() return h1:GetTop() - 120 end
+  MinistryOfTheAllied.WorldMapSkin:LayHeader()
+''')
+list_top = Q(d5c, """local WS, qs = M.WorldMapSkin, QuestScrollFrame
+  local k = WS.k
+  local want = 703 - 98 * k - 6 * k
+  local h1 = qs.headerFramePool.active[1]
+  local ok1 = math.abs(h1:GetTop() - want) < 1e-6 and qs.points[2][1] == "BOTTOMRIGHT" and qs.points[2][5] == 0
+  qs.vscroll = 50
+  WS:LayHeader()
+  local ok2 = math.abs(h1:GetTop() - 50 - want) < 1e-6
+  qs.vscroll = 0
+  WS:LayHeader()
+  return ok1 and ok2 and math.abs(h1:GetTop() - want) < 1e-6""")
+check("Map dress: the quest list's first row 6 under its panel's top, its foot kept, steady when scrolled and laid again", list_top is True)
+d5c.lua.execute('WorldMapFrame.BorderFrame.GetTop = nil; QuestScrollFrame.GetTop = nil')
+check("Map dress: the seal and the quest log's words go by the window's size, not the header's",
+      Q(d5c, """local kh = 703 / 749
+        local seal, sp = M.WorldMapSkin.front.seal, M.Media.pieces["wm_crown:seal"]
+        return math.abs(seal.w - sp.w * kh * 0.7) < 1e-6 and QuestScrollFrame.headerFramePool.active[1].text.fontSize == math.floor(13 * kh * 2 + 0.5) / 2""") is True)
+check("Map dress: the seal wears the map's own picture (a tight shadow), its foot no lower than the board's against the map",
+      Q(d5c, """local WS, sp = M.WorldMapSkin, M.Media.pieces["wm_crown:seal"]
+        local s = WS.front.seal
+        local foot = s.points[1][5] - s.h   -- from the frame's top, up positive
+        return s.texture:find("wmap_crown", 1, true) ~= nil and math.abs(s.coords[1] - sp.l) < 1e-6
+          and foot >= -(sp.y + sp.h) * WS.k - 1e-6 and s.points[1][4] <= sp.x * 703 / 749 * 0.7 + 1e-6""") is True)
+# a header shallower against its window, as in Max's game: the seal moves up and left until its foot is the board's
+seal_moved = Q(d5c, """local WS, sp = M.WorldMapSkin, M.Media.pieces["wm_crown:seal"]
+  WorldMapFrame.BorderFrame:SetSize(1343, 1100)
+  WS:Lay()
+  local s, kh, k = WS.front.seal, 1100 / 749 * 0.7, WS.k
+  local d = (sp.y + sp.h) * (kh - k)
+  local ok = d > 0 and math.abs(s.points[1][4] - (sp.x * kh - d)) < 1e-6 and math.abs(s.points[1][5] - (-sp.y * kh + d)) < 1e-6
+    and math.abs((s.points[1][5] - s.h) + (sp.y + sp.h) * k) < 1e-6
+  WorldMapFrame.BorderFrame:SetSize(1343, 703)
+  WS:Lay()
+  return ok""")
+check("Map dress: on a tall window the seal moves up and left together, its foot the board's against the map", seal_moved is True)
+check("Map dress: a button's picture box fills the button, its shadow reaching past (the pin and gear full size)",
+      Q(d5c, """local at, p = M.Media.wmap.at.round, M.Media.pieces["wm_crown:round"]
+        local pin = WorldMapFrame.WorldMapTrackingPinButton
+        for _, r in ipairs({ pin:GetRegions() }) do
+          if r.kind == "Texture" and type(r.texture) == "string" and r.texture:find("wmap_crown", 1, true) then
+            local sx = pin.w / at.w
+            local tl, br = r.points[1], r.points[2]
+            return tl[2] == pin and math.abs(tl[4] + (at.x - p.x) * sx) < 1e-6 and math.abs(br[5] + (p.y + p.h - at.y - at.h) * pin.h / at.h) < 1e-6
+              and math.abs(pin.w - 30 * M.WorldMapSkin.k) < 1e-6
+          end
+        end
+        return false""") is True)
+check("Map dress: the crumbs in Cinzel, the search box in EB Garamond italic, the headers in Cinzel",
+      "Cinzel" in (Q(d5c, 'return WorldMapFrame.NavBar.homeButton.text.fontPath') or "")
+      and "EBGaramond-Italic" in (Q(d5c, 'return QuestScrollFrame.SearchBox.fontPath') or "")
+      and "Cinzel" in (Q(d5c, 'return QuestScrollFrame.headerFramePool.active[1].text.fontPath') or ""))
+d5c.lua.execute('MinistryOfTheAllied.db.settings.mapSkin = "ministry"; MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("Map dress: Ministry chosen, the Ministry's pictures whatever the window wears",
+      WS.on == "UNREGISTERED" and wears("WorldMapFrame.BorderFrame.CloseButton", "knobClose") and not WS.front.cornerL.shown)
+# Plain: the game's look back
+d5c.lua.execute('MinistryOfTheAllied.db.settings.mapSkin = "plain"; MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("Map dress: Plain puts the game's parts back where it had them, at their sizes",
+      Q(d5c, """local nav, close = WorldMapFrame.NavBar, WorldMapFrame.BorderFrame.CloseButton
+        local ma = nav.navList[2].MenuArrowButton
+        return #nav.points == 1 and nav.points[1][4] == 60 and nav.points[1][5] == -30 and close.w == 24 and close.h == 24
+          and QuestLogCount.w == 118 and #QuestScrollFrame.SettingsDropdown.points == 0
+          and QuestScrollFrame.points[1][5] == -30 and nav.navList[2].h == 24
+          and ma.points[1][1] == "BOTTOMRIGHT" and ma.hitInsets[1] == 0 and ma.Art.alpha == 1""") is True)
+check("Map dress: Plain gives the words their own fonts back, the count's and the arrows back",
+      Q(d5c, 'local t = WorldMapFrame.NavBar.homeButton.text return t.fontPath:find("FRIZQT") ~= nil and t.fontSize == 12') is True
+      and Q(d5c, 'return QuestLogCount.text.alpha == 1 and QuestScrollFrame.ScrollBar.Back.alpha == 1') is True)
+check("Map dress: Plain gives the crumbs their own words' colour back",
+      Q(d5c, 'local c = WorldMapFrame.NavBar.homeButton.text.color return c[1] == 1 and c[2] == 1 and c[3] == 1') is True)
+check("Map dress: Plain takes ours off", WS.on is None and not WS.back.shown and not WS.front.shown
+      and not wears("WorldMapFrame.BorderFrame.CloseButton", "knobClose") and not wears("WorldMapFrame.NavBar", "nav"))
+check("Map dress: Plain puts the game's own art back",
+      Q(d5c, '''local bf = WorldMapFrame.BorderFrame
+        return bf.edge.alpha == 1 and bf.CloseButton.n.alpha == 1 and QuestScrollFrame.SearchBox.Left.alpha == 1
+          and WorldMapFrame.NavBar.bar.alpha == 1 and QuestScrollFrame.headerFramePool.active[1].band.alpha == 1''') is True)
+# in combat, a protected map waits
+d5c.lua.execute('''MinistryOfTheAllied.db.settings.mapSkin = "party"
+  function WorldMapFrame:IsProtected() return true end
+  COMBAT = true
+  MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")''')
+check("Map dress: in combat a protected map is left as it is", WS.on is None)
+d5c.lua.execute('COMBAT = false; mock_fire("PLAYER_REGEN_ENABLED")')
+check("Map dress: after combat it dresses", WS.on is not None and wears("WorldMapFrame.BorderFrame.CloseButton", "knobClose", "wmap_crown", "crown"))
+d5c.lua.execute('function WorldMapFrame:IsProtected() return false end')
+clients.remove(d5c)
+clients.remove(d5k)
+# remembered: a saved Plain stays Plain at the next login; a new install starts on
+d5p = Client("Ivo", saved='MOTADB = { settings = { mapSkin = "plain" } }')
+clients.append(d5p)
+run(2)
+check("Map dress: a saved Plain is kept at the next login", d5p.lua.globals().MinistryOfTheAllied.db.settings.mapSkin == "plain")
+clients.remove(d5p)
+d5n = Client("Juno")
+clients.append(d5n)
+run(2)
+check("Map dress: a new install starts on (Party)", d5n.lua.globals().MinistryOfTheAllied.db.settings.mapSkin == "party")
+clients.remove(d5n)
+missing = [p for p in G5.mock_textures().split("\n") if "wmap_" in p
+           and not os.path.exists(os.path.join(ADDON, p[len("Interface\\AddOns\\MinistryOfTheAllied\\"):].replace("\\", os.sep)))]
+check("Map dress: every picture it asks for exists", not missing and "wmap_" in G5.mock_textures())
 
 print("  Methods the pretend game didn't know:", max_.lua.globals().mock_unknown())
 missing = []

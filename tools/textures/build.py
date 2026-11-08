@@ -21,6 +21,7 @@ pictures of the assembled window and herald (in the system temp folder).
 import concurrent.futures
 import html
 import json
+import os
 import re
 import subprocess
 import sys
@@ -81,6 +82,25 @@ BAND_MAX = 330        # taller bands are cut in two, so every metal set fits 102
 BORDER_SVG = DESIGN / "textures" / "window-frame-gold.svg"
 BORDER_SLICE, BORDER_WIDTH, BORDER_OUT = 28, 42, 14   # svg units cut; canvas units drawn; out from the edge
 BORDER_SCALE = 3      # 80 svg units drawn 240 wide: sharp at 1.5x
+
+
+# The game's Map & Quest Log, dressed (D5, World map skins board): one texture per skin.
+# file name (as SKINS) -> the board's class for that skin
+WM_SKINS = {"ministry": "sk-min", "silverhand": "sk-sh", "exchange": "sk-ex", "crown": "sk-cr"}
+WM_VIEW = (1400, 1450)
+WM_LEATHER_SCALE = 0.4  # a soft gradient: drawn small, stretched in the game
+# Drawn at their own size (the game scales them to the button they dress).
+WM_FIXED = {"title": "wm-title", "knobEnlarge": "wm-enlarge", "knobClose": "wm-close", "track": "wm-track",
+            "reset": "wm-reset", "gear": "wm-gear", "round": "wm-round", "toggle": "wm-toggle",
+            "arrowUp": "wm-up", "arrowDown": "wm-down", "seal": "wm-seal", "chev": "wm-chev"}
+# Stretched in the game: piece -> (id, slice). slice = the edge kept whole, in canvas units:
+# a number for all four sides, or (left, top, right, bottom); 0 stretches that way whole.
+WM_STRETCH = {"rim": ("wm-rim", 12), "sep": ("wm-sep", (8, 0, 8, 0)), "nav": ("wm-nav", 6),
+              "search": ("wm-search", 6), "count": ("wm-count", 6), "zone": ("wm-zone", 6),
+              "plate": ("wm-plate", 6), "mapRim": ("wm-maprim", 5), "log": ("wm-log", 14),
+              "scroll": ("wm-scroll", (0, 6, 0, 6)), "divider": ("wm-div", (0, 0, 0, 0)),
+              "thumb": ("wm-thumb", (0, 6, 0, 6)), "crumbHome": ("wm-home", (4, 0, 13, 0)),
+              "crumbStep": ("wm-step", (13, 0, 13, 0)), "crumbCur": ("wm-cur", (24, 0, 26, 0))}
 
 
 def border_html(silver):
@@ -197,15 +217,17 @@ SLOTS = {
     "kit": ["kit"],
     "herald": ["herald", "hseal", "htext", "heyebrow", "htitle", "hbody", "hbutton"],
     "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal",
-                 "segskin", "seg-party", "seg-ministry"]
-    + [f"row{i}" for i in range(1, 7)] + [f"slabel{i}" for i in range(1, 7)]
-    + [f"ssmall{i}" for i in range(1, 7)] + [f"sw{i}" for i in range(1, 5)],
+                 "segskin", "seg-party", "seg-ministry", "segmap", "seg-mparty", "seg-mministry", "seg-mplain"]
+    + [f"row{i}" for i in range(1, 8)] + [f"slabel{i}" for i in range(1, 8)]
+    + [f"ssmall{i}" for i in range(1, 8)] + [f"sw{i}" for i in range(1, 5)],
     # The Ballot Hall's pieces, so the add-on knows each one's own box (without its shadow).
     "ballot": ["ballot", "rb-ballot", "rb-ballot-dot", "rb-ballot-on", "rb-ballot-on-dot", "rb-results",
                "rb-results-on", "rb-crown", "rb-crown-on", "seal-off", "seal-sh", "seal-ex", "seal-crown", "seal-tilt", "stamp", "held",
                "held-sh", "held-ex", "ring", "kdot-on", "kdot-off", "diamond", "portrait-king", "btn-seal", "btn-open", "btn-close",
                "btn-seal-ico", "btn-declare", "btn-runoff", "btn-last", "btn-add", "pill-general", "pill-general-on", "pill-snap",
                "pill-snap-on", "pill-runoff", "pill-runoff-on", "xbtn", "paper-ballot", "paper-half", "paper-wide"],
+    # The world map's dress (D5): positions are from the window's top-left at the board's size.
+    "wm": ["wm"],
 }
 
 
@@ -397,10 +419,14 @@ def window_html(pages, css, piece_css="", page=0, hover_tab=None, skin="UNREGIST
     })
 
 
-def extras_html(css, piece_css="", seal="official", button="Vote now", style="blue", seg="full", skin_seg="party"):
+def extras_html(css, piece_css="", seal="official", button="Vote now", style="blue", seg="full", skin_seg="party",
+                map_seg="party"):
     return fill("extras.html", {
         "party_class": "on" if skin_seg == "party" else "",
         "ministry_class": "on" if skin_seg == "ministry" else "",
+        "mparty_class": "on" if map_seg == "party" else "",
+        "mministry_class": "on" if map_seg == "ministry" else "",
+        "mplain_class": "on" if map_seg == "plain" else "",
         "css": css + "\n" + piece_css,
         "seal": (CROWN_CREST if seal == "crown" else DESIGN / "textures" / f"seal-{seal}.svg").as_uri(),
         "crown": CROWN_CREST.as_uri(),
@@ -424,6 +450,13 @@ def ballot_html(css, piece_css=""):
         "silverhand": (DESIGN / "textures" / "seal-silverhand.svg").as_uri(),
         "exchange": (DESIGN / "textures" / "seal-exchange.svg").as_uri(),
     })
+
+
+def worldmap_html(css, piece_css="", skin="sk-min", emblem="alliance-crest.png", emblem_cls=""):
+    # the seal: the skin's own emblem (the window's), a shield crest or a round party seal
+    return fill("worldmap.html", {"css": css + "\n" + piece_css, "skin": skin,
+                                  "crest": (DESIGN / "textures" / emblem).as_uri(),
+                                  "crest_class": "" if emblem_cls == "seal" else "crest"})
 
 
 def only(show, hide=(), extra=""):
@@ -570,6 +603,12 @@ def pieces_to_draw(pages):
     settings("segPartyOff", only(["#seg-party"]), skin_seg="ministry")
     settings("segMinistryOn", only(["#seg-ministry"]), skin_seg="ministry")
     settings("segMinistryOff", only(["#seg-ministry"]), skin_seg="party")
+    # The world map skin switch (Batch D5f): Party, Ministry, Plain
+    settings("segMapBox", only(["#segmap"]))
+    for value, el in (("party", "seg-mparty"), ("ministry", "seg-mministry"), ("plain", "seg-mplain")):
+        name = "segMap" + value.title()
+        settings(name + "On", only([f"#{el}"]), map_seg=value)
+        settings(name + "Off", only([f"#{el}"]), map_seg="ministry" if value == "party" else "party")
 
     # The Ballot Hall (Milestone 4). Piece names are the layout's ids, prefixed "b_".
     for el in SLOTS["ballot"][1:]:
@@ -579,6 +618,19 @@ def pieces_to_draw(pages):
             ballot("b_" + el, only([f"#{el}"]), tex="papers", scale=PAPER_SCALE)
         else:
             ballot("b_" + el, only([f"#{el}", f"#{el} *"]))
+
+    # The world map's dress (D5), once per skin, named "wm_<file>:<piece>" in "wmap_<file>".
+    for file, cls in WM_SKINS.items():
+        _, _, _, emblem, emblem_cls, _ = next(s for s in SKINS if s[1] == file)
+        def w(name, css, scale=ATLAS_SCALE, cls=cls, file=file, emblem=emblem, emblem_cls=emblem_cls):
+            d[f"wm_{file}:{name}"] = dict(tex="wmap_" + file, scale=scale, layout="worldmap", root="wm",
+                                          args={"skin": cls, "emblem": emblem, "emblem_cls": emblem_cls}, css=css)
+        w("leather", only(["#wm-leather"]), scale=WM_LEATHER_SCALE)
+        for name, el in WM_FIXED.items():
+            w(name, only([f"#{el}", f"#{el} *"]),
+              scale=1.3 if name == "title" else CREST_SCALE if name == "seal" else 3 if name == "chev" else ATLAS_SCALE)
+        for name, (el, _) in WM_STRETCH.items():
+            w(name, only([f"#{el}", f"#{el} *"]))
 
     # The blue parts again in each accent (the Crown's plum, the Exchange's crimson), named "<piece>~cr".
     bases = []
@@ -773,14 +825,16 @@ def main():
     css = {"window": stylesheet() + board_styles("WindowSkins.dc.html"),
            "extras": stylesheet("Extras.dc.html") + board_styles("GladiatorsRing.dc.html")
                      + board_styles("Parties.dc.html"),
-           "ballot": stylesheet("BallotHall.dc.html")}
+           "ballot": stylesheet("BallotHall.dc.html"),
+           "worldmap": stylesheet("WorldMapSkins.dc.html")}
     render = {
         "window": lambda c, args: window_html(pages, css["window"], c, **args),
         "extras": lambda c, args: extras_html(css["extras"], c, **args),
         "ballot": lambda c, args: ballot_html(css["ballot"], c),
         "grain": lambda c, args: grain_html(),
+        "worldmap": lambda c, args: worldmap_html(css["worldmap"], c, **args),
     }
-    view = {"ballot": BALLOT_VIEW, "grain": (GRAIN_TILE, GRAIN_TILE)}
+    view = {"ballot": BALLOT_VIEW, "grain": (GRAIN_TILE, GRAIN_TILE), "worldmap": WM_VIEW}
     MEDIA.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="mota-textures-"))
     edge = Edge(work)
@@ -789,6 +843,7 @@ def main():
     rects.update(edge.rects("window", render["window"]("", {})))
     rects.update(edge.rects("extras", render["extras"]("", {})))
     rects.update(edge.rects("ballot", render["ballot"]("", {}), BALLOT_VIEW))
+    rects.update(edge.rects("worldmap", render["worldmap"]("", {}), WM_VIEW))
     origin = {root: (rects[root]["x"], rects[root]["y"]) for root in SLOTS}
     slots = {}
     for root, names in SLOTS.items():
@@ -914,7 +969,8 @@ def main():
         pieces[name] = dict(pos, tex=tex, root=todo[name]["root"], l=x / size[0], r=(x + im.width) / size[0],
                             t=y / size[1], b=(y + im.height) / size[1])
 
-    packed = ["atlas", "extras", "ballot", "papers", "accent"] + ["frame_" + m for m in METALS] + ["skin_" + s[1] for s in SKINS]
+    packed = (["atlas", "extras", "ballot", "papers", "accent"] + ["frame_" + m for m in METALS]
+              + ["skin_" + s[1] for s in SKINS] + ["wmap_" + f for f in WM_SKINS])
     for tex in packed:
         items = [(n, drawn[n][0]) for n, p in todo.items() if p["tex"] == tex]
         image, spots = pack(items)
@@ -976,6 +1032,19 @@ def main():
         "border": {"slice": BORDER_SLICE, "size": 80, "width": BORDER_WIDTH, "out": BORDER_OUT},
         # The Districts page's chart (root "map": screenshot pixels from the chart's top-left).
         "districts": dz_media,
+        # The world map's dress (D5): its pieces are "wm_<file>:<name>" (root "wm": canvas units from
+        # the board window's top-left, 1100 x 749). slice: the stretched pieces' edges kept whole,
+        # {left, top, right, bottom} in canvas units (0 = stretched that way whole).
+        "wmap": {"window": {"w": 1100, "h": 749}, "skins": {f: "wmap_" + f for f in WM_SKINS},
+                 "slice": {name: dict(zip(("l", "t", "r", "b"), s if isinstance(s, tuple) else (s,) * 4))
+                           for name, (_, s) in WM_STRETCH.items()},
+                 # each stretched piece's own box (its picture can reach past it: shadows, the hairline)
+                 "box": {name: {"w": rects[el]["w"], "h": rects[el]["h"]} for name, (el, _) in WM_STRETCH.items()},
+                 # each whole piece's own box on the board (canvas units from the window's top-left): its
+                 # picture reaches past it by its shadow, so the game fits the box, not the picture, to
+                 # the button it dresses (the seal's box differs by skin: UI/WorldMapSkin.lua has it)
+                 "at": {name: {k: round(rects[el][k] - (rects["wm"][k] if k in "xy" else 0), 2) for k in "xywh"}
+                        for name, el in WM_FIXED.items() if name != "seal"}},
     }
     lua = ("-- Generated by tools/textures/build.py from the design canvas. Don't edit by hand:\n"
            "-- change the design or the layouts, then run the script again.\n"
@@ -983,7 +1052,10 @@ def main():
            "-- (win: the window, herald: the herald pop-up, settings: the settings page, ballot: the Ballot Hall layout;\n"
            "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
            "local _, MOTA = ...\n\nMOTA.Media = " + lua_value(media) + "\n")
-    (ADDON / "Media.lua").write_text(lua, encoding="utf-8", newline="\n")
+    # through a temporary file: a direct write sometimes fails "Invalid argument" on this machine
+    tmp = ADDON / "Media.lua.tmp"
+    tmp.write_text(lua, encoding="utf-8", newline="\n")
+    os.replace(tmp, ADDON / "Media.lua")
     print("  Media.lua")
 
     if "--preview" in sys.argv:

@@ -15,6 +15,12 @@ local ROWS = {
   { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members", later = true },
   { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear", box = "segBox",
     choice = { { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } } },
+  -- The world map's dress (Batch D5f, the World map skins board's setting row):
+  -- Party (as the window), the Ministry's, or the game's own look. Everyone's.
+  { key = "mapSkin", label = "World map skin", small = "How the world map is dressed", box = "segMapBox",
+    choice = { { "party", "seg-mparty", "segMapParty" }, { "ministry", "seg-mministry", "segMapMinistry" },
+               { "plain", "seg-mplain", "segMapPlain" } },
+    changed = function() MOTA:Fire("MAP_SKIN_CHANGED") end },
   -- Window skins (ADDON_SPEC.md 9.1): Crown ranks only, so this row is hidden
   -- for everyone else. Party is the Crown's skin for them.
   { key = "windowSkin", label = "Window skin", small = "The Crown's colours, or the Ministry's", box = "segSkinBox", crownOnly = true,
@@ -66,7 +72,7 @@ local function buildSwitch(i, row)
   return b
 end
 
--- A choice of two: Modest or Royal, Party or Ministry.
+-- A choice of two or three: Modest or Royal; Party or Ministry; Party, Ministry or Plain.
 local function buildChoice(row)
   piece(row.box, "BORDER")
   local buttons = {}

@@ -26,7 +26,7 @@
   </div>
 </div>
 
-<div class="page" id="settings" style="position: absolute; left: 100px; top: 400px; width: 480px; height: 498px">
+<div class="page" id="settings" style="position: absolute; left: 100px; top: 400px; width: 480px; height: 540px">
   <div class="parch" id="sparch" style="padding: 22px 28px; display: flex; flex-direction: column">
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px">
       <img id="sseal" src="{{crown}}" alt="" style="width: 44px; height: 44px">
@@ -39,8 +39,12 @@
     <div class="setrow" id="row5"><label id="slabel5">Herald size<small id="ssmall5">How grand the pop-ups appear</small></label>
       <div class="seg" id="seg"><button class="{{modest_class}}" id="seg-modest" type="button">Modest</button><button class="{{royal_class}}" id="seg-royal" type="button">Royal</button></div>
     </div>
-    <!-- Window skins (Milestone 5): the switch from the Window skins board -->
-    <div class="setrow" id="row6" style="border-bottom: none"><label id="slabel6">Window skin<small id="ssmall6">Your party's colours, or the Ministry's</small></label>
+    <!-- The world map's dress (Batch D5f): the setting row from the World map skins board -->
+    <div class="setrow" id="row6"><label id="slabel6">World map skin<small id="ssmall6">How the world map is dressed</small></label>
+      <div class="seg" id="segmap"><button class="{{mparty_class}}" id="seg-mparty" type="button">Party</button><button class="{{mministry_class}}" id="seg-mministry" type="button">Ministry</button><button class="{{mplain_class}}" id="seg-mplain" type="button">Plain</button></div>
+    </div>
+    <!-- Window skins (Milestone 5): the switch from the Window skins board. Last: the Crown's ranks only -->
+    <div class="setrow" id="row7" style="border-bottom: none"><label id="slabel7">Window skin<small id="ssmall7">Your party's colours, or the Ministry's</small></label>
       <div class="seg" id="segskin"><button class="{{party_class}}" id="seg-party" type="button">Party</button><button class="{{ministry_class}}" id="seg-ministry" type="button">Ministry</button></div>
     </div>
   </div>

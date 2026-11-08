@@ -73,18 +73,18 @@
       "x": 2800,
       "y": 940
     },
-    "WorldMapSkins.dc.html": {
-      "h": 1790,
-      "title": "World map skins — party, Crown and Ministry",
-      "w": 1800,
-      "x": 0,
-      "y": 2900
-    },
     "WindowSkins.dc.html": {
       "h": 2840,
       "title": "Window skins — the add-on window in the four skins",
       "w": 2480,
-      "x": 1880,
+      "x": 2520,
+      "y": 2900
+    },
+    "WorldMapSkins.dc.html": {
+      "h": 2580,
+      "title": "World map skins — Map & Quest Log, docked, in the four skins",
+      "w": 2440,
+      "x": 0,
       "y": 2900
     }
   },

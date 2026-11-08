@@ -209,6 +209,8 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       cards = false,       -- citizen cards (come later)
       heraldSize = "full", -- "full" (Royal) or "small" (Modest)
       windowSkin = "party", -- "party" (your party's or the Crown's) or "ministry" (UI/Skin.lua)
+      mapSkin = "party",    -- the world map's dress (UI/WorldMapSkin.lua): "party" (as the window),
+                            -- "ministry" or "plain". On from the start; a choice is kept until changed by hand.
       voice = true,        -- the Charter narration on first login (/mota voice off)
     },
     guilds = {},  -- one book per guild, see CheckGuild

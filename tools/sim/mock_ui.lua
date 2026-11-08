@@ -18,9 +18,17 @@ end
 local function region(kind, parent)
   local r = setmetatable({ kind = kind, shown = kind ~= "Frame-hidden", points = {}, w = 0, h = 0,
     parent = parent, scripts = {}, events = {}, level = parent and (rawget(parent, "level") or 0) + 1 or 0,
-    alpha = 1, scale = 1 }, MT)
+    alpha = 1, scale = 1, regions = {} }, MT)
+  -- a frame's textures and font strings, as GetRegions gives them (added 2026-11-08, D5c)
+  if parent and (kind == "Texture" or kind == "FontString") then
+    local list = rawget(parent, "regions")
+    if list then list[#list + 1] = r end
+  end
   return r
 end
+
+local POINTS = { TOPLEFT = 1, TOP = 1, TOPRIGHT = 1, LEFT = 1, CENTER = 1, RIGHT = 1, BOTTOMLEFT = 1,
+  BOTTOM = 1, BOTTOMRIGHT = 1, ALL = 1 }
 
 local allFrames = {}
 
@@ -33,6 +41,8 @@ function Methods:GetSize() return self.w, self.h end
 function Methods:SetPoint(...)
   local a = { ... }
   assert(type(a[1]) == "string", "SetPoint needs a point name")
+  assert(POINTS[a[1]], "bad point " .. a[1])
+  if type(a[3]) == "string" then assert(POINTS[a[3]], "bad relative point " .. a[3]) end
   self.points[#self.points + 1] = a
 end
 function Methods:ClearAllPoints() self.points = {} end
@@ -41,6 +51,15 @@ function Methods:GetPoint(i)
   local p = self.points[i or 1]
   if not p then return nil end
   return p[1], p[2], p[3], p[4], p[5]
+end
+function Methods:GetNumPoints() return #self.points end
+function Methods:SetHitRectInsets(l, r, t, b)
+  for _, v in ipairs({ l, r, t, b }) do assert(type(v) == "number", "SetHitRectInsets needs four numbers") end
+  rawset(self, "hitInsets", { l, r, t, b })
+end
+function Methods:GetHitRectInsets()
+  local i = rawget(self, "hitInsets") or { 0, 0, 0, 0 }
+  return i[1], i[2], i[3], i[4]
 end
 function Methods:Show()
   local was = self.shown
@@ -77,6 +96,9 @@ function Methods:SetScale(s) self.scale = s end
 function Methods:GetScale() return self.scale end
 function Methods:GetEffectiveScale() return self.scale end
 function Methods:SetAlpha(a) self.alpha = a end
+function Methods:GetAlpha() return self.alpha end
+function Methods:IsObjectType(t) return self.kind == t or (t == "Frame" and self.kind == "Button") end
+function Methods:GetRegions() return unpack(self.regions) end
 function Methods:GetCenter() return rawget(self, "cx") or 500, rawget(self, "cy") or 400 end
 
 function Methods:CreateTexture(name, layer, template, sublevel)
@@ -110,11 +132,27 @@ function Methods:SetBlendMode(m) assert(({ ADD = 1, BLEND = 1, MOD = 1, ALPHAKEY
 function Methods:CreateFontString(name, layer, template)
   local fs = region("FontString", self)
   fs.text = ""
+  if template then fs.font = template end -- a template (GameFontNormal...) brings its font
   return fs
 end
 function Methods:SetFontObject(f) assert(f, "SetFontObject(nil)") self.font = f end
-function Methods:SetText(t) assert(self.kind ~= "FontString" or self.font, "text without a font") self.text = t end
+-- the game refuses words on a font string before it has a font (fixed 2026-11-08: the old check read
+-- self.font through the unknown-method fallback, which is never nil, so it never fired)
+function Methods:SetText(t)
+  assert(self.kind ~= "FontString" or rawget(self, "font") or rawget(self, "fontPath"), "text without a font")
+  self.text = t
+end
 function Methods:GetText() return rawget(self, "text") end
+function Methods:SetFont(path, size, flags)
+  assert(type(path) == "string" and type(size) == "number" and size > 0, "bad font")
+  self.fontPath, self.fontSize, self.fontFlags = path, size, flags
+  return true
+end
+function Methods:GetFont() return rawget(self, "fontPath"), rawget(self, "fontSize"), rawget(self, "fontFlags") end
+function Methods:GetTextColor()
+  local c = rawget(self, "color") or { 1, 1, 1 }
+  return c[1], c[2], c[3], 1
+end
 function Methods:SetTextColor(r, g, b)
   for _, v in ipairs({ r, g, b }) do assert(v >= 0 and v <= 1, "colour out of range") end
   self.color = { r, g, b }

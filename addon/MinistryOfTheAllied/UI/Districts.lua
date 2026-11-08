@@ -58,23 +58,10 @@ local function art(parent, name, layer, sub)
   return t, p
 end
 
--- Is the point (screenshot pixels from the chart's corner) inside the polygon?
-local function inside(pts, x, y)
-  local hit, n = false, #pts / 2
-  local j = n
-  for i = 1, n do
-    local xi, yi, xj, yj = pts[2 * i - 1], pts[2 * i], pts[2 * j - 1], pts[2 * j]
-    if (yi > y) ~= (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi then hit = not hit end
-    j = i
-  end
-  return hit
-end
-
 -- Which district is at this point of the chart (screenshot pixels), if any.
+-- The same test as the world map's (District.lua).
 function Page:HitTest(x, y)
-  for code, pts in pairs(DZ.shapes) do
-    if inside(pts, x, y) then return code end
-  end
+  return D():At(x, y)
 end
 
 local function mine()

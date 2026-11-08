@@ -102,6 +102,29 @@ function District:Rep(code)
   return state().rep[code]
 end
 
+-- Is the point inside the polygon (a flat list x1, y1, x2, y2, ...)?
+local function inside(pts, x, y)
+  local hit, n = false, #pts / 2
+  local j = n
+  for i = 1, n do
+    local xi, yi, xj, yj = pts[2 * i - 1], pts[2 * i], pts[2 * j - 1], pts[2 * j]
+    if (yi > y) ~= (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi then hit = not hit end
+    j = i
+  end
+  return hit
+end
+
+-- Which district's outline holds this point, if any. x, y are pixels of the
+-- Stormwind City screenshot the shapes were traced on, from the chart's crop
+-- corner (Media.lua districts). Used by the Districts page and the world map.
+function District:At(x, y)
+  local dz = MOTA.Media and MOTA.Media.districts
+  if not dz or type(x) ~= "number" or type(y) ~= "number" then return nil end
+  for code, pts in pairs(dz.shapes) do
+    if inside(pts, x, y) then return code end
+  end
+end
+
 -- The name as the roster spells it, matched without regard to capitals.
 function District:Resolve(name)
   if type(name) ~= "string" or name == "" then return nil end

@@ -6,6 +6,10 @@ screenshot with Pillow: no Edge needed. Called by build.py, which packs and writ
                      a pale halo; lit: gold edge, glow and a thin line in its colour inside;
                      fill: the shape filled, which the add-on shows faintly), the meeting-spot
                      diamond, the pin and its pulse ring
+  districts_wm       the world map's heavier outlines (D4b, Max 8 Nov): wmrest, the same
+                     dashes about 1.6 times as thick on a thin dark casing so they stand off
+                     yellow and green map art alike; wmlit, the lit look on the same casing.
+                     Their own texture, so the page's atlas stays 1024 x 1024.
 
 The shapes and the board's crop come from design/canvas-source/Districts.dc.html (the
 Map view), so the canvas stays the source: move an edge there, run the build again.
@@ -27,6 +31,9 @@ COLOURS = {"HARB": "#1F7A70", "CATH": "#3D86C6", "IRON": "#B0621C", "OLD": "#8E2
 # Meeting spots, as the board draws them (its diamonds and pin), in screenshot pixels.
 SPOTS = {"OLD": (1194, 646), "ARC": (720, 878), "IRON": (1030, 430), "HARB": (470, 420), "CATH": (846, 561)}
 GOLD, HALO = (243, 217, 138), (255, 248, 220)
+CASING = (40, 26, 12)  # the world map lines' dark edge: dark brown
+CASING_ALPHA = 140     # about 55%
+WM_HEAVY = 1.6         # the world map's dashes against the page's
 MAP_TEX = 1024        # the map picture's width in the texture
 LINE_SCALE = 0.6      # outline pixels per screenshot pixel (the chart shows about 0.41 of one)
 SS = 3                # drawn this many times larger, then shrunk: smooth edges
@@ -106,6 +113,24 @@ def draw_shape(code, pts, look):
     im = layer(size)
     if look == "fill":
         ImageDraw.Draw(im).polygon(local, fill=col + (255,))
+    elif look == "wmrest":
+        line = 6 * WM_HEAVY * k
+        strips = dashed(local, 28 * k, 12 * k)
+        casing = layer(size)
+        stroke(casing, strips, CASING, line + 4 * k)
+        im.alpha_composite(glow(casing, 0.6 * k))
+        im.putalpha(im.getchannel("A").point(lambda v: v * CASING_ALPHA // 255))
+        stroke(im, strips, col, line)
+    elif look == "wmlit":
+        closed = [local + [local[0]]]
+        g = layer(size)
+        stroke(g, closed, GOLD, 13 * k)
+        im.alpha_composite(glow(g, 6 * k, 2))
+        casing = layer(size)
+        stroke(casing, closed, CASING, 13 * k + 5 * k, CASING_ALPHA + 40)
+        im.alpha_composite(glow(casing, 0.8 * k))
+        stroke(im, closed, GOLD, 13 * k)
+        stroke(im, closed, col, 5.5 * k)
     elif look == "rest":
         strips = dashed(local, 20 * k, 10 * k)
         halo = layer(size)
@@ -204,6 +229,20 @@ def build(pack, pow2):
     for n, (im, x, y) in drawn.items():
         sx, sy = spots[n]
         pieces[n] = dict(tex="districts", root="map", x=x, y=y, w=im.width / LINE_SCALE, h=im.height / LINE_SCALE,
+                         l=sx / W, r=(sx + im.width) / W, t=sy / H, b=(sy + im.height) / H)
+
+    # The world map's heavier outlines, in their own texture.
+    wm = {}
+    for code, pts in shapes.items():
+        for look in ("wmrest", "wmlit"):
+            im, (x0, y0) = draw_shape(code, pts, look)
+            wm[f"dz_{code}_{look}"] = (im, x0 - bx, y0 - by)
+    atlas, spots = pack([(n, im) for n, (im, _, _) in wm.items()])
+    textures["districts_wm"] = atlas
+    W, H = atlas.size
+    for n, (im, x, y) in wm.items():
+        sx, sy = spots[n]
+        pieces[n] = dict(tex="districts_wm", root="map", x=x, y=y, w=im.width / LINE_SCALE, h=im.height / LINE_SCALE,
                          l=sx / W, r=(sx + im.width) / W, t=sy / H, b=(sy + im.height) / H)
 
     media = {
