@@ -67,7 +67,7 @@ local function build()
   frame:EnableMouse(true)
   frame:Hide()
 
-  piece(frame, "heraldBg", "BACKGROUND")
+  frame.bg = piece(frame, "heraldBg", "BACKGROUND")
   frame.seals = {}
   for _, seal in ipairs({ "official", "crown", "exchange", "silverhand", "ring", "treasury" }) do
     frame.seals[seal] = piece(frame, "hseal_" .. seal, "ARTWORK")
@@ -86,7 +86,7 @@ local function build()
   frame.body:SetJustifyH("LEFT")
   frame.body:SetJustifyV("TOP")
   UI:AtSlot(frame.body, "hbody", 0, 0, frame)
-  if frame.body.SetMaxLines then frame.body:SetMaxLines(2) end
+  if frame.body.SetMaxLines then frame.body:SetMaxLines(4) end -- the scroll grows past two (fit)
 
   -- One ready-made button per label and style; the right one is shown.
   frame.buttons = {}
@@ -120,7 +120,7 @@ local function build()
       end)
       b:SetScript("OnClick", function() Herald:Press() end)
       b:Hide()
-      b.left = p.x
+      b.left, b.top = p.x, p.y
       frame.buttons[style .. ":" .. label] = b
     end
   end
@@ -203,6 +203,24 @@ local function fit(h)
   local wide = frame.title.GetUnboundedStringWidth and frame.title:GetUnboundedStringWidth() or frame.title:GetStringWidth()
   if wide and wide > width then frame.title:SetFontObject(MOTA:Font("kitName")) end
   frame.closeX:SetShown(h.closeX and true or false)
+
+  -- The scroll was drawn for two lines of text. Longer text makes it taller,
+  -- stretching the parchment, with the seal and the button kept in its middle.
+  local two = M.slots.hbody.h
+  local tall = frame.body:GetStringHeight() or 0
+  local extra = math.max(0, math.ceil(tall - two - 1))
+  local s, bg = M.slots.herald, M.pieces.heraldBg
+  frame:SetHeight(s.h + extra)
+  frame.bg:SetHeight(bg.h + extra)
+  for seal, t in pairs(frame.seals) do
+    local p = M.pieces["hseal_" .. seal]
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", frame, "TOPLEFT", p.x, -(p.y + extra / 2))
+  end
+  for _, button in pairs(frame.buttons) do
+    button:ClearAllPoints()
+    button:SetPoint("TOPLEFT", frame, "TOPLEFT", button.left, -(button.top + extra / 2))
+  end
 end
 
 function Herald:HideLater(seconds)
