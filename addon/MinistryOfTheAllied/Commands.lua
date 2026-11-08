@@ -397,6 +397,33 @@ add("lottery", "[open <name>, <gold per ticket>, <days>, draw, cancel]", "the Ro
   if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
 end)
 
+add("hunt", "[mark <riddle>, unmark, publish <name>, discard, end]", "the Treasure Hunt: your clue, or set one (the Crown and the Minister of Games)", function(arg)
+  if not needGuild() then return end
+  local Hu = MOTA.Hunt
+  local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
+  local rec, err
+  if word == "mark" then
+    rec, err = Hu:Mark(rest)
+    if rec then return MOTA:Print("Clue", #Hu:Draft().clues, "marked here, in", rec.z .. ". Mark the next, or /mota hunt publish <name>.") end
+  elseif word == "unmark" then rec, err = Hu:Unmark()
+  elseif word == "publish" then rec, err = Hu:Publish(rest)
+  elseif word == "discard" then rec, err = Hu:Discard()
+  elseif word == "end" then rec, err = Hu:Close()
+  else
+    local H = Hu:Current()
+    MOTA:Print((H and (H.name .. ": ") or "") .. Hu:Line(H))
+    if H and Hu:Stage(H) == "running" then
+      local i = Hu:Progress(MOTA.me, H) + 1
+      local text, zone = Hu:Riddle(i, H)
+      if text then MOTA:Print("Clue " .. i .. " of " .. #H.clues .. ", in " .. tostring(zone) .. ": " .. text) end
+    end
+    local d = Hu:Draft()
+    if #d.clues > 0 then MOTA:Print("Your draft hunt has", #d.clues, "marked clues.") end
+    return
+  end
+  if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
+end)
+
 add("honour", "<name>, <order>, [citation] or remove <name>, <order>", "the Crown confers an order (crown, lion, quill or star)", function(arg)
   if not needGuild() then return end
   local H = MOTA.Honours

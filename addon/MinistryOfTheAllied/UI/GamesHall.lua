@@ -67,8 +67,10 @@ end
 
 local function buildAside()
   aside = panel(root, nil, 0, 0, ASIDE_W, HEIGHT)
+  local lot = panel(aside, nil, 0, 0, ASIDE_W, HEIGHT - 66)
+  aside.lot = lot
 
-  local plate = panel(aside, nil, 0, 0, ASIDE_W, 178)
+  local plate = panel(lot, nil, 0, 0, ASIDE_W, 178)
   Kit:PlateArt(plate, "kitBlue", "BACKGROUND")
   local seal = UI:Piece(plate, "hseal_treasury", "ARTWORK", nil, nil, nil, plate)
   seal:ClearAllPoints()
@@ -87,7 +89,7 @@ local function buildAside()
   plate.when:SetWidth(ASIDE_W - 16)
   aside.plate = plate
 
-  local pot = panel(aside, "plain", 0, 190, ASIDE_W, 104)
+  local pot = panel(lot, "plain", 0, 190, ASIDE_W, 104)
   Kit:Label(pot, "kitSection", BLUE, 0.22, "The pot"):SetPoint("TOPLEFT", pot, "TOPLEFT", 14, -12)
   pot.rows = {}
   for i, y in ipairs({ 34, 62, 82 }) do
@@ -100,7 +102,7 @@ local function buildAside()
   Kit:Rule(pot, ASIDE_W - 28):SetPoint("TOPLEFT", pot, "TOPLEFT", 14, -56)
   aside.pot = pot
 
-  local mine = panel(aside, "sunk", 0, 306, ASIDE_W, 112)
+  local mine = panel(lot, "sunk", 0, 306, ASIDE_W, 112)
   Kit:Label(mine, "kitTiny", "7A5719", 0.2, "Your tickets"):SetPoint("TOPLEFT", mine, "TOPLEFT", 14, -12)
   mine.n = Kit:Text(mine, "kitCofferBig", BLUE)
   mine.n:SetPoint("TOPLEFT", mine, "TOPLEFT", 14, -28)
@@ -521,8 +523,328 @@ local function refreshHonours(v)
   for i, t in ipairs(v.lately.rows) do t:SetText(list[i] or (i == 1 and "|cff5E4B33Nobody has been honoured yet.|r" or "")) end
 end
 
+
 ---------------------------------------------------------------------------
--- The Hunt and the Cup: to come
+-- The Hunt: its own left-hand column, the clue, the hunters, past hunts,
+-- and the organiser's form for setting one
+---------------------------------------------------------------------------
+
+local GOLD_GEM, NOW_GEM = "C9A24A", "8E2B22"
+
+-- The organiser sets a hunt when none is running; everyone else plays.
+local function setting()
+  return MOTA.Games:CanRun(MOTA.me) and MOTA.Hunt:Stage() ~= "running"
+end
+
+local function buildHuntAside()
+  local h = panel(aside, nil, 0, 0, ASIDE_W, HEIGHT - 66)
+  local plate = panel(h, nil, 0, 0, ASIDE_W, 178)
+  Kit:PlateArt(plate, "kitBlue", "BACKGROUND")
+  local seal = UI:Piece(plate, "hseal_official", "ARTWORK", nil, nil, nil, plate)
+  seal:ClearAllPoints()
+  seal:SetSize(50, 50)
+  seal:SetPoint("TOP", plate, "TOP", 0, -10)
+  Kit:Label(plate, "kitTiny", "C9D6F5", 0.28, "The Treasure Hunt"):SetPoint("TOP", plate, "TOP", 0, -66)
+  plate.name = Kit:Text(plate, "kitStage", "F3D98A", "CENTER")
+  plate.name:SetPoint("TOP", plate, "TOP", 0, -80)
+  plate.name:SetWidth(ASIDE_W - 16)
+  plate.name:SetMaxLines(1)
+  plate.big = Kit:Text(plate, "kitCofferBig", "F3D98A", "CENTER")
+  plate.big:SetPoint("TOP", plate, "TOP", 0, -104)
+  plate.when = Kit:Text(plate, "kitSmallest", "C9D5F0", "CENTER")
+  plate.when:SetPoint("TOP", plate, "TOP", 0, -146)
+  plate.when:SetWidth(ASIDE_W - 16)
+  h.plate = plate
+
+  local trail = panel(h, "plain", 0, 190, ASIDE_W, HEIGHT - 66 - 190)
+  trail.head = Kit:Label(trail, "kitSection", BLUE, 0.22, "Your trail")
+  trail.head:SetPoint("TOPLEFT", trail, "TOPLEFT", 14, -12)
+  trail.rows = {}
+  for i = 1, MOTA.Hunt.MAX_CLUES do
+    local r = panel(trail, nil, 14, 32 + (i - 1) * 20, ASIDE_W - 28, 18)
+    r.gem = Kit:Gem(r, GOLD_GEM)
+    r.gem:SetPoint("LEFT", r, "LEFT", 2, 0)
+    r.text = Kit:Text(r, "kitSmall")
+    r.text:SetPoint("LEFT", r, "LEFT", 18, 0)
+    r.text:SetWidth(ASIDE_W - 46)
+    r.text:SetMaxLines(1)
+    trail.rows[i] = r
+  end
+  h.trail = trail
+
+  local how = panel(h, "sunk", 0, 190, ASIDE_W, 120)
+  Kit:Label(how, "kitTiny", "7A5719", 0.2, "How it works"):SetPoint("TOPLEFT", how, "TOPLEFT", 14, -12)
+  line(how, "kitSmallest", nil, 14, 30, ASIDE_W - 28):SetText("Stand on the spot, write its riddle, and mark it. The spot is sealed: nobody can read where it is, only find it.")
+  h.how = how
+  aside.hunt = h
+end
+
+local function refreshHuntAside()
+  local Hu = MOTA.Hunt
+  local h = aside.hunt
+  local p = h.plate
+  if setting() then
+    local d = Hu:Draft()
+    p.name:SetText("Setting a hunt")
+    p.big:SetText(#d.clues .. (#d.clues == 1 and " clue" or " clues"))
+    p.when:SetText("marked so far · up to " .. Hu.MAX_CLUES)
+    h.trail:Hide()
+    h.how:Show()
+    return
+  end
+  h.how:Hide()
+  h.trail:Show()
+  local H = Hu:Current()
+  local stage = Hu:Stage(H)
+  local n = H and Hu:Progress(MOTA.me, H) or 0
+  p.name:SetText(H and H.name or "No hunt yet")
+  if stage == "running" then
+    p.big:SetText(n .. " of " .. #H.clues)
+    p.when:SetText("clues found · first to finish wins")
+  elseif stage == "won" then
+    p.big:SetText(MOTA:Short(H.winner))
+    p.when:SetText("found the treasure first")
+  else
+    p.big:SetText("")
+    p.when:SetText(stage == "closed" and "ended with no winner" or "The Minister of Games sets one")
+  end
+  for i, r in ipairs(h.trail.rows) do
+    local c = H and H.clues[i]
+    r:SetShown(c ~= nil)
+    if c then
+      if i <= n then
+        Kit:Tint(r.gem, GOLD_GEM)
+        r.text:SetText(c.z)
+        r.text:SetTextColor(MOTA:RGB("2A1F14"))
+      elseif i == n + 1 and stage == "running" then
+        Kit:Tint(r.gem, NOW_GEM)
+        r.text:SetText("Clue " .. i .. " · " .. c.z)
+        r.text:SetTextColor(MOTA:RGB("2A1F14"))
+      else
+        Kit:Tint(r.gem, "8A7A5E", true)
+        r.text:SetText("Clue " .. i)
+        r.text:SetTextColor(MOTA:RGB("8A7A5E"))
+      end
+    end
+  end
+end
+
+local CLUE_W = MAIN_W - SIDE_W - 14
+local TOP_H = 240
+
+local function buildHunt()
+  local v = panel(root, nil, MAIN_X, BODY_Y, MAIN_W, HEIGHT - BODY_Y)
+
+  -- Playing: the clue.
+  local play = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local clue = panel(play, "plain", 0, 0, CLUE_W, TOP_H)
+  clue.head = Kit:Label(clue, "kitSection", BLUE, 0.22, "")
+  clue.head:SetPoint("TOPLEFT", clue, "TOPLEFT", 18, -14)
+  clue.zone = Kit:Label(clue, "kitTiny", "7A5719", 0.24, "")
+  clue.zone:SetPoint("TOPRIGHT", clue, "TOPRIGHT", -18, -16)
+  Kit:Rule(clue, CLUE_W - 36):SetPoint("TOPLEFT", clue, "TOPLEFT", 18, -34)
+  clue.riddle = line(clue, "kitMotto", nil, 18, 46, CLUE_W - 36)
+  clue.riddle:SetMaxLines(5)
+  local warm = panel(clue, nil, 18, TOP_H - 64, 128, 24)
+  Kit:Fill(warm, "B9503F", "8E2B22")
+  Kit:Outline(warm, "3A0C08", 1)
+  Kit:Label(warm, "kitTiny", "FBE9C8", 0.18, "You're close"):SetPoint("CENTER", warm, "CENTER", 0, 0)
+  clue.warm = warm
+  clue.hint = line(clue, "kitItalic", "5E4B33", 18, TOP_H - 34, CLUE_W - 36)
+  v.clue = clue
+
+  local hunters = panel(play, "plain", MAIN_W - SIDE_W, 0, SIDE_W, TOP_H)
+  Kit:Label(hunters, "kitSection", BLUE, 0.22, "The hunters"):SetPoint("TOPLEFT", hunters, "TOPLEFT", 14, -12)
+  hunters.rows = {}
+  for i = 1, 7 do
+    local name = line(hunters, "kitSmall", nil, 14, 32 + (i - 1) * 21, SIDE_W - 80)
+    name:SetMaxLines(1)
+    local n = Kit:Text(hunters, "kitAmount", BLUE, "RIGHT")
+    n:SetPoint("TOPRIGHT", hunters, "TOPRIGHT", -14, -(33 + (i - 1) * 21))
+    hunters.rows[i] = { name = name, n = n }
+  end
+  hunters.empty = line(hunters, "kitItalic", "5E4B33", 14, 34, SIDE_W - 28)
+  hunters.stop = Kit:Button(hunters, SIDE_W - 28, 26, "End the hunt", "quiet", function(b)
+    if not b.sure then
+      b.sure = true
+      b:SetLabel("Sure?")
+      C_Timer.After(4, function() b.sure = nil; b:SetLabel("End the hunt") end)
+      return
+    end
+    b.sure = nil
+    b:SetLabel("End the hunt")
+    report(MOTA.Hunt:Close())
+  end)
+  hunters.stop:SetPoint("BOTTOMLEFT", hunters, "BOTTOMLEFT", 14, 12)
+  v.hunters = hunters
+
+  local past = panel(play, "sunk", 0, TOP_H + 12, MAIN_W, HEIGHT - BODY_Y - TOP_H - 12)
+  Kit:Label(past, "kitSection", BLUE, 0.22, "Past hunts"):SetPoint("TOPLEFT", past, "TOPLEFT", 14, -10)
+  past.rows = {}
+  for i = 1, 4 do
+    local t = line(past, "kitSmall", nil, 14, 30 + (i - 1) * 21, MAIN_W - 28)
+    t:SetMaxLines(1)
+    past.rows[i] = t
+  end
+  v.past = past
+  v.play = play
+
+  -- Setting: the form and the marked clues.
+  local set = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local form = panel(set, "plain", 0, 0, CLUE_W, TOP_H)
+  Kit:Label(form, "kitSection", BLUE, 0.22, "Set a hunt"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -14)
+  form.name = field(form, "Name", 16, 36, CLUE_W - 32, "")
+  form.name:SetScript("OnTextChanged", function(e) MOTA.Hunt:Draft().name = e:GetText() end)
+  form.riddleLabel = Kit:Label(form, "kitTiny", "7A5719", 0.2, "")
+  form.riddleLabel:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
+  local riddle = CreateFrame("EditBox", nil, form)
+  riddle:SetSize(CLUE_W - 32, 58)
+  riddle:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -103)
+  riddle:SetMultiLine(true)
+  riddle:SetMaxLetters(MOTA.Hunt.MAX_RIDDLE)
+  riddle:SetAutoFocus(false)
+  riddle:SetFontObject(MOTA:Font("kitItalic"))
+  riddle:SetTextColor(MOTA:RGB("2A1F14"))
+  riddle:SetTextInsets(7, 7, 5, 5)
+  Kit:Fill(riddle, "FBF4E1", "F0E2BE")
+  Kit:Outline(riddle, "6E4F17", 0.6)
+  riddle:SetScript("OnEscapePressed", riddle.ClearFocus)
+  form.riddle = riddle
+  form.mark = Kit:Button(form, 150, 28, "Mark this spot", "blue", function()
+    local rec, err = MOTA.Hunt:Mark(form.riddle:GetText())
+    if rec then form.riddle:SetText("") end
+    report(rec, err)
+  end)
+  form.mark:SetPoint("BOTTOMLEFT", form, "BOTTOMLEFT", 16, 16)
+  form.where = Kit:Text(form, "kitSmallest")
+  form.where:SetPoint("LEFT", form.mark, "RIGHT", 12, 0)
+  form.where:SetWidth(CLUE_W - 32 - 162)
+  v.form = form
+
+  local marked = panel(set, "plain", MAIN_W - SIDE_W, 0, SIDE_W, TOP_H)
+  Kit:Label(marked, "kitSection", BLUE, 0.22, "Marked clues"):SetPoint("TOPLEFT", marked, "TOPLEFT", 14, -12)
+  marked.rows = {}
+  for i = 1, MOTA.Hunt.MAX_CLUES do
+    local r = panel(marked, nil, 14, 30 + (i - 1) * 13, SIDE_W - 28, 13)
+    r.text = Kit:Text(r, "kitSmallest")
+    r.text:SetPoint("LEFT", r, "LEFT", 0, 0)
+    r.text:SetWidth(SIDE_W - 28)
+    r.text:SetMaxLines(1)
+    marked.rows[i] = r
+  end
+  marked.empty = line(marked, "kitItalic", "5E4B33", 14, 32, SIDE_W - 28)
+  marked.publish = Kit:Button(marked, SIDE_W - 28, 26, "Publish", "blue", function()
+    report(MOTA.Hunt:Publish(form.name:GetText()))
+  end)
+  marked.publish:SetPoint("BOTTOMLEFT", marked, "BOTTOMLEFT", 14, 44)
+  marked.discard = Kit:Button(marked, SIDE_W - 28, 26, "Discard", "quiet", function(b)
+    if not b.sure then
+      b.sure = true
+      b:SetLabel("Sure?")
+      C_Timer.After(4, function() b.sure = nil; b:SetLabel("Discard") end)
+      return
+    end
+    b.sure = nil
+    b:SetLabel("Discard")
+    report(MOTA.Hunt:Discard())
+  end)
+  marked.discard:SetPoint("BOTTOMLEFT", marked, "BOTTOMLEFT", 14, 12)
+  v.marked = marked
+
+  local note = panel(set, "sunk", 0, TOP_H + 12, MAIN_W, HEIGHT - BODY_Y - TOP_H - 12)
+  Kit:Label(note, "kitSection", BLUE, 0.22, "Spots must be outdoors"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
+  line(note, "kitSmall", nil, 14, 30, MAIN_W - 28):SetText("The game gives no position inside dungeons and raids. Hunters get a nudge within 24 yards, and find the spot within 10. You can't play a hunt you set.")
+  v.set = set
+  return v
+end
+
+local function refreshHunt(v)
+  local Hu = MOTA.Hunt
+  local isSetting = setting()
+  v.play:SetShown(not isSetting)
+  v.set:SetShown(isSetting)
+
+  if isSetting then
+    local d = Hu:Draft()
+    if not v.form.name:HasFocus() then v.form.name:SetText(d.name or "") end
+    v.form.riddleLabel:SetText("Clue " .. (#d.clues + 1) .. " · its riddle")
+    local zone = GetZoneText and GetZoneText() or ""
+    local inst, x = Hu:Where()
+    v.form.where:SetText(x and ("You're in |cff2A1F14" .. (zone ~= "" and zone or "the world") .. "|r") or "|cff8E1B1BNo position here: go outdoors|r")
+    for i, r in ipairs(v.marked.rows) do
+      local c = d.clues[i]
+      r:SetShown(c ~= nil)
+      if c then r.text:SetText(i .. " · " .. c.z) end
+    end
+    v.marked.empty:SetShown(#d.clues == 0)
+    v.marked.empty:SetText("Stand on the first spot, write its riddle, and press Mark this spot.")
+    local ready = #d.clues >= Hu.MIN_CLUES
+    v.marked.publish:SetEnabled(ready)
+    v.marked.publish:SetAlpha(ready and 1 or 0.45)
+    return
+  end
+
+  local H = Hu:Current()
+  local stage = Hu:Stage(H)
+  local clue = v.clue
+  clue.warm:SetShown(stage == "running" and Hu.warm)
+  if stage == "running" then
+    local organiser = MOTA.Account:Same(MOTA.me, H.by)
+    local i = organiser and 1 or Hu:Progress(MOTA.me, H) + 1
+    local text, zone = Hu:Riddle(i, H)
+    clue.head:SetText("Clue " .. i .. " of " .. #H.clues)
+    clue.zone:SetText(zone or "")
+    clue.riddle:SetText(text or "The riddle opens when you find the spot before it.")
+    clue.hint:SetText(organiser and "You set this hunt, so you can't play it." or (Hu.warm and "Within 24 yards. Stand on the spot itself to find it."
+      or "Solve the riddle, then go and stand on the spot. Your add-on knows when you're there."))
+  elseif stage == "won" then
+    clue.head:SetText("The treasure is found")
+    clue.zone:SetText("")
+    clue.riddle:SetText(MOTA:Short(H.winner) .. " stood on all " .. #H.clues .. " spots first, and wins " .. H.name .. ".")
+    clue.hint:SetText("A new hunt is set by the Minister of Games.")
+  else
+    clue.head:SetText("No hunt running")
+    clue.zone:SetText("")
+    clue.riddle:SetText(stage == "closed" and (H.name .. " was ended with no winner.") or "When the Minister of Games sets a hunt, its first riddle appears here.")
+    clue.hint:SetText("")
+  end
+
+  local list = H and Hu:Hunters(H) or {}
+  for i, r in ipairs(v.hunters.rows) do
+    local e = list[i]
+    r.name:SetShown(e ~= nil)
+    r.n:SetShown(e ~= nil)
+    if e then
+      local me = MOTA.Account:Same(e.name, MOTA.me)
+      r.name:SetText(me and ("|cff2A1F14" .. MOTA:Short(e.name) .. "|r |cff5E4B33(you)|r") or MOTA:Short(e.name))
+      r.n:SetText(e.n .. " / " .. #H.clues)
+    end
+  end
+  v.hunters.empty:SetShown(#list == 0)
+  v.hunters.empty:SetText(stage == "running" and "Nobody has found a spot yet." or "")
+  local canStop = stage == "running" and (MOTA:IsCrown(MOTA.me) or MOTA:IsMe(H.by))
+  v.hunters.stop:SetShown(canStop)
+
+  local all, done = Hu:All(), {}
+  for i = #all, 1, -1 do
+    if all[i].ended then done[#done + 1] = all[i] end
+  end
+  for i, t in ipairs(v.past.rows) do
+    local h = done[i]
+    t:SetShown(h ~= nil or i == 1)
+    if h then
+      local took = h.ended.t - h.t
+      local dur = took >= 3600 and (math.floor(took / 3600) .. " h " .. math.floor(took % 3600 / 60) .. " min") or (math.floor(took / 60) .. " min")
+      t:SetText("|cff5E4B33" .. date("%d %b", h.ended.t) .. " ·|r " .. h.name .. " · " .. #h.clues .. " clues · "
+        .. (h.winner and ("won by |cff2A1F14" .. MOTA:Short(h.winner) .. "|r in " .. dur) or "no winner"))
+    elseif i == 1 then
+      t:SetText("|cff5E4B33No hunts finished yet.|r")
+    end
+  end
+end
+
+---------------------------------------------------------------------------
+-- The Cup: to come
 ---------------------------------------------------------------------------
 
 local function buildSoon(title, text)
@@ -554,11 +876,14 @@ function Page:View() return view end
 
 function Page:Refresh()
   if not root or not root:IsShown() then return end
-  refreshAside()
+  aside.lot:SetShown(view ~= "hunt")
+  aside.hunt:SetShown(view == "hunt")
+  if view == "hunt" then refreshHuntAside() else refreshAside() end
   for name, v in pairs(views) do v:SetShown(name == view) end
   for name, t in pairs(tabs) do t:SetOn(name == view) end
   if view == "lottery" then refreshLottery(views.lottery)
-  elseif view == "honours" then refreshHonours(views.honours) end
+  elseif view == "honours" then refreshHonours(views.honours)
+  elseif view == "hunt" then refreshHunt(views.hunt) end
 end
 
 local function build()
@@ -566,9 +891,10 @@ local function build()
   root:SetSize(WIDTH, HEIGHT)
   root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
   buildAside()
+  buildHuntAside()
   views = {
     lottery = buildLottery(),
-    hunt = buildSoon("The Treasure Hunt", "The Crown and the Minister of Games will hide riddles at real places in the world. Stand on the spot to unlock the next."),
+    hunt = buildHunt(),
     cup = buildSoon("The District Cup", "Every game won earns points for your district. The champion district is crowned at each General Election."),
     honours = buildHonours(),
   }
@@ -590,6 +916,7 @@ function Page:Show(show)
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
-for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED" }) do
+for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED", "HUNT_CHANGED" }) do
   MOTA:Listen(signal, function() Page:Refresh() end)
 end
+MOTA:On("ZONE_CHANGED_NEW_AREA", function() if view == "hunt" then Page:Refresh() end end)

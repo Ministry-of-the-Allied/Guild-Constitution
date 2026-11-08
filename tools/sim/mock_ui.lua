@@ -262,7 +262,7 @@ STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
 ATLASES = { ["bfa-landingbutton-alliance-up"] = true }
 C_Texture = { GetAtlasInfo = function(n) if ATLASES[n] then return { width = 128, height = 128 } end end }
 function GetSubZoneText() return "Trade District" end
-function GetZoneText() return "Stormwind City" end
+function GetZoneText() return ZONE or "Stormwind City" end
 C_DateAndTime = { GetCurrentCalendarTime = function() return { weekday = 5 } end }
 CALENDAR_WEEKDAY_NAMES = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
 date = os.date

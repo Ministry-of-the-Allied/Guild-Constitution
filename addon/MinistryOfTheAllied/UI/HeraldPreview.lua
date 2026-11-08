@@ -73,6 +73,12 @@ local function list()
       text = "Ticket 14 of 40 takes 28g. 12g goes to the Treasury. The prize is paid from the guild bank.", button = { label = "Dismiss", style = "quiet" } } },
     { "Lottery cancelled", { seal = "treasury", eyebrow = "The Royal Lottery", title = "Spring Draw is cancelled",
       text = "Everyone who bought tickets gets their gold back from the guild bank. You're owed 3g.", button = { label = "Dismiss", style = "quiet" } } },
+    { "Hunt begins", { seal = "official", eyebrow = "The Treasure Hunt", title = "The Miller's Secret begins",
+      text = "5 clues, the first in Goldshire. First to stand on the last spot wins. See the Games Hall.", button = { label = "Open", style = "blue", page = 8 } } },
+    { "Hunt: clue found", { seal = "official", eyebrow = "The Treasure Hunt", title = "Clue 2 found!",
+      text = "Clue 3, in Elwynn Forest: where the old wheel turns though no grain has come in years, stand where the water falls and listen.", button = { label = "Dismiss", style = "quiet" } } },
+    { "Hunt: won", { seal = "official", eyebrow = "The Treasure Hunt", title = "You found the treasure!",
+      text = "You stood on all 5 spots first. The Pathfinder's Medal is yours.", button = { label = "Dismiss", style = "quiet" } } },
     { "An honour conferred", { seal = "crown", eyebrow = "By royal decree", title = B .. ", Order of the Lion",
       text = "Held the bridge at Southshore. Conferred by " .. A .. ", for valour in battle.", button = { label = "Dismiss", style = "quiet" } } },
   }

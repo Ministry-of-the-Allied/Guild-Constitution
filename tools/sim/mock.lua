@@ -11,6 +11,8 @@ function GetTime() return now end
 -- this client started (set by sim.py), so a client that logs in later agrees.
 function GetServerTime() return 1793800000 + math.floor((CLOCK_START or 0) + now) end
 function time() return GetServerTime() + 3 end
+-- Where the player stands (the treasure hunt): POS = { x, y, inst } in yards, or nil indoors.
+function UnitPosition(unit) if POS then return POS.y, POS.x, 0, POS.inst or 0 end end
 
 C_Timer = {}
 function C_Timer.After(d, fn)

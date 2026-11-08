@@ -97,3 +97,8 @@ local function digest(msg)
 end
 
 MOTA.Sha256 = digest
+
+-- XOR of two bytes (0-255), for the treasure hunt's sealed riddles.
+function MOTA.ByteXor(a, b)
+  return XOR4[floor(a / 16) * 16 + floor(b / 16)] * 16 + XOR4[(a % 16) * 16 + (b % 16)]
+end
