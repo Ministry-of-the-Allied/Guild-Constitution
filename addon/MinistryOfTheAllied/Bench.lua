@@ -14,13 +14,15 @@ MOTA.Bench = Bench
 
 -- The posts follow the Cabinet in Charter 2.2, less Justice: the Crown appoints
 -- the Minister of Justice (Duncan, 2026-11-08; the Charter's wording is to follow).
-Bench.POSTS = { "deputy", "treasury", "war", "trade", "recruitment" }
+-- Games runs the guild's games, hunts and draws (Duncan, 2026-11-08; Charter 1.4 draft).
+Bench.POSTS = { "deputy", "treasury", "war", "trade", "recruitment", "games" }
 Bench.TITLES = {
   deputy = "Deputy Leader",
   treasury = "Treasury",
   war = "War",
   trade = "Trade",
   recruitment = "Recruitment",
+  games = "Games",
 }
 local VALID = {}
 for _, post in ipairs(Bench.POSTS) do VALID[post] = true end

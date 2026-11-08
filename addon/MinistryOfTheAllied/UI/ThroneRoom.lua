@@ -172,13 +172,13 @@ local function buildPower()
   power.since = Kit:Text(gov, "kitItalic", "5E4B33")
   power.since:SetPoint("LEFT", power.pmChip, "RIGHT", 8, 0)
 
-  local cab = panel(gov, "sunk", 18, 74, LEFT_W - 36, 4 * 20 + 16)
+  local cab = panel(gov, "sunk", 18, 74, LEFT_W - 36, 4 * 20 + 16) -- five posts, at 17 apart
   power.cab = {}
-  for i = 1, 4 do
+  for i = 1, 5 do
     local label = Kit:Label(cab, "kitTiny", "7A5719", 0.14, "")
-    label:SetPoint("TOPLEFT", cab, "TOPLEFT", 12, -(10 + (i - 1) * 20))
+    label:SetPoint("TOPLEFT", cab, "TOPLEFT", 12, -(10 + (i - 1) * 17))
     local name = Kit:Text(cab, "kitSmall")
-    name:SetPoint("TOPLEFT", cab, "TOPLEFT", 110, -(7 + (i - 1) * 20))
+    name:SetPoint("TOPLEFT", cab, "TOPLEFT", 110, -(7 + (i - 1) * 17))
     name:SetWidth(LEFT_W - 36 - 122)
     name:SetMaxLines(1)
     power.cab[i] = { label = label, name = name }

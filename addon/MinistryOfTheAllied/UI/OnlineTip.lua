@@ -138,7 +138,9 @@ function Tip:Refresh()
     for _, p in ipairs(s.people) do
       ni = ni + 1
       local n = name(ni)
-      n.fs:SetText(p.main and (p.name .. " (" .. p.main .. ")") or p.name)
+      local letters = MOTA.Honours and MOTA.Honours:Letters(p.name)
+      local shown = letters and (p.name .. " |cffC9A24A" .. letters .. "|r") or p.name
+      n.fs:SetText(p.main and (shown .. " (" .. p.main .. ")") or shown)
       local r, g, b = colorOf(p, skin.ACCENT)
       n.fs:SetTextColor(r, g, b)
       n.color = { r, g, b }
@@ -217,7 +219,9 @@ function Tip:Refresh()
       row = row + 1
       if row == COL_MAX and columns then row, col = 0, col + 1 end
     end
-    state.sections[#state.sections + 1] = { title = sec.head.fs:GetText(), rows = sec.rows, subcols = sec.nsub, count = #sec.entries }
+    local shown = {}
+    for i, n in ipairs(sec.entries) do shown[i] = n.fs:GetText() end
+    state.sections[#state.sections + 1] = { title = sec.head.fs:GetText(), rows = sec.rows, subcols = sec.nsub, count = #sec.entries, names = shown }
   end
 
   if columns then

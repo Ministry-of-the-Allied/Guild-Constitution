@@ -63,6 +63,7 @@ The Prime Minister appoints their own Cabinet upon taking office. Cabinet minist
 - Minister of War — leads raid organisation and PvP strategy
 - Minister of Trade — oversees the guild market and inter-guild commerce
 - Minister of Recruitment — manages citizen intake and regional assignment
+- Minister of Games — runs the guild's games, treasure hunts and lottery draws
 
 The Cabinet has no part in the High Judiciary. Its Justices are appointed by the Crown alone (Part VI), and the government appoints no minister of justice.
 
@@ -258,4 +259,4 @@ This Charter may be amended by the Crown at any time. Proposed amendments brough
 *Version 1.2 — 6 November 2026 — Part III §3.3: voting window shortened to 2 hours, by secret ballot*
 *Version 1.3 — 8 November 2026 — Agreed by both Kings: Part I §1.5 The Apolitical Crown; Part III §3.2 party donations of 50 silver into the guild bank on a public ledger, open leadership ballots, Deputy Leaders; Part III §3.6 Leadership Contests*
 
-*Version 1.4 (draft) — 8 November 2026 — Proposed by Duncan, to be agreed by both Kings: Part II §2.2 the Minister of Justice leaves the Cabinet; the Crown alone appoints the Justices; Part IV §4.3 the Crown keeps the Law Registry; Part V §5.1 and §5.3 votes of no confidence through the add-on, names seen only by the Crown, the Crown neither voting nor counted; Part VIII §8.1 to match*
+*Version 1.4 (draft) — 8 November 2026 — Proposed by Duncan, to be agreed by both Kings: Part II §2.2 the Minister of Justice leaves the Cabinet, and a Minister of Games joins it; the Crown alone appoints the Justices; Part IV §4.3 the Crown keeps the Law Registry; Part V §5.1 and §5.3 votes of no confidence through the add-on, names seen only by the Crown, the Crown neither voting nor counted; Part VIII §8.1 to match*

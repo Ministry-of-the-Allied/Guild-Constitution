@@ -65,6 +65,10 @@ local function list()
       text = A .. " v " .. B .. ", Old Town", button = { label = "Dismiss", style = "quiet" } } },
     { "Ring: champion", { seal = "ring", eyebrow = "The Ring", title = A .. " is champion!",
       text = "The Gladiator of Stormwind, by victory in Old Town.", button = { label = "Dismiss", style = "quiet" } } },
+    { "A game won", { seal = "official", eyebrow = "The Games", title = A .. " wins Round the Lake",
+      text = "Then " .. B .. ", then Mira. Well played, all.", button = { label = "Dismiss", style = "quiet" } } },
+    { "An honour conferred", { seal = "crown", eyebrow = "By royal decree", title = B .. ", Order of the Lion",
+      text = "Held the bridge at Southshore. Conferred by " .. A .. ", for valour in battle.", button = { label = "Dismiss", style = "quiet" } } },
   }
 end
 

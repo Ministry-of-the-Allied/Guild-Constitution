@@ -290,6 +290,10 @@ function Throne:Decrees(limit)
       e = { text = "|cff2A1F14" .. MOTA:Short(d.v) .. "|r appointed a Justice", hex = GEM.crown, page = PAGES.statute }
     elseif r.k == "contest.emergency" then
       e = { text = "An |cff2A1F14emergency contest|r moves polling day back", hex = GEM.fail, page = PAGES.parties }
+    elseif r.k == "honour.award" and MOTA.Honours and MOTA.Honours.ORDER[d.o] then
+      e = { text = "|cff2A1F14" .. MOTA:Short(d.v) .. "|r is made " .. MOTA.Honours.ORDER[d.o].title, hex = GEM.crown }
+    elseif r.k == "game.result" and type(d.places) == "table" and d.places[1] then
+      e = { text = "|cff2A1F14" .. MOTA:Short(d.places[1]) .. "|r wins " .. tostring(d.name), hex = GEM.ring }
     elseif r.k == "ring.result" and d.s == 7 and d.w then
       e = { text = "|cff2A1F14" .. MOTA:Short(d.w) .. "|r is champion of the Ring", hex = GEM.ring, page = PAGES.ring }
     end

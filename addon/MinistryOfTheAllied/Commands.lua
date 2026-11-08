@@ -343,6 +343,68 @@ add("justice", "[appoint <name>, remove <name>]", "the High Judiciary; the Crown
   if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
 end)
 
+add("games", "[result <title>: <first>, <second>, ...]", "the games log; the Crown and the Minister of Games record results", function(arg)
+  if not needGuild() then return end
+  local G = MOTA.Games
+  local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
+  if word == "result" then
+    local title, names = rest:match("^(.-):%s*(.+)$")
+    if not title then return MOTA:Print("Usage: /mota games result <title>: <first>, <second>, ... (start the title with hunt, hide, race or quiz to say what kind)") end
+    local kind, plain = title:match("^(%a+)%s+(.+)$")
+    if not (kind and G.KINDS[kind:lower()]) then kind, plain = "other", title else kind = kind:lower() end
+    local places = {}
+    for n in names:gmatch("[^,]+") do places[#places + 1] = strtrim(n) end
+    local rec, err = G:Record(kind, plain, places)
+    if err then MOTA:Print(err) elseif rec then MOTA:Print("Recorded.") end
+    return
+  end
+  local log = G:Log()
+  if #log == 0 then return MOTA:Print("No games recorded yet.") end
+  MOTA:Print("The games, newest first:")
+  for i, e in ipairs(log) do
+    if i > 10 then break end
+    MOTA:Print(G:Line(e))
+  end
+end)
+
+add("honour", "<name>, <order>, [citation] or remove <name>, <order>", "the Crown confers an order (crown, lion, quill or star)", function(arg)
+  if not needGuild() then return end
+  local H = MOTA.Honours
+  local remove = arg:match("^remove%s+(.+)$")
+  local parts = {}
+  for part in (remove or arg):gmatch("[^,]+") do parts[#parts + 1] = strtrim(part) end
+  if #parts < 2 then return MOTA:Print("Usage: /mota honour <name>, <order>, <citation>. The orders: " .. H:OrderNames() .. ".") end
+  local rec, err
+  if remove then rec, err = H:Revoke(parts[1], parts[2])
+  else rec, err = H:Award(parts[1], parts[2], table.concat(parts, ", ", 3)) end
+  if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
+end)
+
+add("honours", "[name]", "the Roll of Honour, or one player's honours", function(arg)
+  if not needGuild() then return end
+  local H = MOTA.Honours
+  local function line(h)
+    return h.title .. (h.n > 1 and (" ×" .. h.n) or "") .. " · " .. date("%d %b %Y", h.t) .. (h.why and (" · " .. h.why) or "")
+  end
+  if arg ~= "" then
+    local who = MOTA.District:Resolve(arg)
+    if not who then return MOTA:Print("There's nobody called " .. arg .. " in the guild.") end
+    local list = H:Of(who)
+    if #list == 0 then return MOTA:Print(MOTA:Short(who), "holds no honours yet.") end
+    MOTA:Print(MOTA:Styled(who) .. ":")
+    for _, h in ipairs(list) do MOTA:Print(line(h)) end
+    return
+  end
+  local roll = H:Roll()
+  if #roll == 0 then return MOTA:Print("The Roll of Honour is empty so far.") end
+  MOTA:Print("The Roll of Honour:")
+  for _, e in ipairs(roll) do
+    local titles = {}
+    for _, h in ipairs(e.list) do titles[#titles + 1] = h.title .. (h.n > 1 and (" ×" .. h.n) or "") end
+    MOTA:Print(MOTA:Styled(e.name) .. " · " .. table.concat(titles, ", "))
+  end
+end)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)

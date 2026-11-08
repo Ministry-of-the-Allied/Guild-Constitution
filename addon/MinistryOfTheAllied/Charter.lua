@@ -37,6 +37,7 @@ MOTA.Charter = {
   { "body", "•  Minister of War — leads raid organisation and PvP strategy" },
   { "body", "•  Minister of Trade — oversees the guild market and inter-guild commerce" },
   { "body", "•  Minister of Recruitment — manages citizen intake and regional assignment" },
+  { "body", "•  Minister of Games — runs the guild's games, treasure hunts and lottery draws" },
   { "body", "The Cabinet has no part in the High Judiciary. Its Justices are appointed by the Crown alone (Part VI), and the government appoints no minister of justice." },
   { "body", "Cabinet ministers serve at the pleasure of the Prime Minister and may be dismissed and replaced at any time." },
   { "section", "2.3 Term Length" },
@@ -137,5 +138,5 @@ MOTA.Charter = {
   { "note", "Version 1.1 — November 2026 — Added Part III §3.2 Party Membership" },
   { "note", "Version 1.2 — 6 November 2026 — Part III §3.3: voting window shortened to 2 hours, by secret ballot" },
   { "note", "Version 1.3 — 8 November 2026 — Agreed by both Kings: Part I §1.5 The Apolitical Crown; Part III §3.2 party donations of 50 silver into the guild bank on a public ledger, open leadership ballots, Deputy Leaders; Part III §3.6 Leadership Contests" },
-  { "note", "Version 1.4 (draft) — 8 November 2026 — Proposed by Duncan, to be agreed by both Kings: Part II §2.2 the Minister of Justice leaves the Cabinet; the Crown alone appoints the Justices; Part IV §4.3 the Crown keeps the Law Registry; Part V §5.1 and §5.3 votes of no confidence through the add-on; Part VIII §8.1 to match" },
+  { "note", "Version 1.4 (draft) — 8 November 2026 — Proposed by Duncan, to be agreed by both Kings: Part II §2.2 the Minister of Justice leaves the Cabinet, and a Minister of Games joins it; the Crown alone appoints the Justices; Part IV §4.3 the Crown keeps the Law Registry; Part V §5.1 and §5.3 votes of no confidence through the add-on; Part VIII §8.1 to match" },
 }

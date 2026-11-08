@@ -72,6 +72,7 @@ function geterrorhandler() return function(err) py_error(tostring(err)) end end
 
 -- string and table helpers the game adds
 function strjoin(sep, ...) return table.concat({ ... }, sep) end
+function strtrim(s) return (tostring(s):gsub("^%s+", ""):gsub("%s+$", "")) end
 function tostringall(...)
   local t = { ... }
   local n = select("#", ...)
