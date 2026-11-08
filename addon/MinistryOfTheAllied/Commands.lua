@@ -85,6 +85,15 @@ add("who", "", "guild members running the add-on", function()
   end
 end)
 
+add("missing", "", "guild members without the add-on, newest to the guild first, to reach out to", function()
+  if not needGuild() then return end
+  MOTA:RequestRoster()
+  local lines = MOTA.Outreach:Lines()
+  if #lines == 0 then return MOTA:Print("Everyone in the guild has the add-on.") end
+  MOTA:Print(#lines, #lines == 1 and "member doesn't" or "members don't", "have the add-on yet:")
+  for _, line in ipairs(lines) do MOTA:Print(line) end
+end)
+
 add("test", "<text>", "write a test record and send it to the guild", function(text)
   if not needGuild() then return end
   if text == "" then text = "Hear ye!" end

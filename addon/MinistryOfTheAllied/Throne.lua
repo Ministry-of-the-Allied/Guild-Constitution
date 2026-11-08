@@ -228,6 +228,10 @@ function Throne:Duties()
     if El:Pending() and cur and GetServerTime() >= Co:PollAt() and not open then
       add("Polling day: open the polls for the " .. Co:Kind(), PAGES.ballot)
     end
+    local missing = MOTA.Outreach and #MOTA.Outreach:Missing() or 0
+    if missing > 0 then
+      add(missing .. (missing == 1 and " member doesn't" or " members don't") .. " have the add-on (/mota missing)", nil)
+    end
     if MOTA.Judiciary and #MOTA.Judiciary:Justices() < MOTA.Judiciary.SEATS then
       add((MOTA.Judiciary.SEATS - #MOTA.Judiciary:Justices()) .. " seat(s) on the High Judiciary to fill (/mota justice)", PAGES.statute)
     end

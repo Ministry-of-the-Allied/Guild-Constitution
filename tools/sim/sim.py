@@ -1754,10 +1754,16 @@ check("Districts: nobody can place someone else", DE(pk, 'return M:DistrictOf("M
 DE(pk, 'D:Assign("Bram", "%s") return 1' % other)
 run(1)
 check("Districts: the Crown can still move a citizen", DE(placed[3], 'return M:DistrictOf("Bram").code') == other)
+check("Outreach: members without the add-on are listed for the Crown", "Elowen" in [DE(pk, 'return MinistryOfTheAllied.Outreach:Missing()[%d].name' % i) for i in range(1, DE(pk, 'return #MinistryOfTheAllied.Outreach:Missing()') + 1)])
+check("Outreach: those with it aren't", DE(pk, 'return MinistryOfTheAllied.Outreach:HasAddon("Bram")') is True)
+pk.slash("missing")
+check("Outreach: /mota missing lists them", pk.said(r"Elowen · first seen"))
+check("Outreach: it's on the Crown's duties", DE(pk, 'for _, d in ipairs(MinistryOfTheAllied.Throne:Duties()) do if d.text:find("have the add%-on") then return true end end return false') is True)
 late_p = Client("Elowen", place=True)
 clients.append(late_p)
 run(60)
 check("Districts: a newcomer goes to a smallest district", DE(pk, 'return M:DistrictOf("Elowen") ~= nil') is True)
+check("Outreach: once their add-on is in use, they leave the list", DE(pk, 'return MinistryOfTheAllied.Outreach:HasAddon("Elowen")') is True)
 
 print("== 15. the election cycle")
 clients[:] = []
