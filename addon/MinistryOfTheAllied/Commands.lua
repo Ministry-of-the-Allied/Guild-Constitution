@@ -224,13 +224,13 @@ add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your o
   end
 end, isCrown)
 
--- Districts: the Crown places citizens, everyone can read (the page comes in D3).
+-- Districts: citizens place themselves on first use, the Crown moves them; everyone can read (the page comes in D3).
 add("district", "[<name> <code> | rep <code> [name]]", "districts: yours and their sizes; Crown: place a citizen (OLD ARC IRON CATH HARB), or name a Rep.", function(arg)
   if not needGuild() then return end
   local D = MOTA.District
   if arg == "" then
     local mine = D:Of(MOTA.me)
-    MOTA:Print("Your district:", mine and mine.name or "none yet (the Crown places citizens)")
+    MOTA:Print("Your district:", mine and mine.name or "none yet (your add-on places you soon after you first log in)")
     local sizes, total = D:Sizes()
     for _, d in ipairs(MOTA.CONST.DISTRICTS) do
       local rep = D:Rep(d.code)
@@ -240,7 +240,7 @@ add("district", "[<name> <code> | rep <code> [name]]", "districts: yours and the
     MOTA:Print(total, "placed.")
     return
   end
-  if not isCrown() then return MOTA:Print("Only the Crown places citizens in districts. /mota district shows the districts.") end
+  if not isCrown() then return MOTA:Print("Only the Crown moves citizens between districts. /mota district shows the districts.") end
   local rep = arg:match("^rep%s+(.*)$")
   if rep then
     local word, who = rep:match("^(%S+)%s*(.-)$")

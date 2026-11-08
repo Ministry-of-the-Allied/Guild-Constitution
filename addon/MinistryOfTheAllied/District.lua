@@ -1,9 +1,14 @@
 -- Ministry of the Allied: the districts (ADDON_SPEC.md 10, CONSTITUENCIES.md).
--- Every citizen belongs to one of five districts, placed there by the Crown
--- (Max's answer A5). Worked out from the book of records, like the party roll,
--- so everyone holding the same records sees the same districts.
+-- Every citizen belongs to one of five districts. Worked out from the book of
+-- records, like the party roll, so everyone holding the same records sees the
+-- same districts.
 --
---   citizen.district  Crown  { who, d }   puts a citizen in district d
+-- Placing (Duncan, 2026-11-08): a citizen's own add-on places them the first
+-- time they log in with it, in the smallest district (a random one of those
+-- tied), so the districts stay within a few of each other. The Crown can still
+-- move anyone.
+--
+--   citizen.district  Crown, or the citizen once  { who, d }   puts a citizen in district d
 --   district.rep      Crown  { d, who }   names a district's Representative
 --                                         (who = "" leaves the seat vacant)
 --
@@ -23,7 +28,10 @@ local function str(v, max) return type(v) == "string" and v ~= "" and #v <= max 
 
 local rules = MOTA.Book.rules
 rules["citizen.district"] = function(a, rec)
-  return MOTA:IsCrown(a) and rec ~= nil and str(rec.d.who, 80) and byCode[rec.d.d] ~= nil
+  if not (rec ~= nil and str(rec.d.who, 80) and byCode[rec.d.d] ~= nil) then return false end
+  if MOTA:IsCrown(a) then return true end
+  -- Placing yourself: only yourself, and the Crown belongs to no district.
+  return rec.d.who == a
 end
 rules["district.rep"] = function(a, rec)
   return MOTA:IsCrown(a) and rec ~= nil and byCode[rec.d.d] ~= nil
@@ -39,7 +47,8 @@ local function build()
     local r = list[i]
     local d = r.d or {}
     if r.k == "citizen.district" and byCode[d.d] and type(d.who) == "string" then
-      out.of[d.who] = d.d
+      -- A citizen's own placement counts only the first time; a move is the Crown's.
+      if MOTA:IsCrown(r.a) or (r.a == d.who and not out.of[d.who]) then out.of[d.who] = d.d end
     elseif r.k == "district.rep" and byCode[d.d] and type(d.who) == "string" then
       out.rep[d.d] = d.who ~= "" and d.who or nil
     end
@@ -118,9 +127,9 @@ function District:Code(word)
   return found
 end
 
--- The Crown places a citizen. Returns the record, or nil and why not.
+-- The Crown places or moves a citizen. Returns the record, or nil and why not.
 function District:Assign(name, code)
-  if not MOTA.me or not MOTA:IsCrown(MOTA.me) then return nil, "Only the Crown places citizens in districts." end
+  if not MOTA.me or not MOTA:IsCrown(MOTA.me) then return nil, "Only the Crown moves citizens between districts." end
   if not byCode[code] then return nil, "There is no district with that code." end
   local who = self:Resolve(name)
   if not who then return nil, "That name isn't on the guild roster." end
@@ -142,10 +151,41 @@ function District:SetRep(code, name)
   return MOTA.Book:Write("district.rep", { d = code, who = who })
 end
 
+-- The smallest district, a random one if several are tied.
+function District:Smallest()
+  local sizes = self:Sizes()
+  local low, best = math.huge, {}
+  for _, d in ipairs(MOTA.CONST.DISTRICTS) do
+    local n = sizes[d.code]
+    if n < low then low, best = n, { d.code } elseif n == low then best[#best + 1] = d.code end
+  end
+  return best[math.random(#best)]
+end
+
+-- My own add-on places me, the first time, once it has caught up with the guild.
+function District:PlaceMe()
+  local me = MOTA.me
+  if not me or not MOTA.guild or MOTA:IsCrown(me) or state().of[me] then return nil end
+  if not MOTA.roster[me] then return nil end
+  local code = self:Smallest()
+  local rec = MOTA.Book:Write("citizen.district", { who = me, d = code })
+  if rec then
+    local d = byCode[code]
+    MOTA:Print("Welcome, citizen. You live in " .. d.name .. ". Its council meets at the " .. d.meet .. ".")
+  end
+  return rec
+end
+
 local function changed()
   cache = nil
   MOTA:Fire("DISTRICT_CHANGED")
 end
+
+-- After the first catch-up, so the sizes are the guild's, not a fresh copy's.
+District.PLACE_DELAY = 45
+MOTA:Listen("GUILD_READY", function()
+  C_Timer.After(District.PLACE_DELAY, function() District:PlaceMe() end)
+end)
 
 MOTA:Listen("GUILD_READY", changed)
 MOTA:Listen("ROSTER_UPDATED", changed)

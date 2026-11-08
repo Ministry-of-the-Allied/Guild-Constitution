@@ -5,7 +5,7 @@
 --                    its facts on a plate, and "Set waypoint"
 --   Regional Council one card per district with its Representative
 --   Citizen Roll     every guild member: district, party, office, last seen;
---                    the Crown places citizens from here
+--                    the Crown moves citizens from here (they place themselves on first use)
 -- District colours are the districts' own (they don't follow the skin); the
 -- ribbons, headings and the picked legend row follow the accent.
 

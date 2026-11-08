@@ -58,7 +58,7 @@ class Client:
     # and on add-on message senders. Forever writes one that differs from one
     # player's screen to another's ("CAMWOWEU5Realm7PvE" on one, "...Realm1PvE"
     # on the next), and refuses a whisper addressed with it.
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None, place=False):
         self.name = name
         self.full = name + "-" + REALM
         self.tag = tag or REALM
@@ -95,6 +95,8 @@ class Client:
         g.mock_fire("ADDON_LOADED", "SomeOtherAddon")
         g.mock_fire("ADDON_LOADED", "MinistryOfTheAllied")
         ns.db.settings.voice = voice  # the narration has its own checks (section 12)
+        if not place:  # placing yourself in a district writes a record; it has its own checks (section 100b)
+            ns.District.PLACE_DELAY = 10 ** 9
         g.mock_fire("PLAYER_LOGIN")
         g.mock_fire("PLAYER_ENTERING_WORLD", True, False)
 
@@ -1547,7 +1549,7 @@ run(2)
 check("District: the Crown places a citizen and both see it",
       Q(dk, 'return M:DistrictOf("Bram").code') == "ARC" and Q(db, 'return M:DistrictOf("Bram").code') == "ARC")
 db.slash("district Mira HARB")
-check("District: a citizen can't place anyone", db.said(r"Only the Crown places"))
+check("District: a citizen can't place anyone", db.said(r"Only the Crown moves citizens"))
 Q(db, 'M.Book:Write("citizen.district", { who = "Mira", d = "HARB" })')
 run(2)
 check("District: a forged record from a citizen is refused by others", Q(dk, 'return M:DistrictOf("Mira")') is None)
@@ -1721,6 +1723,42 @@ for c in (max_, bram):
                 missing.append(path)
 check("Every Ballot Hall texture exists", not missing)
 
+print("== 100b. citizens place themselves in districts")
+clients[:] = []
+pk = Client("Max", place=True)
+clients.append(pk)
+run(2)
+placed = [pk]
+for n in ("Bram", "Mira", "Kael", "Tobin", "Wren"):
+    c = Client(n, place=True)
+    clients.append(c)
+    placed.append(c)
+    run(3)
+run(50)
+DQ = 'local M, D = MinistryOfTheAllied, MinistryOfTheAllied.District '
+def DE(c, code):
+    return c.lua.eval("(function() " + DQ + code + " end)()")
+check("Districts: each citizen's add-on places them on first use", all(DE(pk, 'return M:DistrictOf("%s") ~= nil' % c.name) for c in placed[1:]))
+check("Districts: the Crown isn't placed", DE(pk, 'return M:DistrictOf("Max") == nil') is True)
+sizes = [DE(pk, 'return D:Size("%s")' % code) for code in ("OLD", "ARC", "IRON", "CATH", "HARB")]
+check("Districts: the sizes stay close (within 5; here within 1)", max(sizes) - min(sizes) <= 1 and sum(sizes) == 5)
+check("Districts: they told the citizen where they live", placed[1].said(r"You live in The .*council meets"))
+first = DE(placed[1], 'return M:DistrictOf("Bram").code')
+other = "OLD" if first != "OLD" else "ARC"
+DE(placed[1], 'M.Book:Write("citizen.district", { who = "Bram", d = "%s" }) return 1' % other)
+run(1)
+check("Districts: placing yourself again doesn't move you", DE(pk, 'return M:DistrictOf("Bram").code') == first)
+DE(placed[1], 'M.Book:Write("citizen.district", { who = "Mira", d = "%s" }) return 1' % other)
+run(1)
+check("Districts: nobody can place someone else", DE(pk, 'return M:DistrictOf("Mira").code') != other or DE(placed[2], 'return M:DistrictOf("Mira").code') != other)
+DE(pk, 'D:Assign("Bram", "%s") return 1' % other)
+run(1)
+check("Districts: the Crown can still move a citizen", DE(placed[3], 'return M:DistrictOf("Bram").code') == other)
+late_p = Client("Elowen", place=True)
+clients.append(late_p)
+run(60)
+check("Districts: a newcomer goes to a smallest district", DE(pk, 'return M:DistrictOf("Elowen") ~= nil') is True)
+
 print("== 15. the election cycle")
 clients[:] = []
 ek = Client("Max")
@@ -1735,6 +1773,19 @@ check("Election: active players are those whose add-on has been heard", E(ek, 'r
 check("Election: no first election before the gates are met", E(ek, 'local _, e = El:BeginFirst() return e ~= nil') is True)
 ek.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(4); local P = MinistryOfTheAllied.PartiesPage; P:Select("ch"); P:Refresh()')
 check("Election: the Crown's desk shows the gates", E(ek, 'return MinistryOfTheAllied.PartiesPage ~= nil') is True)
+TH = 'local T = MinistryOfTheAllied.Throne '
+def throne_draws(c, label):
+    errs = len(errors)
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(1); MinistryOfTheAllied.UI.window:Show()')
+    for skin in ("crown", "silverhand", "exchange", "ministry"):
+        c.slash("skin " + skin)
+        c.lua.execute('MinistryOfTheAllied.ThronePage:Refresh()')
+    drawn = c.lua.eval("(function() local P = MinistryOfTheAllied.ThronePage return P.root and P.root.shown and P.head.eyebrow.text ~= '' and P.head.plateText.text ~= '' end)()")
+    check("Throne Room: draws in all four skins, " + label, len(errors) == errs and drawn is True)
+check("Throne Room: recruiting, before the first election", E(eb, TH + 'return T:Banner().eyebrow').startswith("Recruiting"))
+check("Throne Room: the gates show in Who holds power", E(eb, TH + 'local p = T:Power() return p.pm == nil and p.gates.players') == 4)
+check("Throne Room: nothing is on yet", E(eb, TH + 'return #T:Live()') == 0)
+throne_draws(eb, "recruiting")
 E(ek, 'El.GATE_PLAYERS = 4; El.GATE_PARTY = 1 return 1')  # a small guild, for the test
 for c, key in ((eb, "sh"), (em, "ex")):
     E(c, 'M.Book:Write("party.join", { p = "%s" }) return 1' % key)
@@ -1745,6 +1796,11 @@ check("Election: the gates open once each party has its members", E(ek, 'return 
 check("Election: a citizen can't begin it", E(eb, 'local _, e = El:BeginFirst() return e ~= nil') is True)
 check("Election: the Crown begins the first election", E(ek, 'return El:BeginFirst() ~= nil') is True)
 run(1)
+check("Throne Room: the election shows in What's on", E(eb, TH + 'for _, e in ipairs(T:Live()) do if e.key == "election" then return e.title end end') == "General Election")
+check("Throne Room: the banner counts down to polling day", E(eb, TH + 'return T:Banner().plateText') == "In 28 days")
+check("Throne Room: the Crown's duties include opening the contests", E(ek, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("leadership contests") then return true end end return false') is True)
+check("Throne Room: a citizen has none of the Crown's duties", E(eb, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("leadership contests") then return false end end return true') is True)
+throne_draws(ek, "an election under way")
 check("Election: polling day is 28 days on, for everyone", E(em, 'return math.floor((Co:PollAt() - GetServerTime()) / 86400 + 0.5)') == 28 and E(em, 'return Co:Kind()') == "General Election")
 check("Election: it can only begin once", E(ek, 'local _, e = El:BeginFirst() return e ~= nil') is True)
 check("Election: the leadership contests come first", E(em, 'return Co:Current().kind') == "general")
@@ -1764,6 +1820,13 @@ eb.lua.execute('MinistryOfTheAllied.Elect.Remind()')
 check("Election: the Prime Minister is reminded to name the Cabinet", eb.said(r"Name your Cabinet: \d+ hours left"))
 em.lua.execute('MinistryOfTheAllied.Elect.Remind()')
 check("Election: the Leader of the Opposition, the shadow cabinet", em.said(r"Name your shadow cabinet"))
+check("Throne Room: the First Government, day 1", E(eb, TH + 'return T:Banner().eyebrow').startswith("The First Government · Day 1 of"))
+check("Throne Room: the Prime Minister and four Cabinet posts", E(ekk, TH + 'local p = T:Power() return p.pm.name == "Bram" and #p.cabinet == 4 and p.cabinet[1].title == "Treasury"') is True)
+check("Throne Room: the Leader of the Opposition", E(ekk, TH + 'local p = T:Power() return p.opposition.name == "Mira" and p.opposition.p == "ex"') is True)
+check("Throne Room: the 48 hours show in What's on", E(ekk, TH + 'for _, e in ipairs(T:Live()) do if e.key == "bench" then return true end end return false') is True)
+check("Throne Room: the Prime Minister's duty to name the Cabinet", E(eb, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Name the Cabinet") then return true end end return false') is True)
+check("Throne Room: the result is among the decrees", E(ekk, TH + 'for _, d in ipairs(T:Decrees(5)) do if d.text:find("wins") then return true end end return false') is True)
+throne_draws(eb, "governing")
 check("Election: Justice isn't a party post: the Crown appoints it", E(eb, 'local _, e = M.Bench:Name("justice", "Bram") return #M.Bench.POSTS == 5 and e ~= nil') is True)
 check("Election: no Snap Election from a citizen", E(eb, 'local _, e = El:CallSnap() return e ~= nil') is True)
 check("Election: the Crown dissolves the government", E(ek, 'return El:CallSnap() ~= nil') is True)
@@ -1795,6 +1858,8 @@ check("No confidence: only the King's copy holds the name", E(ek, 'for k, t in p
       and E(ekk, 'return next(M.db.ncTally or {}) == nil') is True)
 check("No confidence: no second vote", E(eb, NC + 'local _, e = NC:Vote() return e ~= nil') is True)
 check("No confidence: the Crown's desk shows it", "No confidence: 1 of" in E(ek, NC + 'return NC:Line()'))
+check("Throne Room: a no-confidence vote shows in What's on, live", E(ekk, TH + 'for _, e in ipairs(T:Live()) do if e.key == "nc" then return e.live end end') is True)
+throne_draws(ekk, "with a no-confidence vote")
 voters = [c for c in (ekk, em) ]
 for c in voters[:need - 1]:
     E(c, NC + 'NC:Vote() return 1')
