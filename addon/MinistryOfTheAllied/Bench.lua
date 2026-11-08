@@ -127,6 +127,7 @@ function Bench:Name(post, name)
   if name then
     if name == MOTA.me then return nil, "You lead the party already." end
     if MOTA.Party:Of(name) ~= p then return nil, MOTA:Short(name) .. " isn't a member of your party." end
+    if MOTA.Judiciary and MOTA.Judiciary:IsJustice(name) then return nil, MOTA:Short(name) .. " sits as a Justice, and may hold no other office." end
     if self:Holder(p, post) == name then return nil, MOTA:Short(name) .. " already holds that post." end
   elseif not self:Holder(p, post) then
     return nil, "That post is already empty."

@@ -555,6 +555,8 @@ local function refreshCrown()
     line = ("Recruiting: %d of %d active players with the add-on. Silverhand %d of %d members, Exchange %d of %d."):format(
       g.players, El.GATE_PLAYERS, g.sh, El.GATE_PARTY, g.ex, El.GATE_PARTY)
   end
+  local nc = MOTA.Confidence and MOTA.Confidence:Line()
+  if nc then line = line .. " " .. nc end
   crownView.electionLine:SetText(line)
   local canCall = (not El:Begun() and El:Gates().ok) or (gov ~= nil and not El:Underway())
   crownView.callBtn:SetLabel(gov and "Dissolve: Snap Election" or "Begin the first election")

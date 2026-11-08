@@ -1781,6 +1781,67 @@ ek.lua.execute('MinistryOfTheAllied.PartiesPage:Refresh()')
 eb.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(4); MinistryOfTheAllied.PartiesPage:Refresh()')
 check("Election: the pages show it without errors", True)
 
+print("== 15b. the Vote of No Confidence")
+NC = 'local NC = MinistryOfTheAllied.Confidence '
+need = E(eb, NC + 'return NC:Need()')
+check("No confidence: the need is 40% of active citizens, without the Crown", need == -(-E(eb, NC + 'return NC:Electorate()') * 2 // 5) and need >= 2)
+check("No confidence: the Crown can't vote", E(ek, NC + 'local _, e = NC:Vote() return e ~= nil') is True)
+check("No confidence: a citizen's vote opens a motion", E(eb, NC + 'return NC:Vote() == true') is True)
+run(8)
+check("No confidence: the motion is open for everyone", E(ekk, NC + 'return NC:IsOpen()') is True)
+check("No confidence: the count is public", E(ekk, NC + 'return NC:Motion().n') == 1)
+check("No confidence: the voter has a King's receipt", E(eb, NC + 'local v = NC:MyVote() return v ~= nil and v.delivered == true') is True)
+check("No confidence: only the King's copy holds the name", E(ek, 'for k, t in pairs(M.db.ncTally or {}) do if t.Bram then return true end end return false') is True
+      and E(ekk, 'return next(M.db.ncTally or {}) == nil') is True)
+check("No confidence: no second vote", E(eb, NC + 'local _, e = NC:Vote() return e ~= nil') is True)
+check("No confidence: the Crown's desk shows it", "No confidence: 1 of" in E(ek, NC + 'return NC:Line()'))
+voters = [c for c in (ekk, em) ]
+for c in voters[:need - 1]:
+    E(c, NC + 'NC:Vote() return 1')
+    run(8)
+check("No confidence: reaching the threshold brings the government down", E(ekk, NC + 'local m = NC:Motion() return m.result ~= nil and m.result.passed') is True)
+check("No confidence: a Snap Election follows, 14 days on", E(ekk, 'return Co:Kind()') == "Snap Election" and E(ekk, 'return math.floor((Co:PollAt() - GetServerTime()) / 86400 + 0.5)') == 14)
+check("No confidence: none while an election is under way", E(eb, NC + 'local _, e = NC:Vote() return e ~= nil') is True)
+E(ek, ballot % (902, "Snap Election", "snap", 3, 1, 1))
+run(12)
+check("No confidence: the snap's winner governs", E(eb, 'return El:Government().name') == "Bram")
+for c in (ek, eb, em, ekk):
+    c.lua.execute('MinistryOfTheAllied.Confidence.WINDOW = 5')  # a short week, for the test
+E(eb, NC + 'NC:Vote() return 1')
+run(8)
+check("No confidence: a new motion after a passed one", E(em, NC + 'return NC:Motion().seq') == 2)
+run(4)
+ek.lua.execute('MinistryOfTheAllied.Confidence.CheckClose()')
+run(10)
+check("No confidence: the week runs out and it fails", E(em, NC + 'local m = NC:Motion() return m.result ~= nil and m.result.passed == false') is True)
+check("No confidence: a 30-day cooling period follows", E(ekk, NC + 'local _, e = NC:Vote() return e') is not None and "Charter 5.2" in E(ekk, NC + 'local _, e = NC:Vote() return e'))
+check("No confidence: the government stays", E(em, 'return El:Government().name') == "Bram")
+for c in (ek, eb, em, ekk):
+    c.lua.execute('MinistryOfTheAllied.Confidence.WINDOW = 7 * 86400')
+
+print("== 15c. the High Judiciary")
+J = 'local J = MinistryOfTheAllied.Judiciary '
+check("Judiciary: a citizen can't appoint", E(eb, J + 'local _, e = J:Appoint("Elowen") return e ~= nil') is True)
+check("Judiciary: the Crown can't sit", E(ek, J + 'local _, e = J:Appoint("Aldric") return e ~= nil') is True)
+check("Judiciary: an office holder can't sit", "another office" in E(ek, J + 'local _, e = J:Appoint("Bram") return e'))
+for n in ("Elowen", "Kael", "Tobin"):
+    E(ek, J + 'J:Appoint("%s") return 1' % n)
+    run(1)
+check("Judiciary: three Justices, seen by everyone", E(em, J + 'return #J:Justices()') == 3 and E(em, J + 'return J:IsJustice("Kael")') is True)
+check("Judiciary: three seats only", E(ek, J + 'local _, e = J:Appoint("Wren") return e ~= nil') is True)
+check("Judiciary: the term is six months", 180 <= E(em, J + 'local s = J:Justices()[1] return math.floor((s.ends - s.at) / 86400)') <= 185)
+E(ek, J + 'J:Remove("Tobin") return 1')
+run(1)
+check("Judiciary: the Crown can remove a Justice", E(em, J + 'return J:IsJustice("Tobin")') is False and E(em, J + 'return #J:Justices()') == 2)
+E(ekk, 'M.Book:Write("party.join", { p = "sh" }) return 1')
+run(1)
+E(ek, 'M.Book:Write("party.admit", { v = "Kael", p = "sh" }) return 1')
+run(1)
+check("Judiciary: a Justice can't be named to the front bench", "Justice" in E(eb, 'local _, e = M.Bench:Name("war", "Kael") return e'))
+check("Judiciary: the Court page lists them", E(em, J + 'return J:Line()') == "The High Judiciary: Elowen and Kael.")
+em.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(3); MinistryOfTheAllied.StatutesPage:Select("court")')
+check("Judiciary: the Court view shows without errors", True)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

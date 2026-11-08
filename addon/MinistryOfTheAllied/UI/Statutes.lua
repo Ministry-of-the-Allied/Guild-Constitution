@@ -458,6 +458,7 @@ local function refreshCourt(v)
     end
   end
   v.none:SetShown(#list == 0)
+  if MOTA.Judiciary then v.none.line:SetText("The High Judiciary's rulings are published here. " .. MOTA.Judiciary:Line()) end
   local counts = ladder()
   for i, r in ipairs(v.rungs) do r.n:SetText(tostring(counts[i] or 0)) end
   return #list

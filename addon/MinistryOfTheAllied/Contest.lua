@@ -329,6 +329,7 @@ function Contest:Stand(on, off, prop)
   if self:Stage(p) ~= "standing" then return nil, "Standing isn't open." end
   local ok, why = self:Eligible(MOTA.me, p)
   if not ok then return nil, why end
+  if MOTA.Judiciary and MOTA.Judiciary:IsJustice(MOTA.me) then return nil, "A Justice may hold no other office, so can't stand." end
   if cur.parties[p].cands[MOTA.me] then return nil, "You're already standing." end
   return Book:Write("contest.stand", { id = cur.id, p = p, on = (on or ""):sub(1, 120), off = (off or ""):sub(1, 120), prop = (prop or ""):sub(1, 120) })
 end

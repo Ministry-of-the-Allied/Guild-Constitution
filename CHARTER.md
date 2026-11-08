@@ -63,7 +63,8 @@ The Prime Minister appoints their own Cabinet upon taking office. Cabinet minist
 - Minister of War — leads raid organisation and PvP strategy
 - Minister of Trade — oversees the guild market and inter-guild commerce
 - Minister of Recruitment — manages citizen intake and regional assignment
-- Minister of Justice — liaises with the High Judiciary on matters of law enforcement
+
+The Cabinet has no part in the High Judiciary. Its Justices are appointed by the Crown alone (Part VI), and the government appoints no minister of justice.
 
 Cabinet ministers serve at the pleasure of the Prime Minister and may be dismissed and replaced at any time.
 
@@ -153,7 +154,7 @@ This ensures that no government inherits permanent policy it did not choose. The
 
 ### 4.3 The Law Registry
 
-All active laws, their dates of passage, their authors, and their expiry dates are recorded in the Law Registry. The Law Registry is a public document maintained by the Minister of Justice and published to the guild repository.
+All active laws, their dates of passage, their authors, and their expiry dates are recorded in the Law Registry. The Law Registry is a public document maintained by the Crown and published to the guild repository.
 
 ---
 
@@ -163,7 +164,7 @@ All active laws, their dates of passage, their authors, and their expiry dates a
 
 Citizens may trigger a Snap Election through a Vote of No Confidence in the sitting government. To do so:
 
-- Citizens submit their vote of no confidence by in-game mail addressed to the Crown
+- Citizens submit their vote of no confidence to the Crown, by in-game mail or through the guild's add-on. Only the Crown sees who voted; the count is public
 - Votes must state clearly that they constitute a Vote of No Confidence in the current government
 - If the number of submitted votes reaches or exceeds **40% of the active citizen population** within a seven-day window, the threshold is met
 - Upon threshold being met, the Crown announces the result and triggers a Snap Election
@@ -174,7 +175,7 @@ Following a failed Vote of No Confidence — one that does not reach the thresho
 
 ### 5.3 Active Citizen Population
 
-For the purposes of calculating the threshold, the active citizen population is defined as all citizens who have logged in within the preceding thirty days. The Crown maintains this count and publishes it at the start of each month.
+For the purposes of calculating the threshold, the active citizen population is defined as all citizens who have logged in within the preceding thirty days. The Crown stands apart (1.5): monarchs do not vote in a Vote of No Confidence and are not counted in the population. The Crown maintains this count and publishes it at the start of each month.
 
 ---
 
@@ -222,7 +223,7 @@ A citizen may appeal a ruling to the Crown within 48 hours of its issue. The Cro
 
 ### 8.1 Citizens
 
-All guild members are citizens of the Ministry of the Allied and are entitled to vote in General Elections and Votes of No Confidence.
+All guild members are citizens of the Ministry of the Allied and are entitled to vote in General Elections. All but the Crown may vote in Votes of No Confidence (5.3).
 
 ### 8.2 Regional Districts
 
@@ -256,3 +257,5 @@ This Charter may be amended by the Crown at any time. Proposed amendments brough
 *Version 1.1 — November 2026 — Added Part III §3.2 Party Membership*
 *Version 1.2 — 6 November 2026 — Part III §3.3: voting window shortened to 2 hours, by secret ballot*
 *Version 1.3 — 8 November 2026 — Agreed by both Kings: Part I §1.5 The Apolitical Crown; Part III §3.2 party donations of 50 silver into the guild bank on a public ledger, open leadership ballots, Deputy Leaders; Part III §3.6 Leadership Contests*
+
+*Version 1.4 (draft) — 8 November 2026 — Proposed by Duncan, to be agreed by both Kings: Part II §2.2 the Minister of Justice leaves the Cabinet; the Crown alone appoints the Justices; Part IV §4.3 the Crown keeps the Law Registry; Part V §5.1 and §5.3 votes of no confidence through the add-on, names seen only by the Crown, the Crown neither voting nor counted; Part VIII §8.1 to match*

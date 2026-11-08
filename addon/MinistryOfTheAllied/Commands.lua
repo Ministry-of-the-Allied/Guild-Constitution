@@ -297,6 +297,30 @@ add("contest", "[advance, ratify sh, declare sh <name>, emergency sh]", "Crown: 
   if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
 end, isCrown)
 
+add("noconfidence", "[yes]", "where a Vote of No Confidence stands, or cast yours with yes", function(arg)
+  local C = MOTA.Confidence
+  if arg == "yes" then
+    local ok, err = C:Vote()
+    if err then return MOTA:Print(err) end
+    return MOTA:Print("Your vote of no confidence is cast. Only the Kings see who voted.")
+  end
+  MOTA:Print(C:Line() or (C:Blocked() or "No vote is open. /mota noconfidence yes opens one, for 7 days."))
+end)
+
+add("justice", "[appoint <name>, remove <name>]", "the High Judiciary; the Crown appoints the three Justices", function(arg)
+  local J = MOTA.Judiciary
+  local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
+  local rec, err
+  if word == "appoint" then rec, err = J:Appoint(rest)
+  elseif word == "remove" then rec, err = J:Remove(rest)
+  else
+    MOTA:Print(J:Line())
+    for _, s in ipairs(J:Justices()) do MOTA:Print(MOTA:Short(s.name), "sits until", date("%d %b %Y", s.ends)) end
+    return
+  end
+  if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
+end)
+
 add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)
