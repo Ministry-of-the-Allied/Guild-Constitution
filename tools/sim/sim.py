@@ -1003,6 +1003,27 @@ check("Bench: the second Deputy steps up in turn", C(out, 'return Co:Leader("sh"
 C(m3, 'M.Party:Leave()')
 run(1)
 check("Contest: a leader who leaves with no Deputy leaves the seat empty", C(out, 'return Co:Leader("sh") == nil') is True)
+# The Exchange had nobody standing, so its contest failed when counting began:
+# the Kings' add-ons called the emergency contest by themselves.
+run(10)
+check("Emergency: a contest nobody stood in brings an emergency contest", C(out, 'local e = Co:Current().emergency return e ~= nil and e.p == "ex"') is True)
+check("Emergency: polling day moves back 14 days", C(out, 'local c = Co:Current() return Co:PollAt() - c.at') == 14 * 86400)
+check("Emergency: only one record, though two Kings were online", C(out, 'local n = 0 for _, l in pairs(M.guild.records) do for _, r in pairs(l) do if r.k == "contest.emergency" then n = n + 1 end end end return n') == 1)
+check("Emergency: the party's banner says so", C(out, 'return (Co:Banner("ex"))') == "Emergency contest · standing closes in 4 days")
+check("Emergency: standing opens again for that party", C(out, 'return Co:Stage("ex")') == "standing")
+check("Emergency: the other party isn't touched", C(out, 'return Co:Stage("sh")') == "done")
+check("Emergency: only once per election, though the Silverhand now has no leader", C(kA, 'return Co:Failed("sh")') is False and C(kA, 'local _, e = Co:CallEmergency("sh") return e ~= nil') is True)
+check("Emergency: a citizen can't call one", C(out, 'local _, e = Co:CallEmergency("ex") return e ~= nil') is True)
+C(kA, 'Co:Advance()')
+run(1)
+check("Emergency: /mota contest advance moves the emergency contest on", C(out, 'return Co:Stage("ex")') == "voting" and C(out, 'return Co:Stage("sh")') == "done")
+C(kA, 'Co:Advance()')
+run(1)
+check("Emergency: ...to counting", C(out, 'return Co:Stage("ex")') == "counting")
+check("Emergency: if it fails again, the election goes ahead without a leader", C(kA, 'return Co:Failed("ex")') is False)
+out.lua.execute('MinistryOfTheAllied.PartiesPage:Refresh()')
+kA.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(4); local P = MinistryOfTheAllied.PartiesPage; P:Select("ch"); P:Refresh()')
+check("Emergency: the pages show it without errors", True)
 clients[:] = others
 aldric_row[3] = False
 

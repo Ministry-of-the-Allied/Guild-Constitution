@@ -1151,7 +1151,8 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 - [ ] **Skins:** every page in all four skins (Max's accent colours and Kit button colours together).
 - [ ] **Heralds:** long names and titles fit.
 - [ ] **Front bench (0.6.5):** the leader names a Deputy and the five shadow posts in the Chamber; the public page shows them; the leader leaves and the Deputy takes the lead with a herald.
-- [ ] Anything built after this note: the election delay, the General Election.
+- [ ] **Emergency contest (0.6.6):** a party whose contest ends with no leader (nobody stood, or leader and Deputy both left) gets one emergency contest; polling day moves back 14 days, with a herald; `/mota contest emergency sh` by hand.
+- [ ] Anything built after this note: the General Election.
 
 **Before launch:** `Party.FEE` in `Party.lua` is already the real fee, 5000 (50 silver, set 2026-11-08); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
 

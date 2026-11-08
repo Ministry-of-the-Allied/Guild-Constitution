@@ -526,7 +526,7 @@ local function refreshStage(mine)
   end
   local line
   if not cur then line = "No election has been called yet."
-  elseif stage == "none" then line = "The election is on " .. date("%d %b", cur.at) .. ". Contests open 28 days before it."
+  elseif stage == "none" then line = "The election is on " .. date("%d %b", Co:PollAt()) .. ". Contests open 28 days before it."
   elseif stage == "standing" then line = ok and (standing and "You are standing. Your platform is public on your party's page." or "Stand, and tell the guild where you stand. It's all public.") or why
   elseif stage == "voting" then line = not ok and why or (myVote and (myVote.delivered and "Your vote has reached the Crown." or "Your vote is held until a King comes online.") or "Choose your leader. Your vote can't be changed, and is published after the count.")
   elseif stage == "counting" then line = "The Crown is counting."
@@ -537,7 +537,7 @@ end
 local function refreshCrown()
   local Co = MOTA.Contest
   local cur = Co:Current()
-  crownView.electionLine:SetText(cur and ("The election is on " .. date("%d %b %Y", cur.at) .. ".") or "No election has been called. Enter how many days away, at least 28.")
+  crownView.electionLine:SetText(cur and ("The election is on " .. date("%d %b %Y", Co:PollAt()) .. "." .. (cur.emergency and " Moved back 14 days for an emergency contest." or "")) or "No election has been called. Enter how many days away, at least 28.")
   local function state(p)
     local counts, _, total = Co:Count(p)
     local bits = {}

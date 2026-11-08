@@ -33,6 +33,8 @@ local function list()
       text = "Voting in your party's contest closes soon.", button = { label = "Vote now", style = "blue", page = 4 } } },
     { "Run-off", { seal = "exchange", eyebrow = "A tie", title = "A run-off is called",
       text = A .. " and " .. B .. " face 48 hours more voting.", button = { label = "Open", style = "blue", page = 4 } } },
+    { "Emergency contest", { seal = "silverhand", eyebrow = "Charter 3.6", title = "Polling day moves back 14 days",
+      text = "The Silverhand has no leader, so it holds an emergency contest. Polling day is now 12 Dec.", button = { label = "Open", style = "blue", page = 4 } } },
     { "New leader", { seal = "exchange", eyebrow = "Inaugurated by the Crown", title = A .. " leads",
       text = "Leader of the Azeroth Exchange. The votes are published.", button = { label = "Read it", style = "quiet", page = 4 } } },
     { "Deputy named", { seal = "silverhand", eyebrow = "The front bench", title = B .. " is named Deputy",

@@ -153,7 +153,7 @@ add("ballot", "[count]", "open the Ballot Hall and say where the vote stands; 'c
   MOTA.UI.window:Show()
 end)
 
-add("voice", "[on|off|stop|next|reset]", "the Charter narration: how far it's got, or control it", function(arg)
+add("voice", "[on, off, stop, next, reset]", "the Charter narration: how far it's got, or control it", function(arg)
   local V = MOTA.Voice
   local busy = "Not while the introduction is being read."
   if arg == "on" or arg == "off" then
@@ -279,12 +279,13 @@ add("refunds", "[name]", "Ring organisers: who's owed an entry fee back; a name 
   MOTA:Print(#list > 0 and ("Owed a refund: " .. table.concat(list, ", ")) or "Nobody is owed a refund.")
 end, function() return MOTA.Ring:CanOrganise() end)
 
-add("contest", "[advance|ratify sh|ratify ex|declare sh <name>]", "Crown: where the leadership contests stand, or move them on", function(arg)
+add("contest", "[advance, ratify sh, declare sh <name>, emergency sh]", "Crown: where the leadership contests stand, or move them on", function(arg)
   local Co = MOTA.Contest
   local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
   local rec, err
   if word == "advance" then rec, err = Co:Advance()
   elseif word == "ratify" then rec, err = Co:Ratify(rest)
+  elseif word == "emergency" then rec, err = Co:CallEmergency(rest)
   elseif word == "declare" then
     local p, name = rest:match("^(%a+)%s+(.+)$")
     rec, err = Co:Ratify(p, name)

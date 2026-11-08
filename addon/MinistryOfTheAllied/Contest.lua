@@ -4,11 +4,19 @@
 --
 --   election.date    Crown   { at }                  the latest stands
 --   contest.open     Crown   { id }                  the ceremony; the system opens it anyway after 2 days
---   contest.advance  Crown   { id, stage }           moves on early: "voting" or "counting"
+--   contest.advance  Crown   { id, stage, p? }       moves on early: "voting" or "counting"
+--                                                    (with p, only that party's emergency contest)
 --   contest.stand    member  { id, p, on, off, prop }  standing, with a platform
 --   contest.unstand  member  { id, p }               dropping out
 --   contest.runoff   Crown   { id, p, a, b }         a tie: 48 hours between those tied
 --   contest.result   Crown   { id, p, w, votes }     the first for a party stands
+--   contest.emergency Crown  { id, p }               Charter 3.6: polling day moves back 14
+--                                                    days while that party holds a new contest
+--
+-- An emergency contest is called (by the Crown's add-on, or /mota contest
+-- emergency) when a party's contest ends with no leader: nobody stood, or the
+-- leader and Deputy have both left before polling day. Once per election
+-- (decided 2026-11-08). It runs 4 days standing and 7 voting from the call.
 --
 --   LV <id> <round> <p> <candidate>   WHISPER  a vote, to each online King
 --   LR <id> <round> <p>               WHISPER  a King's receipt
@@ -22,6 +30,7 @@ local DAY = 86400
 Contest.MIN_DAYS = 28
 local OPEN_BEFORE, AUTO_BEFORE = 28 * DAY, 26 * DAY
 local STAND, VOTE, RUNOFF = 4 * DAY, 7 * DAY, 2 * DAY
+Contest.DELAY = 14 * DAY
 Contest.JOIN_WAIT = 14 * DAY
 local KEYS = { "sh", "ex" }
 local SEALS = { sh = "silverhand", ex = "exchange" }
@@ -29,13 +38,14 @@ local SEALS = { sh = "silverhand", ex = "exchange" }
 local Comm, Book = MOTA.Comm, MOTA.Book
 local rules = Book.rules
 local function crown(author) return MOTA:IsCrown(author) end
-for _, k in ipairs({ "election.date", "contest.open", "contest.advance", "contest.runoff", "contest.result" }) do
+for _, k in ipairs({ "election.date", "contest.open", "contest.advance", "contest.runoff", "contest.result", "contest.emergency" }) do
   rules[k] = crown
 end
 rules["contest.stand"] = function() return true end
 rules["contest.unstand"] = function() return true end
 
 local cache
+local clock
 
 local function newParty()
   return { cands = {}, round = 1 }
@@ -56,8 +66,13 @@ local function build()
       if r.k == "contest.open" then
         cur.openedAt = cur.openedAt or r.t
       elseif r.k == "contest.advance" then
-        if d.stage == "voting" then cur.voteAt = cur.voteAt or r.t
-        elseif d.stage == "counting" then cur.countAt = cur.countAt or r.t end
+        local clk = (p and p.emOpen) and p or (not d.p and cur)
+        if clk and d.stage == "voting" then clk.voteAt = clk.voteAt or r.t
+        elseif clk and d.stage == "counting" then clk.countAt = clk.countAt or r.t end
+      elseif p and r.k == "contest.emergency" and not cur.emergency then
+        cur.emergency = { p = d.p, t = r.t }
+        p.cands, p.round, p.among, p.runEnd, p.result = {}, 3, nil, nil, nil
+        p.emOpen = r.t
       elseif p and r.k == "contest.stand" then
         if MOTA.Party:Of(r.a) == d.p and not p.cands[r.a] then
           p.cands[r.a] = { name = r.a, on = d.on, off = d.off, prop = d.prop, t = r.t }
@@ -65,7 +80,7 @@ local function build()
       elseif p and r.k == "contest.unstand" then
         p.cands[r.a] = nil
       elseif p and r.k == "contest.runoff" and not p.result then
-        p.round, p.among, p.runEnd = 2, { [d.a] = true, [d.b] = true }, r.t + RUNOFF
+        p.round, p.among, p.runEnd = p.round + 1, { [d.a] = true, [d.b] = true }, r.t + RUNOFF
       elseif p and r.k == "contest.result" and not p.result then
         p.result = { w = d.w, votes = d.votes or {}, t = r.t }
         local c = p.cands[d.w]
@@ -96,6 +111,19 @@ local function openAt(cur)
   return cur.openedAt or (cur.at - AUTO_BEFORE)
 end
 
+-- When a party's contest opens, voting starts and counting starts.
+-- An emergency contest keeps its own clock, from when it was called.
+function clock(cur, party)
+  if party.emOpen then
+    local voteAt = party.voteAt or (party.emOpen + STAND)
+    return party.emOpen, voteAt, party.countAt or (voteAt + VOTE)
+  end
+  local open = openAt(cur)
+  if cur.voteAt and cur.voteAt < open then open = cur.voteAt end
+  local voteAt = cur.voteAt or (open + STAND)
+  return open, voteAt, cur.countAt or (voteAt + VOTE)
+end
+
 -- none, standing, voting, counting or done, for one party.
 function Contest:Stage(p)
   local cur = self:Current()
@@ -103,13 +131,10 @@ function Contest:Stage(p)
   local party = cur.parties[p]
   if party.result then return "done" end
   local now = GetServerTime()
-  local open = openAt(cur)
-  if cur.voteAt and cur.voteAt < open then open = cur.voteAt end
+  local open, voteAt, countAt = clock(cur, party)
   if now < open then return "none" end
-  local voteAt = cur.voteAt or (open + STAND)
   if now < voteAt then return "standing" end
-  if party.round == 2 then return now < party.runEnd and "voting" or "counting" end
-  local countAt = cur.countAt or (voteAt + VOTE)
+  if party.runEnd then return now < party.runEnd and "voting" or "counting" end
   if now < countAt then return "voting" end
   return "counting"
 end
@@ -117,11 +142,48 @@ end
 -- When the current stage ends, if it does by the clock.
 function Contest:EndsAt(p)
   local cur, stage = self:Current(), self:Stage(p)
-  if stage == "standing" then return openAt(cur) + STAND end
-  if stage == "voting" then
-    if cur.parties[p].round == 2 then return cur.parties[p].runEnd end
-    return cur.countAt or ((cur.voteAt or openAt(cur) + STAND) + VOTE)
-  end
+  if not cur then return nil end
+  local party = cur.parties[p]
+  local _, voteAt, countAt = clock(cur, party)
+  if stage == "standing" then return voteAt end
+  if stage == "voting" then return party.runEnd or countAt end
+end
+
+-- Polling day, moved back 14 days by an emergency contest.
+function Contest:PollAt()
+  local cur = self:Current()
+  if not cur then return nil end
+  return cur.at + (cur.emergency and self.DELAY or 0)
+end
+
+function Contest:IsEmergency(p)
+  local cur = self:Current()
+  return cur ~= nil and cur.emergency ~= nil and cur.emergency.p == p
+end
+
+-- Charter 3.6: has this party's contest ended with no leader, in time to try again?
+function Contest:Failed(p)
+  local cur = self:Current()
+  if not cur or cur.emergency then return false end
+  local now = GetServerTime()
+  if now < openAt(cur) or now >= cur.at then return false end
+  local stage = self:Stage(p)
+  if stage == "done" then return self:Leader(p) == nil end
+  if stage == "counting" then return #self:Candidates(p) == 0 end
+  return false
+end
+
+function Contest:CallEmergency(p)
+  local cur = self:Current()
+  if not MOTA:IsCrown(MOTA.me) then return nil, "Only the King and the Crown can call an emergency contest." end
+  if not cur then return nil, "No election has been called." end
+  if p ~= "sh" and p ~= "ex" then return nil, "Name the party: sh or ex." end
+  if cur.emergency then return nil, "This election has had its emergency contest already (Charter 3.6)." end
+  if GetServerTime() >= cur.at then return nil, "Polling day has come." end
+  if self:Leader(p) then return nil, "That party has a leader." end
+  local stage = self:Stage(p)
+  if stage ~= "done" and stage ~= "counting" then return nil, "Wait until its contest has ended." end
+  return Book:Write("contest.emergency", { id = cur.id, p = p })
 end
 
 function Contest:Candidates(p)
@@ -179,6 +241,13 @@ end
 function Contest:Advance()
   local cur = self:Current()
   if not cur then return nil, "Set the election date first." end
+  local em = cur.emergency and cur.emergency.p
+  if em and self:Stage(em) ~= "done" then
+    local s = self:Stage(em)
+    if s == "none" or s == "standing" then return Book:Write("contest.advance", { id = cur.id, stage = "voting", p = em }) end
+    if s == "voting" then return Book:Write("contest.advance", { id = cur.id, stage = "counting", p = em }) end
+    return nil, "The emergency contest is counting. Ratify it."
+  end
   local stage = self:Stage("sh")
   if stage == "done" then stage = self:Stage("ex") end
   if stage == "none" or stage == "standing" then return Book:Write("contest.advance", { id = cur.id, stage = "voting" }) end
@@ -223,7 +292,7 @@ function Contest:Ratify(p, chosen)
     if n > top then top, tied = n, { c.name } elseif n == top then tied[#tied + 1] = c.name end
   end
   if #tied > 1 and not chosen then
-    if cur.parties[p].round == 1 then
+    if cur.parties[p].round % 2 == 1 then
       return Book:Write("contest.runoff", { id = cur.id, p = p, a = tied[1], b = tied[2] })
     end
     return nil, "It's tied again. Roll publicly in guild chat, then /mota contest declare " .. p .. " <name>."
@@ -369,14 +438,16 @@ function Contest:Banner(p)
   local ends = self:EndsAt(p)
   local left = ends and math.max(1, math.ceil((ends - GetServerTime()) / DAY))
   local days = left and (left .. (left == 1 and " day" or " days")) or ""
-  if stage == "standing" then return "Leadership contest · standing closes in " .. days end
+  local kind = self:IsEmergency(p) and "Emergency contest" or "Leadership contest"
+  if stage == "standing" then return kind .. " · standing closes in " .. days end
   if stage == "voting" then
-    local run = self:Current().parties[p].round == 2
-    return (run and "Run-off · voting closes in " or "Leadership contest · voting closes in ") .. days
+    local run = self:Current().parties[p].runEnd ~= nil
+    return (run and "Run-off · voting closes in " or (kind .. " · voting closes in ")) .. days
   end
-  if stage == "counting" then return "Leadership contest · the Crown is counting" end
+  if stage == "counting" then return kind .. " · the Crown is counting" end
   local leader = self:Leader(p)
   if leader then return "Led by " .. MOTA:Short(leader.name) end
+  if stage == "done" then return "No leader · the election goes ahead without one" end
   return "Awaiting the election"
 end
 
@@ -404,16 +475,46 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   elseif rec.k == "contest.runoff" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "A tie", title = "A run-off is called",
       text = self:Short(d.a) .. " and " .. self:Short(d.b) .. " face 48 hours more voting.", button = { label = "Open", style = "blue", page = 4 } })
+  elseif rec.k == "contest.emergency" then
+    local name = self.Party.NAMES[d.p] or "a party"
+    herald({ seal = SEALS[d.p] or "official", eyebrow = "Charter 3.6", title = "Polling day moves back 14 days",
+      text = name:sub(1, 1):upper() .. name:sub(2) .. " has no leader, so it holds an emergency contest. Polling day is now " .. date("%d %b", Contest:PollAt()) .. ".",
+      button = { label = "Open", style = "blue", page = 4 } })
   elseif rec.k == "contest.result" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "Inaugurated by the Crown", title = self:Short(d.w) .. " leads",
       text = "Leader of " .. (self.Party.NAMES[d.p] or "a party") .. ". The votes are published.", button = { label = "Read it", style = "quiet", page = 4 } })
   end
 end)
 
+-- A Crown copy calls the emergency contest itself, after a short random wait
+-- so two Kings online don't both write it. The first record stands anyway.
+local calling
+local function checkEmergency()
+  local self = MOTA
+  if calling or not self.guild or not self.me or not self:IsCrown(self.me) or Book.replaying then return end
+  for _, p in ipairs(KEYS) do
+    if Contest:Failed(p) then
+      calling = true
+      C_Timer.After(2 + math.random() * 6, function()
+        calling = false
+        if Contest:Failed(p) then
+          local rec = Contest:CallEmergency(p)
+          if rec then self:Print("Called an emergency contest for", self.Party.NAMES[p] .. ": polling day moves back 14 days (Charter 3.6).") end
+        end
+      end)
+      return
+    end
+  end
+end
+Contest.CheckEmergency = checkEmergency
+MOTA:Listen("CONTEST_CHANGED", function() checkEmergency() end)
+MOTA:Listen("PARTY_CHANGED", function() C_Timer.After(0, checkEmergency) end)
+
 -- Reminders: the Kings until they've opened the contests, voters until they've voted.
 local function remind()
   local self = MOTA
   if not self.guild or not self.me then return end
+  checkEmergency()
   local cur = Contest:Current()
   if not cur then return end
   local now = GetServerTime()
