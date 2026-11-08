@@ -30,6 +30,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
+import districts  # the Districts page's map, outlines and pins (Batch D3)
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 DESIGN = ROOT / "design"
@@ -73,6 +75,21 @@ GRAIN_TILE = 400      # leather-grain.svg repeats every 400 canvas units
 GRAIN_SIZE = 256      # ...and is drawn at 256 x 256, tiled over the stretched leather
 BAND_MAX = 330        # taller bands are cut in two, so every metal set fits 1024 x 512
 
+# The window border (Max, 8 Nov: yes, at 1.5 times the lit tab's size): window-frame-gold.svg
+# (WindowBorders board) as a nine-slice, drawn whole once in gold and once greyed for Silverhand,
+# as the board's border-image: 28 / 42px round, 14 out from the window's edge.
+BORDER_SVG = DESIGN / "textures" / "window-frame-gold.svg"
+BORDER_SLICE, BORDER_WIDTH, BORDER_OUT = 28, 42, 14   # svg units cut; canvas units drawn; out from the edge
+BORDER_SCALE = 3      # 80 svg units drawn 240 wide: sharp at 1.5x
+
+
+def border_html(silver):
+    url = BORDER_SVG.as_uri()
+    filt = "filter:grayscale(1) brightness(1.15);" if silver else ""
+    return (f"<!doctype html><html><head><style>html,body{{margin:0;background:transparent}}</style></head>"
+            f"<body><img src=\"{url}\" style=\"display:block;width:80px;height:80px;{filt}\"></body></html>")
+
+
 # The canvas stores its textures under /_blob/ names; these are the same files in the repo.
 BLOBS = {
     "c2d86e49cc4f265a0371294274387bd7": "textures/leather-grain.svg",
@@ -90,6 +107,10 @@ BLOBS = {
     "7c545901b08ed0754c9e9eaf3000577b": "textures/alliance-crest.png",
     "1cb79e1436f6a97727600db25de81026": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Bold.ttf",
     "b86b602a50d468e81c13dca06841b75b": "../addon/MinistryOfTheAllied/Media/Fonts/MinistryDecorative-Black.ttf",
+    "e67051d19834004baffef1b06c6515bc": "../tools/textures/divider-ink-cr.svg",  # Window skins board's "as built" view only
+    "8a59e9e54e86ea48093135cabb5c5d22": "../tools/textures/divider-ink-ex.svg",
+    "956ea6aee795428e80ae248cd84d0698": "textures/window-frame-gold.svg",       # Window borders board (a sample)
+    "8ae4bb35e6b8398e6daec3df55902667": "reference/stormwind-city-map.webp",   # Districts board's map (Max's screenshot)
 }
 # The Crown's mark everywhere (heralds, Royal Assent, the ballot's stamps, the minimap button,
 # the settings page) is the Crown crest, which replaced the blue crown seal (Max, 8 Nov).
@@ -127,7 +148,7 @@ ACCENTS = {
 }
 # Pieces with blue in them, by layout: each is drawn once more per accent in the "accent" texture.
 ACCENT_PIECES = (
-    ["kitBlue", "kitStepTodo", "kitMark"] + [f"kitRibbonOn{i}" for i in range(1, 11)]
+    ["kitBlue", "kitStepTodo", "kitMark"] + [f"kitRibbonOn{i}" for i in range(1, 14)]
     + ["b_" + n for n in ("rb-ballot-on", "rb-ballot-on-dot", "rb-results-on", "rb-crown-on", "btn-seal", "btn-open",
                           "btn-close", "btn-runoff", "btn-last", "btn-add", "pill-general-on", "pill-snap-on",
                           "pill-runoff-on")]
@@ -442,7 +463,8 @@ def pieces_to_draw(pages):
                  "kitRibbonOff2", "kitRibbonOff3", "kitGem", "kitGemHollow", "kitCoinG", "kitCoinS", "kitCoinC", "kitBand", "kitMark",
                  "kitRibbonOn8", "kitRibbonOn9", "kitRibbonOn10", "kitRibbonOff4", "kitRibbonOff8", "kitRibbonOff9", "kitRibbonOff10",
                  "kitStepTodo", "kitStepDone", "kitStepNow", "kitRibbonOn5", "kitRibbonOn6", "kitRibbonOn7",
-                 "kitRibbonOff5", "kitRibbonOff6", "kitRibbonOff7", "kitPortraitSh", "kitPortraitEx"):
+                 "kitRibbonOff5", "kitRibbonOff6", "kitRibbonOff7", "kitPortraitSh", "kitPortraitEx",
+                 "kitRibbonOn11", "kitRibbonOn12", "kitRibbonOn13", "kitRibbonOff11", "kitRibbonOff12", "kitRibbonOff13"):
         d[name] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={},
                        css=only(["#" + name, "#" + name + " *"]))
     # Wide parts are drawn smaller, to fit the atlas.
@@ -900,6 +922,23 @@ def main():
         place(name, name, canvas.size, (0, 0))
         textures[name] = canvas
     textures["shadow"] = shadow_texture()
+
+    # The window border: gold, and greyed for Silverhand, side by side in one texture.
+    print("Drawing the window border...")
+    border = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+    for i, metal in enumerate(("gold", "silver")):
+        im = edge.screenshot(f"border_{metal}", border_html(metal == "silver"), BORDER_SCALE, (200, 200))
+        im = im.crop((0, 0, 80 * BORDER_SCALE, 80 * BORDER_SCALE))
+        border.paste(im, (i * 256, 0))
+        pieces[f"border_{metal}"] = dict(tex="border", root="win", x=0, y=0, w=80, h=80,
+                                         l=i * 256 / 512, r=(i * 256 + 80 * BORDER_SCALE) / 512, t=0, b=80 * BORDER_SCALE / 256)
+    textures["border"] = border
+
+    # The Districts page (Batch D3): the Stormwind City map, the district outlines, the pins.
+    print("Drawing the districts...")
+    dz_tex, dz_pieces, dz_media = districts.build(pack, pow2)
+    textures.update(dz_tex)
+    pieces.update(dz_pieces)
     for old in ("chrome", "crest"):  # the window before skins: one picture, now in layers
         (MEDIA / f"{old}.tga").unlink(missing_ok=True)
 
@@ -929,6 +968,10 @@ def main():
         "frameParts": frame_parts,
         "subRule": sub_rule,
         "grain": {"tile": GRAIN_TILE},
+        # The window border's nine-slice: slice in svg units (of 80), width drawn, out from the window's edge.
+        "border": {"slice": BORDER_SLICE, "size": 80, "width": BORDER_WIDTH, "out": BORDER_OUT},
+        # The Districts page's chart (root "map": screenshot pixels from the chart's top-left).
+        "districts": dz_media,
     }
     lua = ("-- Generated by tools/textures/build.py from the design canvas. Don't edit by hand:\n"
            "-- change the design or the layouts, then run the script again.\n"

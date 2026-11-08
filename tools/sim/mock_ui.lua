@@ -77,7 +77,7 @@ function Methods:SetScale(s) self.scale = s end
 function Methods:GetScale() return self.scale end
 function Methods:GetEffectiveScale() return self.scale end
 function Methods:SetAlpha(a) self.alpha = a end
-function Methods:GetCenter() return self.cx or 500, self.cy or 400 end
+function Methods:GetCenter() return rawget(self, "cx") or 500, rawget(self, "cy") or 400 end
 
 function Methods:CreateTexture(name, layer, template, sublevel)
   assert(layer == nil or ({ BACKGROUND = 1, BORDER = 1, ARTWORK = 1, OVERLAY = 1, HIGHLIGHT = 1 })[layer], "bad layer " .. tostring(layer))

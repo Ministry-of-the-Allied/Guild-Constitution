@@ -81,14 +81,59 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 .ws-cr .tab.on small{color:#3A2A0A}
 .ws-cr .rail-foot .who small,.ws-cr .win-foot{color:#EBCBDF}
 
+/* ============ As built in the add-on (0.6.4, 8 Nov) ============
+   What the add-on's Lua does on top of the shared stylesheet, so this board shows the window as it is in game.
+   Every rule is under .as-built, which the texture build's layout page doesn't have, so the textures are untouched. */
+/* the title, the page name with its two rules, and both knobs sit 6 lower (HEADER_DROP, UI/MainWindow.lua);
+   the Crown's purple glow is part of the leather, so it stays where it was */
+.as-built .win-head{top:20px}
+.as-built .head-btns{top:29px}
+.as-built .ws-cr .win-head::before{top:-10px;bottom:2px}
+/* the corner jewels are drawn on their own and wear the skin's stone: sapphire, jade or amethyst (Skin.lua GEM) */
+.as-built .jewel{position:absolute;width:8.4px;height:8.4px;border-radius:50%;z-index:7;pointer-events:none;
+  --g1:#2F5FD0;--g2:#254AA2;--g3:#172E64;--ge:#0B1631;
+  background:radial-gradient(circle at 38% 34%,var(--g1) 0 14%,var(--g2) 45%,var(--g3) 100%);box-shadow:0 0 0 .7px var(--ge)}
+.as-built .jewel.tr{right:-2.2px;top:-2.2px}
+.as-built .jewel.bl{left:-2.2px;bottom:-2.2px}
+.as-built .jewel.br{right:-2.2px;bottom:-2.2px}
+.as-built .ws-cr .jewel{--g1:#0B7A38;--g2:#095F2C;--g3:#053B1B;--ge:#031D0D}
+.as-built .ws-ex .jewel{--g1:#9B5BD6;--g2:#7947A7;--g3:#4A2C67;--ge:#241532}
+/* the initials bubble follows the accent: blue for the Ministry and Silverhand, plum for the Crown, crimson for the Exchange */
+.as-built .portrait.me{background:radial-gradient(circle at 40% 35%,#3A63B8,#0B1838 85%)}
+.as-built .ws-cr .portrait.me{background:radial-gradient(circle at 40% 35%,#8E2E6E,#1C0415 85%)}
+.as-built .ws-ex .portrait.me{background:radial-gradient(circle at 40% 35%,#C23A42,#3A070B 85%)}
+/* tab names are live game text with a fine dark shadow on the resting (wax) tabs; the lit tab has none */
+.as-built .tab:not(.on) > span{text-shadow:1px 1px 0 rgba(0,0,0,.9)}
+/* the status strip's words sit 5 lower and 36 further in, clear of the corner ornaments; the pip stays put */
+.as-built .win-foot > span{position:relative;top:5px}
+.as-built .win-foot .pip{margin-right:28px;position:relative;top:-5px}
+.as-built .win-foot > span:last-child{margin-right:36px}
+/* the page's blue parts follow the skin's accent (UI/Kit.lua; build.py accent_css): plum for the Crown, crimson for
+   the Exchange. Silverhand keeps the Ministry blue. Party colours (chips) and gold buttons never change. */
+.as-built .ws-cr .h-page,.as-built .ws-cr .plate:not(.blue) .h-sec{color:#58143F}
+.as-built .ws-ex .h-page,.as-built .ws-ex .plate:not(.blue) .h-sec{color:#7A1219}
+.as-built .ws-cr .plate.blue{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),linear-gradient(180deg,#6E2058,#3D0B2D);
+  box-shadow:inset 0 0 0 1px #F3D98A,inset 0 0 0 3px #2A0720,inset 0 0 0 4px rgba(201,162,74,.55),0 4px 10px rgba(60,40,10,.35)}
+.as-built .ws-ex .plate.blue{background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),linear-gradient(180deg,#8E1A21,#4A0A0F);
+  box-shadow:inset 0 0 0 1px #F3D98A,inset 0 0 0 3px #2E0609,inset 0 0 0 4px rgba(201,162,74,.55),0 4px 10px rgba(60,40,10,.35)}
+.as-built .ws-cr .plate.blue .eyebrow{color:#E8C6DC}
+.as-built .ws-ex .plate.blue .eyebrow{color:#F0C9BC}
+.as-built .ws-cr .ribbon.on,.as-built .ws-cr .pill.on{background:linear-gradient(180deg,#86296A 0%,#58143F 58%,#3D0B2D 100%)}
+.as-built .ws-ex .ribbon.on,.as-built .ws-ex .pill.on{background:linear-gradient(180deg,#B8343C 0%,#8E1A21 58%,#661118 100%)}
+.as-built .ws-cr .btn:not(.gold):not(.quiet){background:linear-gradient(180deg,#86296A,#58143F 55%,#3D0B2D)}
+.as-built .ws-ex .btn:not(.gold):not(.quiet){background:linear-gradient(180deg,#B8343C,#8E1A21 55%,#661118)}
+/* ...and the divider's jewel */
+.as-built .ws-cr .divider{background-image:url(/_blob/e67051d19834004baffef1b06c6515bc)}
+.as-built .ws-ex .divider{background-image:url(/_blob/8a59e9e54e86ea48093135cabb5c5d22)}
+
 /* ---- the key under the windows ---- */
 .key{position:absolute}
 .key .parch{padding:24px 28px;display:flex;flex-direction:column;gap:14px}
 .key ul{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:5px}
 .key li{font-size:15px;line-height:1.35;color:#2A1F14}
-.sw-row{display:grid;grid-template-columns:150px repeat(5,minmax(0,1fr));gap:10px;align-items:center}
+.sw-row{display:grid;grid-template-columns:120px repeat(7,minmax(0,1fr));gap:8px;align-items:center}
 .sw-head{font-family:'Cinzel',serif;font-weight:700;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7A5719}
-.sw{display:flex;align-items:center;gap:8px;font-family:'Cinzel',serif;font-weight:600;font-size:11px;letter-spacing:.04em;color:#5E4B33}
+.sw{display:flex;align-items:center;gap:6px;font-family:'Cinzel',serif;font-weight:600;font-size:10px;letter-spacing:.04em;color:#5E4B33}
 .sw i{width:26px;height:26px;flex:none;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),0 0 0 1px rgba(255,250,235,.6)}
 .sw-name{font-family:'Cinzel',serif;font-weight:700;font-size:12.5px;letter-spacing:.06em;color:#2A1F14}
 .sw-name small{display:block;font-family:'EB Garamond',serif;font-weight:400;font-size:13px;letter-spacing:0;color:#5E4B33}
@@ -103,14 +148,15 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
 <div class="stage" style="width: 2480px; height: 2840px">
 
   <span class="board-label" style="left: 64px; top: 44px">The add-on window · dressed by party and rank</span>
-  <span class="board-note" style="left: 64px; top: 72px">The same window in the four skins of the world map board. The frame, tabs, knobs and emblem change; the parchment page and everything on it stays the same.</span>
+  <span class="board-note" style="left: 64px; top: 72px">The same window in the four skins of the world map board. Drawn as built in the add-on (0.6.4, 8 Nov): the frame, tabs, knobs, emblem and corner jewels change, and the page's blue parts take the skin's accent.</span>
 
-  <div style="position: absolute; left: 40px; top: 130px; width: 2400px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 80px">
+  <div class="as-built" style="position: absolute; left: 40px; top: 130px; width: 2400px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 80px">
     <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
       <div style="position: relative; height: 900px">
         <div class="win {{s.cls}}" style="left: 100px; top: 86px">
           <div class="win-rim"><div class="win-leather"></div></div>
           <span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <span class="jewel tr"></span><span class="jewel bl"></span><span class="jewel br"></span>
           <img class="crest {{s.crestCls}}" src="{{s.crest}}" alt="{{s.crestAlt}}">
           <div class="win-head">
             <h1 class="title">Ministry of the Allied</h1>
@@ -131,8 +177,8 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
               <a class="tab" href="Districts.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path></svg><span>Districts<small>Map &amp; council</small></span></a>
               <a class="tab" href="GladiatorsRing.dc.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path></svg><span>The Ring<small>Gladiator duels</small></span></a>
               <div class="rail-foot">
-                <div class="portrait sm" style="--pc: #A8506F">AV</div>
-                <div class="who">Aldric Vane<small>Cathedral Ward</small></div>
+                <div class="portrait sm me">A</div>
+                <div class="who">Aldric Vane<small>{{s.rank}}</small></div>
               </div>
             </nav>
 
@@ -231,6 +277,8 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
           <li>The corner emblem: Crown crest, blue hand, coin-scale or lion crest</li>
           <li>The ink of the lit tab's label</li>
           <li>The pale ink: page name, the name at the foot of the rail, the status strip</li>
+          <li>The three corner jewels: sapphire, jade (Crown) or amethyst (Exchange)</li>
+          <li>The accent, for the Crown and the Exchange: headings, blue plates, blue buttons, lit ribbons and pills, the divider's jewel and the initials bubble turn plum or crimson. Silverhand keeps the Ministry blue</li>
         </ul>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px">
@@ -247,8 +295,9 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
       <div style="display: flex; flex-direction: column; gap: 10px">
         <h3 class="h-sec">Stays the same</h3>
         <ul>
-          <li>The parchment page and all that's on it: headings, plates, blue buttons, ribbons, seals, the Ballot Hall's pieces</li>
-          <li>The tab icons and labels (drawn once in white, coloured in the game)</li>
+          <li>The parchment itself, the seals, the gold buttons, the party chips and the district colours</li>
+          <li>The tab icons (drawn once in white, coloured in the game); the tab names are live game text, with a fine dark shadow on the resting tabs</li>
+          <li>Where things sit: in the add-on the title, page name and knobs sit 6 lower than the stylesheet, and the status strip's words 5 lower and 36 further in</li>
           <li>The window's shape, size and shadow</li>
           <li>The heralds, the settings page and the minimap seal</li>
         </ul>
@@ -260,12 +309,12 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
   <div class="page key" style="left: 1540px; top: 2076px; width: 880px; height: 520px">
     <div class="parch plain" style="gap: 16px">
       <div class="sw-row">
-        <span></span><span class="sw-head">Leather</span><span class="sw-head">Wax (tabs)</span><span class="sw-head">Metal</span><span class="sw-head">Lit tab ink</span><span class="sw-head">Pale ink</span>
+        <span></span><span class="sw-head">Leather</span><span class="sw-head">Wax (tabs)</span><span class="sw-head">Metal</span><span class="sw-head">Lit tab ink</span><span class="sw-head">Pale ink</span><span class="sw-head">Accent</span><span class="sw-head">Jewel</span>
       </div>
       <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
         <div class="sw-row">
           <span class="sw-name">{{s.short}}<small>{{s.key}}</small></span>
-          <sc-for list="{{s.sw}}" as="w" hint-placeholder-count="5">
+          <sc-for list="{{s.sw}}" as="w" hint-placeholder-count="7">
             <span class="sw"><i style="background: {{w.c}}"></i>{{w.c}}</span>
           </sc-for>
         </div>
@@ -278,7 +327,7 @@ a{color:#F3D98A}a:hover{color:#FFF3C4}
   <div class="page" style="position: absolute; left: 64px; top: 2686px; width: 1420px; height: 84px">
     <div class="parch plain" style="padding: 0 24px; display: flex; align-items: center">
       <div class="setrow" style="width: 100%">
-        <label>Window skin<small>Party dresses the window for your party, or the Crown for the two Crown ranks. Ministry keeps the blue and gold.</small></label>
+        <label>Window skin<small>The Crown's colours, or the Ministry's. Shown to the two Crown ranks only; everyone else wears their party's skin, or the Ministry's in no party.</small></label>
         <div class="seg" role="group" aria-label="Window skin"><button class="on" type="button" aria-pressed="true">Party</button><button type="button" aria-pressed="false">Ministry</button></div>
       </div>
     </div>
@@ -292,19 +341,19 @@ class Component extends DCLogic {
       { cls: 'ws-sh', key: 'SILVERHAND', short: 'Silverhand', label: 'Silverhand',
         note: 'Silver rim, title and lit tab on the party blue; steel-blue wax tabs; argent wax to close; the blue hand.',
         crest: '/_blob/dd8568019d0ff8be3c87935987cf352a', crestCls: 'seal', crestAlt: 'Silverhand seal',
-        sw: [{ c: '#1F4290' }, { c: '#2E3E62' }, { c: '#AEB8C6' }, { c: '#1F4290' }, { c: '#D5DEF0' }] },
+        sw: [{ c: '#1F4290' }, { c: '#2E3E62' }, { c: '#AEB8C6' }, { c: '#1F4290' }, { c: '#D5DEF0' }, { c: '#1B3570' }, { c: '#2F5FD0' }], rank: 'Citizen' },
       { cls: 'ws-ex', key: 'AZEROTH_EXCHANGE', short: 'Exchange', label: 'Azeroth Exchange',
         note: 'Crimson leather and gold; bright crimson wax tabs; a gold coin to close; the coin-scale.',
         crest: '/_blob/2548a4e779105c6802c9276a14f27592', crestCls: 'seal', crestAlt: 'Azeroth Exchange seal',
-        sw: [{ c: '#8E1A21' }, { c: '#7A151C' }, { c: '#C9A24A' }, { c: '#5A0E13' }, { c: '#F2CDBE' }] },
+        sw: [{ c: '#8E1A21' }, { c: '#7A151C' }, { c: '#C9A24A' }, { c: '#5A0E13' }, { c: '#F2CDBE' }, { c: '#8E1A21' }, { c: '#9B5BD6' }], rank: 'Citizen' },
       { cls: 'ws-cr', key: 'CROWN', short: 'The Crown', label: 'The Crown',
         note: 'Royal purple leather and gold; plum wax tabs with a lighter purple top edge; a soft purple glow behind the title; a gold coin to close; the Crown crest.',
         crest: '/_blob/95cd0584f50217d5706a3ab342656520', crestCls: '', crestAlt: 'Crown crest',
-        sw: [{ c: '#3D0B2D' }, { c: '#5A1645' }, { c: '#C9A24A' }, { c: '#3E0A2F' }, { c: '#EBCBDF' }] },
+        sw: [{ c: '#3D0B2D' }, { c: '#5A1645' }, { c: '#C9A24A' }, { c: '#3E0A2F' }, { c: '#EBCBDF' }, { c: '#58143F' }, { c: '#0B7A38' }], rank: 'The King' },
       { cls: 'sk-min', key: 'UNREGISTERED', short: 'Ministry', label: 'Ministry · for citizens in no party',
         note: 'The window as it is today: royal blue leather, oxblood wax tabs, gold, under the lion crest.',
         crest: '/_blob/7c545901b08ed0754c9e9eaf3000577b', crestCls: '', crestAlt: 'Lion crest',
-        sw: [{ c: '#1E3B7C' }, { c: '#6E1712' }, { c: '#C9A24A' }, { c: '#0E1F45' }, { c: '#B9C9EE' }] },
+        sw: [{ c: '#1E3B7C' }, { c: '#6E1712' }, { c: '#C9A24A' }, { c: '#0E1F45' }, { c: '#B9C9EE' }, { c: '#1B3570' }, { c: '#2F5FD0' }], rank: 'Citizen' },
     ];
     return { skins };
   }

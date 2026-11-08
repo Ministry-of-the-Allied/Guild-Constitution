@@ -6,6 +6,7 @@
 -- /mota probe         client facts, printed in chat
 -- /mota probe limits  measures the message limits (about 45 hidden guild messages)
 -- /mota probe bank    what the game lets us see of the guild bank (open it first)
+-- /mota probe map     what the world map is made of (stand in Stormwind City)
 --
 -- Both also save their results in the add-on's saved file (written on logout
 -- or /reload), so they can be read straight from
@@ -99,6 +100,97 @@ function Probe:Report()
 
   MOTA.db.probe = MOTA.db.probe or {}
   MOTA.db.probe.report = out
+end
+
+---------------------------------------------------------------------------
+-- /mota probe map: what the world map is made of on Forever (Batch D: the
+-- district outlines and the map skins). Run it standing in Stormwind City.
+-- Only looks. It never changes the map.
+---------------------------------------------------------------------------
+
+-- The parts of the map window the skins and the outlines would use (ADDON_SPEC.md 9.6).
+local MAP_PARTS = {
+  "BorderFrame", "BorderFrame.NineSlice", "BorderFrame.TitleText", "BorderFrame.CloseButton", "BorderFrame.Tutorial",
+  "BorderFrame.MaximizeMinimizeFrame", "NavBar", "ScrollContainer", "ScrollContainer.Child", "SidePanelToggle",
+  "TitleCanvasSpacerFrame", "QuestLog", "overlayFrames", "dataProviders",
+}
+local MAP_APIS = { "C_Map.GetBestMapForUnit", "C_Map.GetPlayerMapPosition", "C_Map.GetMapInfo", "C_Map.GetMapWorldSize",
+  "C_Map.SetUserWaypoint", "C_Map.CanSetUserWaypointOnMap", "C_Map.ClearUserWaypoint", "C_SuperTrack.SetSuperTrackedUserWaypoint",
+  "UiMapPoint.CreateFromCoordinates", "CreateFromMixins", "MapCanvasDataProviderMixin", "MapCanvasPinMixin" }
+
+local function lookup(root, path)
+  local v = root
+  for key in path:gmatch("[^%.]+") do
+    if type(v) ~= "table" then return nil end
+    v = v[key]
+  end
+  return v
+end
+
+function Probe:Map()
+  local out = { at = GetServerTime() }
+  P(MOTA:Color("leaf", "Map probe") .. " (stand in Stormwind City for the district facts)")
+
+  local missing = {}
+  for _, name in ipairs(MAP_APIS) do
+    if lookup(_G, name) == nil then missing[#missing + 1] = name end
+  end
+  out.missingApis = missing
+  P("Map functions:", #missing == 0 and MOTA:Color("leaf", "all present") or ("missing: " .. table.concat(missing, ", ")))
+
+  local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+  out.mapID = id
+  if id then
+    local info = C_Map.GetMapInfo and C_Map.GetMapInfo(id)
+    out.mapName = info and info.name
+    out.parentID = info and info.parentMapID
+    P("You are on map", MOTA:Color("leaf", tostring(id)), "(" .. tostring(out.mapName) .. "), inside map", tostring(out.parentID))
+    local pos = C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(id, "player")
+    if pos then
+      out.x, out.y = pos.x, pos.y
+      P(("Your place on it: %.3f, %.3f (0 to 1 across, 0 to 1 down)"):format(pos.x, pos.y))
+    end
+    if C_Map.GetMapWorldSize then
+      out.worldW, out.worldH = C_Map.GetMapWorldSize(id)
+      P("Map size in yards:", tostring(out.worldW), "x", tostring(out.worldH))
+    end
+    if C_Map.CanSetUserWaypointOnMap then
+      out.waypoints = C_Map.CanSetUserWaypointOnMap(id) and true or false
+      P("Map pins (Set waypoint) allowed here:", yesno(out.waypoints))
+    end
+  else
+    P("No map for where you stand (try again outdoors in Stormwind City).")
+  end
+
+  local wm = WorldMapFrame
+  out.worldMap = wm ~= nil
+  if not wm then
+    P("World map window:", yesno(false))
+  else
+    local have, lack = {}, {}
+    for _, part in ipairs(MAP_PARTS) do
+      if lookup(wm, part) ~= nil then have[#have + 1] = part else lack[#lack + 1] = part end
+    end
+    out.parts, out.missingParts = have, lack
+    P("World map parts found:", #have, "of", #MAP_PARTS .. (#lack > 0 and (" · missing: " .. table.concat(lack, ", ")) or ""))
+    out.addDataProvider = type(wm.AddDataProvider) == "function"
+    P("Can add a map layer (AddDataProvider):", yesno(out.addDataProvider))
+    -- The round buttons over the map, by name, for the skins.
+    local names = {}
+    for _, f in ipairs(wm.overlayFrames or {}) do
+      local n = (f.GetDebugName and f:GetDebugName()) or (f.GetName and f:GetName()) or "?"
+      names[#names + 1] = n
+    end
+    out.overlays = names
+    if #names > 0 then P("Buttons over the map:", table.concat(names, ", ")) end
+    -- Anything else restyling the map (9.6: ours steps back)
+    out.elvui = (ElvUI ~= nil)
+    if out.elvui then P("ElvUI is loaded: the map skins would step back.") end
+  end
+
+  MOTA.db.probe = MOTA.db.probe or {}
+  MOTA.db.probe.map = out
+  P("Saved. After /reload it's in the add-on's saved file too (probe.map).")
 end
 
 ---------------------------------------------------------------------------

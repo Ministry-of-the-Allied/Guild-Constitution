@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+  <!-- A SAMPLE for the window border (Batch D0, Max 8 Nov): the lit tab's border (tools/textures/tab-frame-gold.svg)
+       drawn round the whole window. Same fleur-de-lis corners, tendrils and beads; the only change is that the
+       side beads are round, because a window's sides are long and a border-image repeats them at full height
+       (the tab's are drawn twice as tall to survive being squeezed into a 50-high tab).
+       Used as border-image 28 / <size> round, 9 out from the window's edge. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF1BF"/>
+      <stop offset=".25" stop-color="#E6C36C"/>
+      <stop offset=".55" stop-color="#B08530"/>
+      <stop offset="1" stop-color="#7A5719"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx=".3" dy=".5" stdDeviation=".35" flood-color="#2A1D06" flood-opacity=".8"/>
+    </filter>
+    <g id="fleur">
+      <path d="M0 -9.6 C1.7 -7.3 2 -4.7 0 -2.3 C-2 -4.7 -1.7 -7.3 0 -9.6 Z"/>
+      <path id="side" d="M0.7 -2.3 C1.4 -5.2 4.2 -6.6 5.6 -4.9 C6.4 -3.8 5.6 -2.4 4.5 -2.9 C5.1 -3.7 4.3 -4.5 3.4 -4 C2.4 -3.4 1.7 -2.6 1.3 -1.6 Z"/>
+      <use href="#side" transform="scale(-1 1)"/>
+      <path d="M-2.7 -1.9 H2.7 V-0.6 H-2.7 Z"/>
+      <path d="M-1.3 -0.6 L0 1.5 L1.3 -0.6 Z"/>
+    </g>
+    <path id="vine" d="M10.9 5.4 C12.9 2.5 15.9 2.5 17.1 4.3 C18.2 5.9 20.3 6.7 21.6 5.4 C22.6 4.4 22 2.9 20.8 3 C19.9 3.1 19.7 4.2 20.4 4.6"/>
+    <path id="bud" d="M15.2 3.05 C15.6 1.9 16.6 1.35 17.6 1.5 C17.2 2.5 16.3 3.1 15.2 3.05 Z"/>
+    <g id="tendril">
+      <use href="#vine" fill="none" stroke="#4A330C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <use href="#bud" fill="#4A330C" stroke="#4A330C" stroke-width="1.3" stroke-linejoin="round"/>
+      <use href="#vine" fill="none" stroke="url(#g)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+      <use href="#bud" fill="url(#g)"/>
+    </g>
+    <g id="corner">
+      <g filter="url(#s)">
+        <use href="#tendril" transform="translate(2 3)"/>
+        <use href="#tendril" transform="matrix(0 1 1 0 3 2)"/>
+        <use href="#fleur" transform="translate(10 10) rotate(-45) scale(1.22)" fill="url(#g)" stroke="#4A330C" stroke-width=".75" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </defs>
+  <use href="#corner"/>
+  <use href="#corner" transform="translate(80 0) scale(-1 1)"/>
+  <use href="#corner" transform="translate(0 80) scale(1 -1)"/>
+  <use href="#corner" transform="translate(80 80) scale(-1 -1)"/>
+  <g filter="url(#s)" fill="url(#g)" stroke="#4A330C" stroke-width=".55">
+    <circle cx="40" cy="8.4" r="1.35"/>
+    <circle cx="40" cy="71.6" r="1.35"/>
+    <circle cx="8.4" cy="40" r="1.35"/>
+    <circle cx="71.6" cy="40" r="1.35"/>
+  </g>
+</svg>

@@ -314,6 +314,8 @@ check("Probe lists the interface number", max_.said(r"Interface number: 16001"))
 bram.slash("probe")
 check("Probe sees Bram as not the Crown", bram.said(r"counts as the Crown: no"))
 check("Both Crown ranks are recognised", bram.said(r'On the Crown ranks \("The King", "The Crown"\): Aldric, Max'))
+max_.slash("probe map")
+check("Map probe runs without errors and saves what it found", max_.said(r"Map probe") and max_.said(r"Saved\. After /reload"))
 max_.slash("debug")
 max_.slash("debug")
 max_.slash("probe limits")
@@ -576,8 +578,14 @@ herald_switch.scripts.OnClick(herald_switch)
 check("The herald switch turns heralds off", hns.db.settings.herald == False and herald_switch.off.shown)
 check("A non-sample herald is then skipped", hns.Herald.Announce(hns.Herald, HL.MinistryOfTheAllied.Herald.samples[1]) == False)
 herald_switch.scripts.OnClick(herald_switch)
+hc.lua.execute('GLOW_HEARD = 0; MinistryOfTheAllied:Listen("GLOW_CHANGED", function() GLOW_HEARD = GLOW_HEARD + 1 end)')
 glow_switch.scripts.OnClick(glow_switch)
-check("A switch for a later feature doesn't change", hns.db.settings.glow == True)
+check("The District glow switch turns the glow off and tells the map",
+      hns.db.settings.glow == False and glow_switch.off.shown and HL.GLOW_HEARD == 1)
+glow_switch.scripts.OnClick(glow_switch)
+cards_switch = controls[4]
+cards_switch.scripts.OnClick(cards_switch)
+check("A switch for a later feature doesn't change", hns.db.settings.cards == False)
 modest = controls[5]
 modest.scripts.OnClick(modest)
 check("Modest is chosen", hns.db.settings.heraldSize == "small" and modest.on.shown and not controls[6].on.shown)
@@ -1404,6 +1412,228 @@ check("Old names: the held ballot and the Kings' count follow",
 check("Old names: Pell's next record doesn't reuse a number the guild holds",
       ev(pell, 'MinistryOfTheAllied.Book:NextNumber()') == 4)
 clients.remove(pell)
+
+print("== 99. the who's-online tooltip on the minimap seal")
+_saved_roster = ROSTER
+_tip = [["Aldmere-Realm", "The Crown", 0, True, 1, "PALADIN"], ["Corwen-Realm", "The King", 1, True, 1, "WARRIOR"],
+        ["Seraphine-Realm", "Prime Minister", 2, True, 1, "PALADIN"], ["Dagna-Realm", "Minister of War", 3, True, 1, "WARRIOR"],
+        ["Ysolde-Realm", "The Judiciary", 5, True, 1, "MAGE"], ["Hilda-Realm", "The Judiciary", 5, False, 2, "WARRIOR"],
+        ["Tipper-Realm", "Citizen", 6, True, 1, "SHAMAN"]]
+_tip += [[f"Citizen{i:02d}-Realm", "Citizen", 6, True, 1, ["ROGUE", "HUNTER", "DRUID", "PRIEST"][i % 4]] for i in range(32)]
+ROSTER = _tip
+tipper = Client("Tipper")
+ROSTER = _saved_roster
+clients.append(tipper)
+run(3)
+TL = tipper.lua.globals()
+tns = TL.MinistryOfTheAllied
+seal = TL.MinistryOfTheAlliedMinimapButton
+seal.scripts.OnEnter(seal)
+tipf = TL.MinistryOfTheAlliedOnlineTip
+st = tns.OnlineTip.state
+check("Tooltip: shown on hover", tipf is not None and tipf.shown)
+check("Tooltip: counts 38 online (one offline)", st.count == 38)
+check("Tooltip: 38 online is a column per office", st.mode == "columns" and st.count == 38)
+titles = [st.sections[i].title for i in range(1, len(st.sections) + 1)]
+check("Tooltip: offices in order, empty ones left out (no Deputy PM)",
+      titles == ["THE CROWN", "PRIME MINISTER", "MINISTER OF WAR", "THE JUDICIARY", "CITIZENS"])
+check("Tooltip: both Crown ranks share one section", st.sections[1].count == 2)
+check("Tooltip: offline member left out", st.sections[4].count == 1)
+check("Tooltip: Citizens run on into columns of 9", st.sections[5].count == 33 and st.sections[5].subcols == 4 and st.sections[5].rows == 9)
+check("Tooltip: columns keep it short, and it fits the screen", st.h < 330 and tipf.scale <= 1)
+tns.ApplySkin("UNREGISTERED")
+tns.OnlineTip.Refresh(tns.OnlineTip)
+seal.scripts.OnLeave(seal)
+check("Tooltip: hides when the mouse leaves", not tipf.shown)
+# a short roster: a name per line
+tipper.lua.execute("for i = 8, #ROSTER do ROSTER[i][4] = false; ROSTER[i][5] = 3 end; ROSTER[8][4] = true; ROSTER[9][4] = true; mock_fire('GUILD_ROSTER_UPDATE')")
+seal.scripts.OnEnter(seal)
+st = tns.OnlineTip.state
+check("Tooltip: 8 online is a list", st.mode == "list" and st.count == 8)
+list_h = st.h
+seal.scripts.OnLeave(seal)
+for key in ("SILVERHAND", "AZEROTH_EXCHANGE", "CROWN", "UNREGISTERED"):
+    tns.ApplySkin(key)
+    seal.scripts.OnEnter(seal)
+    seal.scripts.OnLeave(seal)
+check("Tooltip: draws in all four skins", tns.OnlineTip.state.count == 8)
+clients.remove(tipper)
+
+print("== 100. districts: records, Crown-only, latest wins, catch-up")
+dk = Client("Max")
+clients.append(dk)
+run(1)
+db = Client("Bram")
+clients.append(db)
+run(8)
+dk.slash("district Bram ARC")
+run(2)
+check("District: the Crown places a citizen and both see it",
+      Q(dk, 'return M:DistrictOf("Bram").code') == "ARC" and Q(db, 'return M:DistrictOf("Bram").code') == "ARC")
+db.slash("district Mira HARB")
+check("District: a citizen can't place anyone", db.said(r"Only the Crown places"))
+Q(db, 'M.Book:Write("citizen.district", { who = "Mira", d = "HARB" })')
+run(2)
+check("District: a forged record from a citizen is refused by others", Q(dk, 'return M:DistrictOf("Mira")') is None)
+dk.slash("district Bram cath")
+run(2)
+check("District: the newest record wins (typed in lower case)", Q(dk, 'return M:DistrictOf("Bram").code') == "CATH" and Q(db, 'return M:DistrictOf("Bram").code') == "CATH")
+dk.slash("district Mira IRON")
+dk.slash("district elowen Old")
+run(2)
+check("District: sizes count each district", Q(db, 'local s, total = M.District:Sizes() return s.CATH == 1 and s.IRON == 1 and s.OLD == 1 and s.ARC == 0 and total == 3') is True)
+dk.slash("district Max HARB")
+check("District: the Crown belongs to none", dk.said(r"belongs to no district"))
+dk.slash("district Nobody IRON")
+check("District: unknown names are refused", dk.said(r"isn't on the guild roster"))
+dk.slash("district rep CATH Bram")
+dk.slash("district rep IRON Bram")
+check("District: a Rep must live in the district", dk.said(r"isn't a citizen of Iron District"))
+run(2)
+check("District: the Rep is recorded and seen", Q(db, 'return M.District:Rep("CATH")') == "Bram")
+dk.slash("district rep CATH")
+run(2)
+check("District: the seat can be left vacant", Q(db, 'return M.District:Rep("CATH")') is None)
+db.slash("district")
+check("District: anyone can list the districts", db.said(r"Your district: The Cathedral Ward"))
+check("District: your own district reaches the rail foot",
+      Q(db, 'M.UI:Build() M.UI:Refresh() return M.UI.whoSmall.text') == "Cathedral Ward")
+late_d = Client("Mira")
+clients.append(late_d)
+run(20)
+check("District: catch-up carries the placements", Q(late_d, 'return M:DistrictOf("Bram").code') == "CATH" and Q(late_d, 'return M:DistrictOf("Mira").code') == "IRON")
+check("District: a bogus code in a record is ignored",
+      Q(dk, 'return M.Book.rules["citizen.district"]("Max", { d = { who = "Bram", d = "XXX" } })') is False)
+clients.remove(late_d)
+clients.remove(db)
+clients.remove(dk)
+
+print("== 101. the Districts page and the window border")
+d3k = Client("Max")
+clients.append(d3k)
+run(1)
+d3c = Client("Bram")
+clients.append(d3c)
+run(8)
+d3k.lua.execute("WAYPOINT = nil; C_Map = { SetUserWaypoint = function(p) WAYPOINT = p end }; "
+                "UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { m = m, x = x, y = y } end }")
+d3k.slash("district Bram CATH")
+d3k.slash("district rep CATH Bram")
+run(2)
+d3k.slash("")
+KG = d3k.lua.globals()
+kns = KG.MinistryOfTheAllied
+dist_tab = [i for i in range(1, 8) if kns.Media.pages[i].id == "districts"][0]
+kns.UI.tabs[dist_tab].scripts.OnClick(kns.UI.tabs[dist_tab])
+DP = kns.DistrictsPage
+check("Districts page: opens on the Map view", Q(d3k, 'return M.DistrictsPage ~= nil') is True and kns.UI.heading is not None)
+spot = kns.Media.districts.spots
+check("Districts page: each meeting place lies inside its own district",
+      all(DP.HitTest(DP, spot[c].x, spot[c].y) == c for c in ("OLD", "ARC", "IRON", "CATH", "HARB")))
+check("Districts page: the Trade District belongs to no district", DP.HitTest(DP, 760, 680) is None)
+DP.Pick(DP, "ARC")
+check("Districts page: picking a district lights it", Q(d3k, 'return M.DistrictsPage ~= nil') is True)
+ok = DP.Waypoint(DP, "CATH")
+wp = KG.WAYPOINT
+check("Districts page: Set waypoint pins Stormwind City (map 1453) on the meeting place",
+      ok and wp is not None and wp.m == 1453 and 0 < wp.x < 1 and 0 < wp.y < 1)
+DP.Select(DP, "council")
+check("Districts page: the Council shows the Cathedral's Rep.", DP.cards[4].name.text == "Bram" and DP.cards[1].name.text == "Seat vacant")
+DP.Select(DP, "roll")
+rows = DP.RollList(DP)
+check("Districts page: the roll lists the whole guild, online first",
+      len(rows) == len(ROSTER) and rows[1].r.online and not rows[len(rows)].r.online)
+# the Crown places Mira from the roll's picker (row for Mira, then the picker's Iron button)
+d3k.lua.execute('''local P = MinistryOfTheAllied.DistrictsPage
+  P:OpenPicker({ who = "Mira", district = UIParent })''')
+run(0.2)
+d3k.lua.execute('''MinistryOfTheAllied.District:Assign("Mira", "IRON")''')
+run(2)
+check("Districts page: the Crown places a citizen from the roll", Q(d3c, 'return M:DistrictOf("Mira").code') == "IRON")
+for key in ("SILVERHAND", "AZEROTH_EXCHANGE", "CROWN", "UNREGISTERED"):
+    kns.ApplySkin(key)
+    for v in ("map", "council", "roll"):
+        DP.Select(DP, v)
+check("Districts page: draws in all four skins and three views", True)
+b = kns.UI.border
+check("Window border: corners and repeated edges round the window", b is not None and len(b.parts) > 12)
+kns.ApplySkin("SILVERHAND")
+check("Window border: Silverhand wears the silver one", "border" in b.parts[1].t.texture and b.parts[1].t.coords[1] >= 0.49)
+kns.ApplySkin("CROWN")
+check("Window border: the Crown wears the gold one", b.parts[1].t.coords[1] < 0.01)
+clients.remove(d3c)
+clients.remove(d3k)
+
+print("== 102. the districts on the world map")
+d4k = Client("Max")
+clients.append(d4k)
+run(1)
+d4c = Client("Bram")
+clients.append(d4c)
+run(8)
+d4k.slash("district Bram CATH")
+run(2)
+# A pretend world map, loaded after the add-on (as Blizzard_WorldMap may be):
+# a canvas the map's size, a level manager and the map's own OnMapChanged.
+d4c.lua.execute('''
+  WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
+  WorldMapFrame.shown = false
+  local canvas = CreateFrame("Frame", nil, WorldMapFrame)
+  canvas:SetSize(1002, 668)
+  WorldMapFrame.mapID = 1415
+  function WorldMapFrame:GetCanvas() return canvas end
+  function WorldMapFrame:GetMapID() return self.mapID end
+  function WorldMapFrame:OnMapChanged() end
+  function WorldMapFrame:SetMapID(id) self.mapID = id self:OnMapChanged() end
+  local levels = { PIN_FRAME_LEVEL_MAP_HIGHLIGHT = 40 }
+  local mgr = {}
+  function mgr:GetValidFrameLevel(kind) return levels[kind] + 0 end
+  function WorldMapFrame:GetPinFrameLevelsManager() return mgr end
+  mock_fire("ADDON_LOADED", "Blizzard_WorldMap")
+''')
+WG = d4c.lua.globals()
+WM = WG.MinistryOfTheAllied.WorldMap
+check("World map: hooked on once the game's map loads", WM.map is not None)
+d4c.lua.execute('WorldMapFrame:Show()')
+check("World map: nothing drawn on another map (Eastern Kingdoms)", WM.layer is None or not WM.layer.shown)
+d4c.lua.execute('WorldMapFrame:SetMapID(1453)')
+check("World map: drawn on Stormwind City", WM.layer is not None and WM.layer.shown)
+check("World map: your district lit, the others faint", WM.drawn is not None and WM.drawn.lit == "CATH")
+looks_ok = Q(d4c, '''local L = M.WorldMap.looks
+  for code, l in pairs(L) do
+    local yours = code == "CATH"
+    if l.lit.shown ~= yours or l.fill.shown ~= yours or l.rest.shown == yours then return false end
+    if not yours and l.rest.alpha >= 1 then return false end
+  end
+  return true''')
+check("World map: the Cathedral Ward gold, the other four as faint outlines", looks_ok is True)
+check("World map: under the map's pins (the highlight level)", WM.layer.level == 40)
+sx = WM.scale[1]
+check("World map: laid out by the map canvas's size", abs(sx - 1002 / 1561) < 1e-6)
+d4c.lua.execute('WorldMapFrame:GetCanvas():SetSize(1400, 933)')
+WM.Place(WM)
+check("World map: follows the map when it is enlarged", abs(WM.scale[1] - 1400 / 1561) < 1e-6)
+d4c.lua.execute('MinistryOfTheAllied.db.settings.glow = false; MinistryOfTheAllied:Fire("GLOW_CHANGED")')
+check("World map: the District glow switch turns it off", not WM.layer.shown)
+d4c.lua.execute('MinistryOfTheAllied.db.settings.glow = true; MinistryOfTheAllied:Fire("GLOW_CHANGED")')
+check("World map: and back on", WM.layer.shown)
+d4c.lua.execute('COMBAT = true; WorldMapFrame:Hide(); WorldMapFrame:Show(); COMBAT = false')
+check("World map: opens in combat without trouble", WM.layer.shown)
+d4c.lua.execute('WorldMapFrame:SetMapID(1429)')
+check("World map: gone again on Elwynn Forest", not WM.layer.shown)
+d4c.lua.execute('WorldMapFrame:SetMapID(1453)')
+glow_row = open(os.path.join(ADDON, "UI", "Settings.lua"), encoding="utf-8").read().split('key = "glow"')[1].split("},")[0]
+check("Settings: District glow is live (no '· later') and tells the map", "later" not in glow_row and "GLOW_CHANGED" in glow_row)
+# the Districts page footer
+d4c.slash("")
+dist_tab4 = [i for i in range(1, 8) if WG.MinistryOfTheAllied.Media.pages[i].id == "districts"][0]
+WG.MinistryOfTheAllied.UI.SelectPage(WG.MinistryOfTheAllied.UI, dist_tab4)
+check("Districts page: footer says your district glows on the world map",
+      WG.MinistryOfTheAllied.UI.footRight.text == "YOUR DISTRICT GLOWS ON THE WORLD MAP TOO")
+WG.MinistryOfTheAllied.UI.SelectPage(WG.MinistryOfTheAllied.UI, 1)
+check("Other pages: footer keeps the place and day", "GLOWS" not in WG.MinistryOfTheAllied.UI.footRight.text)
+clients.remove(d4c)
+clients.remove(d4k)
 
 print("  Methods the pretend game didn't know:", max_.lua.globals().mock_unknown())
 missing = []

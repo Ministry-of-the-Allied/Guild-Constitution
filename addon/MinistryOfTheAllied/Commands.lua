@@ -178,9 +178,11 @@ add("ring", "", "who holds the Minister of War rank", function()
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits|bank]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows", function(arg)
+add("probe", "[limits|bank|map]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of", function(arg)
   if arg == "limits" then
     MOTA.Probe:Limits()
+  elseif arg == "map" then
+    MOTA.Probe:Map()
   elseif arg == "bank" then
     MOTA.Probe:Bank()
   else
@@ -221,6 +223,43 @@ add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your o
     MOTA:Print("Back to your own skin: " .. S.titles[MOTA.skin.KEY] .. ".")
   end
 end, isCrown)
+
+-- Districts: the Crown places citizens, everyone can read (the page comes in D3).
+add("district", "[<name> <code> | rep <code> [name]]", "districts: yours and their sizes; Crown: place a citizen (OLD ARC IRON CATH HARB), or name a Rep.", function(arg)
+  if not needGuild() then return end
+  local D = MOTA.District
+  if arg == "" then
+    local mine = D:Of(MOTA.me)
+    MOTA:Print("Your district:", mine and mine.name or "none yet (the Crown places citizens)")
+    local sizes, total = D:Sizes()
+    for _, d in ipairs(MOTA.CONST.DISTRICTS) do
+      local rep = D:Rep(d.code)
+      MOTA:Print(MOTA:Color("leaf", d.code), d.name .. ":", sizes[d.code], sizes[d.code] == 1 and "citizen" or "citizens",
+        "· Rep.", rep and MOTA:Short(rep) or "vacant")
+    end
+    MOTA:Print(total, "placed.")
+    return
+  end
+  if not isCrown() then return MOTA:Print("Only the Crown places citizens in districts. /mota district shows the districts.") end
+  local rep = arg:match("^rep%s+(.*)$")
+  if rep then
+    local word, who = rep:match("^(%S+)%s*(.-)$")
+    local code = D:Code(word)
+    if not code then return MOTA:Print("Which district? Try OLD, ARC, IRON, CATH or HARB.") end
+    local rec, err = D:SetRep(code, who)
+    if rec then
+      MOTA:Print("Representative of", D.byCode[code].name .. ":", who ~= "" and rec.d.who or "seat vacant")
+    else
+      MOTA:Print(err)
+    end
+    return
+  end
+  local who, word = arg:match("^(.-)%s+(%S+)$")
+  local code = word and D:Code(word)
+  if not who or not code then return MOTA:Print("Usage: /mota district <name> <code>, where the code is OLD, ARC, IRON, CATH or HARB.") end
+  local rec, err = D:Assign(who, code)
+  if rec then MOTA:Print(rec.d.who, "is now a citizen of", D.byCode[code].name .. ".") else MOTA:Print(err) end
+end)
 
 add("books", "open", "Crown: restart the ledger at the balance last counted at the guild bank", function(arg)
   if arg ~= "open" then return MOTA:Print("/mota books open restarts the ledger at the balance last counted at the guild bank.") end

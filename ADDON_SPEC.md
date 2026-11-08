@@ -598,7 +598,7 @@ One window with **seven tabs** matching the canvas. Tab availability is the same
 
 **Ballot Hall scope:** Elections only (General, Snap, run-off, district). No law votes. No-confidence is tracked manually by the Crown via in-game mail.
 
-**The Parties scope:** each party page has a public face and a private Party Chamber (10.16). Joining follows the brief: the join button sends the request, and the Crown records membership in the citizen registry once a 5g deposit tagged for that party shows in the guild bank (10.7; Charter 3.2 to be amended). Each party's funds are public on the ledger as they change.
+**The Parties scope:** each party page has a public face and a private Party Chamber (10.16). Joining follows the brief: the join button sends the request, and the Crown records membership in the citizen registry once a 50s deposit tagged for that party shows in the guild bank (10.7; Charter 3.2, version 1.3). Each party's funds are public on the ledger as they change.
 
 **Small extras:**
 - **Minimap seal:** a wax-seal button that opens the addon (right-click opens settings).
@@ -720,7 +720,7 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
 *Decided 2026-11-06: joining follows the brief; everything else follows the old plan (agreed with Max 2026-11-04, matched to Charter 3.2).* The goal is that neither party can see the other's private chamber, and joining a party to spy and quickly switching back isn't possible.
 
 - **Party membership is public, party business is private.** Who belongs to which party is visible to all. The Party Chamber is not.
-- **Joining:** the citizen clicks join and deposits 5g in the guild bank, tagged for that party; the Crown records them as a member once the deposit is confirmed.
+- **Joining:** the citizen clicks join and deposits 50s (50 silver, Charter 3.2) in the guild bank, tagged for that party; the Crown records them as a member once the deposit is confirmed.
 - **The Party Chamber** holds the party's plans, notes and whip notices. Only that party's members can see it.
 - **Chamber data never goes on the guild channel.** It's sent only by private addon whisper to characters on that party's roster, so members of the other party never receive it at all.
 - **The party leader is elected by its members,** in a vote inside the Party Chamber. The winner is the party's candidate for PM (Charter 3.2). Decided by Duncan, 2026-11-07, not yet built, and needing the party roll first:
@@ -741,7 +741,7 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
   - **Deputy leader:** a leadership decision, not a runner-up. The leader names them publicly. If the leader goes, the deputy takes over with the clock still running and no vote.
   - **No leader or deputy at day -14** (also mid-campaign, or at a Snap Election): election day moves back 14 days, with a 7-day emergency contest (2 to stand, 5 to vote), then a full 14-day campaign. **Only one delay per election**, so a governing party can't stay in power by leaving its seat empty; after that the election goes ahead and the party sits it out.
 - **Built so far (0.6.0, to test in game):** `Contest.lua`, the election date, contests with platforms, votes to the Kings, run-offs and results. Candidates and platforms (laws campaigned on, laws to remove, proposals) are public on each party's page. The first contest has no 14-day joining rule; later ones do. There is no government until the founding election. Not yet built: deputies, shadow cabinet, the election delay. Bank permissions for ministers are still to be designed. Minister of War stays a guild rank until the founding government.
-- **The Crown is apolitical.** A character on a Crown rank can't join, hold office in or fund a party, and shouldn't campaign for one, but still votes in General Elections. Decided by Duncan, 2026-11-07. The Charter doesn't say this yet (`CHARTER_AMENDMENTS_DRAFT.md`).
+- **The Crown is apolitical.** A character on a Crown rank can't join, hold office in or fund a party, and shouldn't campaign for one, but still votes in General Elections. Decided by Duncan, 2026-11-07; agreed by both Kings and in the Charter as 1.5 (version 1.3, 2026-11-08).
 - **Crossing the floor is slow and public.** Leaving a party is announced to the whole guild by herald, and access to the old chamber ends at once. There's then a **14-day** cooling-off period before the other party can accept that person; the Crown's addon refuses to record the new membership until it's over. A citizen can leave their own party themselves, or the Crown records it.
 - **Roster changes** are only accepted from the Crown. WoW tells the receiver the real sender of every addon message, so every client can check who issued each change.
 - **Built so far (0.2.0, 2026-11-07, to test in game):** `Party.lua` (the roll), `Bank.lua` and `UI/BankPrompt.lua` (deposit and withdrawal reasons), and The Parties page with real members, funds, join and leave, the Crown's desk on the Chamber ribbon, and party skins. Reasons are buttons rather than a dropdown. The Treasury page's ledger follows in 0.3.0 (`Ledger.lua`, `UI/Treasury.lua`). Not yet built: leaders, deputies, contests, chamber notices, Taxes & budget. Offline members miss roll changes until catch-up is built (section 7).
@@ -1152,7 +1152,7 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 - [ ] **Heralds:** long names and titles fit.
 - [ ] Anything built after this note: deputy and shadow cabinet, the election delay, the General Election.
 
-**Before launch:** set `Party.FEE` in `Party.lua` back to 50000 (5 gold); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
+**Before launch:** `Party.FEE` in `Party.lua` is already the real fee, 5000 (50 silver, set 2026-11-08); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
 
 ## 18. To test after launch
 

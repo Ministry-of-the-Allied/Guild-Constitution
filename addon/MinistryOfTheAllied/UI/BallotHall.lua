@@ -875,7 +875,9 @@ local function buildForm(v)
   caps(paper, "bEyebrow", C.inkGold, 0.24):Set("Candidates", x, 182)
   F.cands = {}
   local xw = boxOf("xbtn").w
-  local nameW = w - xw - 6
+  -- The name and party boxes run the full width, like the Election box. The
+  -- remove X floats inside the name box at its right end, with no ring.
+  local nameW = w
   -- Each candidate has two rows: the name, then their party beneath it. Room
   -- for two shows at once; the list scrolls for a third and fourth.
   local scroll = CreateFrame("ScrollFrame", nil, paper)
@@ -897,11 +899,13 @@ local function buildForm(v)
       updateFormButtons()
     end)
     at(row.name, row, 0, 0)
+    row.name.edit:SetTextInsets(10, xw + 6, 0, 0) -- typing stops short of the X
     row.remove = pieceButton(row, "xbtn", function()
       table.remove(Page.form.cands, i)
       Page:Refresh()
     end)
-    at(row.remove, row, w - xw, 2)
+    at(row.remove, row, w - xw - 2, 2)
+    row.remove:SetFrameLevel(row.name.edit:GetFrameLevel() + 2) -- above the typing box, so it takes the click
     local pb = panel(CreateFrame("Button", nil, row), { "FFFAEB", 0.78 }, { { 0, 1, C.brown, 0.6 } })
     pb:SetSize(nameW, 34)
     at(pb, row, 0, 38)

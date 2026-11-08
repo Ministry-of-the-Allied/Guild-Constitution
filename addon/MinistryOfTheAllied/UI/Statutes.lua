@@ -238,11 +238,11 @@ local function buildForce(v)
   v.barNote:SetText("All laws lapse after three months unless the government renews them.")
   v.empty = besideMark(book, "kitItalic", "5E4B33")
   v.empty:Set(EMPTY_FORCE, 60)
-  -- Given under the seal of the Crown
+  -- Under the crest of the Crown
   local seal, sp = Kit:Art(book, "hseal_crown", "ARTWORK")
   seal:SetSize(58 * sp.w / sp.h, 58) -- the Crown crest, taller than it is wide
   seal:SetPoint("BOTTOMLEFT", book, "BOTTOMLEFT", R_X, 20)
-  local l1 = Kit:Label(book, "kitTiny", "7A5719", 0.3, "Given under the seal")
+  local l1 = Kit:Label(book, "kitTiny", "7A5719", 0.3, "Under the crest")
   l1:SetPoint("LEFT", seal, "RIGHT", 12, 7)
   local l2 = Kit:Label(book, "kitTiny", "7A5719", 0.3, "of the Crown")
   l2:SetPoint("LEFT", seal, "RIGHT", 12, -7)

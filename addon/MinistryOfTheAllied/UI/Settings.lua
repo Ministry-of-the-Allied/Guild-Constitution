@@ -10,7 +10,8 @@ local M = MOTA.Media
 local ROWS = {
   { key = "herald", label = "Herald pop-ups", small = "Announce votes, laws and defections live" },
   { key = "fanfare", label = "Fanfare", small = "Play the game's own trumpet with each herald" },
-  { key = "glow", label = "District glow", small = "Light your district on the world map", later = true },
+  { key = "glow", label = "District glow", small = "Light your district on the world map",
+    changed = function() MOTA:Fire("GLOW_CHANGED") end },
   { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members", later = true },
   { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear", box = "segBox",
     choice = { { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } } },
@@ -56,6 +57,7 @@ local function buildSwitch(i, row)
     MOTA.db.settings[row.key] = not MOTA.db.settings[row.key]
     play(MOTA.db.settings[row.key] and "IG_MAINMENU_OPTION_CHECKBOX_ON" or "IG_MAINMENU_OPTION_CHECKBOX_OFF")
     self:Update()
+    if row.changed then row.changed() end
   end)
   if row.later then
     b.on:SetAlpha(0.45)

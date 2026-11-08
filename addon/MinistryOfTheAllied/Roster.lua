@@ -83,6 +83,44 @@ function MOTA:CrownMembers()
   return list
 end
 
+-- Who is online, by office (the minimap seal's tooltip, UI/OnlineTip.lua).
+-- Returns the number online and the sections, highest office first, empty
+-- ones left out; Citizens (every other rank) last. A section is
+-- { title, people = { { name, class, main }, ... } }, names in order.
+-- main is the main of an alt, once alt links exist (spec 10.1); until then nil.
+function MOTA:OnlineSections()
+  local byRank, sections = {}, {}
+  for i, office in ipairs(self.CONST.OFFICES) do
+    sections[i] = { title = office.title, people = {} }
+    for rank in pairs(office.ranks) do byRank[rank] = sections[i] end
+  end
+  local citizens = { title = self.CONST.CITIZENS_TITLE, people = {} }
+  sections[#sections + 1] = citizens
+  local count = 0
+  for name, r in pairs(roster) do
+    if r.online then
+      count = count + 1
+      local into = byRank[r.rank] or citizens
+      into.people[#into.people + 1] = { name = name, class = r.class, main = self.MainOf and self:MainOf(name) or nil }
+    end
+  end
+  local out = {}
+  for _, s in ipairs(sections) do
+    if #s.people > 0 then
+      table.sort(s.people, function(a, b) return a.name < b.name end)
+      out[#out + 1] = s
+    end
+  end
+  return count, out
+end
+
+-- A class's colour as r, g, b (the game's own, or the table in Data.lua).
+function MOTA:ClassColor(class)
+  local c = RAID_CLASS_COLORS and class and RAID_CLASS_COLORS[class]
+  if c then return c.r, c.g, c.b end
+  return self:RGB(self.CONST.CLASS_COLORS[class] or "E5CF92")
+end
+
 -- Active citizens: guild members online now or within ACTIVE_CITIZEN_DAYS
 -- (ADDON_SPEC.md 8.4). The turnout of a ballot is counted against this.
 -- A member the game gives no last-online time for counts as active.

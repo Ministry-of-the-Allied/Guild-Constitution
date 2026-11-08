@@ -85,6 +85,11 @@ local STYLES = {
   bItalic = { "garamondItalic", 14 },       -- .small.italic
   bItalic13 = { "garamondItalic", 13.5 },
   bPortrait = { "decoBold", 13, true },     -- .portrait.sm initials
+  -- The who's-online tooltip (OnlineTooltip board)
+  tipCount = { "decoBold", 26, true },      -- the number online
+  tipHead = { "cinzel", 10, true },         -- an office's heading, and "online"
+  tipName = { "garamondMedium", 15, true }, -- a name
+  tipHint = { "garamondItalic", 12.5 },     -- the help line at the foot
 }
 
 function MOTA:FontSize(name)

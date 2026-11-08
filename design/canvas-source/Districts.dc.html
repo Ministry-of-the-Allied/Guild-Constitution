@@ -14,13 +14,17 @@
 <style>
 body{margin:0}
 a{color:#1B3570}a:hover{color:#3A63B8}
-.chart{position:relative;background-color:#F2E6C6;background-image:radial-gradient(ellipse 100% 90% at 50% 50%,rgba(0,0,0,0) 60%,rgba(120,80,30,.3) 100%),url(/_blob/d4a81ff364cfd13a95212c60a73bd187);
+.chart{position:relative;align-self:start;aspect-ratio:1090/914;background:#B89A5E;overflow:hidden;
   box-shadow:0 0 0 1px rgba(110,79,23,.55),0 0 0 5px #EADCB8,0 0 0 6px rgba(110,79,23,.45),0 10px 22px rgba(70,45,10,.35)}
-.dz{fill:var(--dc);fill-opacity:.2;stroke:var(--dc);stroke-opacity:.6;stroke-width:1.6;cursor:pointer;transition:fill-opacity .25s}
-.dz:hover{fill-opacity:.36}
-.dz.on{fill-opacity:.6;stroke:#F3D98A;stroke-opacity:1;stroke-width:3.2;filter:drop-shadow(0 0 7px rgba(243,217,138,.95))}
-.lbl{font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.14em;fill:#2A1F14;pointer-events:none;text-anchor:middle}
-.lbl.sub{font-family:'EB Garamond',serif;font-weight:500;font-style:italic;font-size:11px;letter-spacing:0;fill:#5E4B33}
+.chart svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* the five districts on the real Stormwind City map (Max's screenshot, 8 Nov): outlines only, so the map stays readable.
+   All five faint; yours (or the one picked) bright, with a gold edge and a soft glow. */
+.dz{fill:var(--dc);fill-opacity:0;stroke:var(--dc);stroke-opacity:.9;stroke-width:6;stroke-dasharray:20 10;stroke-linejoin:round;cursor:pointer;transition:stroke-opacity .2s,fill-opacity .2s;
+  filter:drop-shadow(0 0 2px rgba(255,248,220,.95)) drop-shadow(0 0 1px rgba(255,248,220,.9))}
+.dz:hover{stroke-opacity:1;fill-opacity:.08}
+.dz.on{stroke:#F3D98A;stroke-opacity:1;stroke-width:11;stroke-dasharray:none;fill-opacity:.1;filter:drop-shadow(0 0 6px rgba(243,217,138,.95)) drop-shadow(0 0 2px rgba(0,0,0,.6))}
+.dz-in{fill:none;stroke:var(--dc);stroke-width:4.5;stroke-linejoin:round;pointer-events:none;opacity:0}
+.dz-in.on{opacity:1}
 .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.2s ease-out infinite}
 @keyframes pulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.4);opacity:0}}
 .dbtn{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:4px 8px;border:none;background:transparent;cursor:pointer;text-align:left;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#5E4B33;box-shadow:inset 0 -1px 0 rgba(110,79,23,.3)}
@@ -72,60 +76,30 @@ a{color:#1B3570}a:hover{color:#3A63B8}
           </div>
 
           <sc-if value="{{isMap}}" hint-placeholder-val="{{ true }}">
-            <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 238px; gap: 22px">
+            <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 18px">
               <div class="chart" style="margin: 6px">
-                <svg viewBox="0 0 520 440" width="100%" height="100%" role="img" aria-label="Chart of Stormwind with the five districts">
-                  <defs>
-                    <pattern id="waves" width="14" height="8" patternUnits="userSpaceOnUse"><path d="M0 4 Q3.5 1 7 4 T14 4" fill="none" stroke="#5A86B8" stroke-width=".8" opacity=".55"></path></pattern>
-                  </defs>
-                  <path d="M0 0 H70 C48 70 30 150 20 250 C12 330 30 390 60 440 H0 Z" fill="#B9CFE0"></path>
-                  <path d="M0 0 H70 C48 70 30 150 20 250 C12 330 30 390 60 440 H0 Z" fill="url(#waves)"></path>
-                  <g fill="none" stroke-linecap="round">
-                    <path d="M22 246 C80 262 116 236 150 226 C190 214 228 224 248 210 C268 196 266 160 278 150 C294 140 330 154 354 152 C378 150 392 168 394 182" stroke="#5A86B8" stroke-width="13" opacity=".45"></path>
-                    <path d="M22 246 C80 262 116 236 150 226 C190 214 228 224 248 210 C268 196 266 160 278 150 C294 140 330 154 354 152 C378 150 392 168 394 182" stroke="#B9CFE0" stroke-width="9"></path>
-                    <path d="M244 330 C272 320 300 316 330 314 C352 312 366 330 374 344" stroke="#5A86B8" stroke-width="13" opacity=".45"></path>
-                    <path d="M244 330 C272 320 300 316 330 314 C352 312 366 330 374 344" stroke="#B9CFE0" stroke-width="9"></path>
+                <svg viewBox="220 96 1090 914" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The five districts outlined on the map of Stormwind City, as the game draws it">
+                  <image href="/_blob/8ae4bb35e6b8398e6daec3df55902667" x="0" y="0" width="1561" height="1060"></image>
+                  <path class="{{cls.harb}}" style="--dc: #1F7A70" onClick="{{pick.harb}}" d="M236 250 L380 206 L452 128 L566 108 L590 232 L560 304 L506 336 L528 446 L566 560 L474 646 L398 612 L300 604 L246 532 L228 400 Z"></path>
+                  <path class="{{cls.cath}}" style="--dc: #3D86C6" onClick="{{pick.cath}}" d="M702 500 L772 452 L872 448 L952 498 L978 580 L952 662 L872 704 L780 704 L718 652 L690 580 Z"></path>
+                  <path class="{{cls.iron}}" style="--dc: #B0621C" onClick="{{pick.iron}}" d="M900 340 L990 278 L1102 278 L1162 330 L1172 432 L1152 522 L1080 562 L990 542 L940 470 L890 420 Z"></path>
+                  <path class="{{cls.old}}" style="--dc: #8E2B22" onClick="{{pick.old}}" d="M1070 612 L1150 560 L1252 574 L1292 640 L1282 732 L1210 772 L1120 742 L1074 690 Z"></path>
+                  <path class="{{cls.arc}}" style="--dc: #6B44A8" onClick="{{pick.arc}}" d="M630 835 L665 830 L690 825 L740 811 L800 808 L840 820 L875 860 L905 895 L910 920 L875 945 L840 975 L790 988 L730 992 L680 982 L640 966 L605 945 L598 915 L615 895 L625 860 Z"></path>
+                  <path class="{{inn.harb}}" style="--dc: #1F7A70" d="M236 250 L380 206 L452 128 L566 108 L590 232 L560 304 L506 336 L528 446 L566 560 L474 646 L398 612 L300 604 L246 532 L228 400 Z"></path>
+                  <path class="{{inn.cath}}" style="--dc: #3D86C6" d="M702 500 L772 452 L872 448 L952 498 L978 580 L952 662 L872 704 L780 704 L718 652 L690 580 Z"></path>
+                  <path class="{{inn.iron}}" style="--dc: #B0621C" d="M900 340 L990 278 L1102 278 L1162 330 L1172 432 L1152 522 L1080 562 L990 542 L940 470 L890 420 Z"></path>
+                  <path class="{{inn.old}}" style="--dc: #8E2B22" d="M1070 612 L1150 560 L1252 574 L1292 640 L1282 732 L1210 772 L1120 742 L1074 690 Z"></path>
+                  <path class="{{inn.arc}}" style="--dc: #6B44A8" d="M630 835 L665 830 L690 825 L740 811 L800 808 L840 820 L875 860 L905 895 L910 920 L875 945 L840 975 L790 988 L730 992 L680 982 L640 966 L605 945 L598 915 L615 895 L625 860 Z"></path>
+                  <g fill="#2A1F14" stroke="#F3D98A" stroke-width="2" opacity=".9" aria-hidden="true">
+                    <path d="M1180 646 l14 -14 l14 14 l-14 14 Z"></path>
+                    <path d="M706 878 l14 -14 l14 14 l-14 14 Z"></path>
+                    <path d="M1016 430 l14 -14 l14 14 l-14 14 Z"></path>
+                    <path d="M456 420 l14 -14 l14 14 l-14 14 Z"></path>
                   </g>
-
-                  <path class="{{cls.harb}}" style="--dc: #1F7A70" onClick="{{pick.harb}}" d="M34 66 C66 50 112 58 128 90 C140 118 134 168 122 198 C110 228 80 244 46 240 C34 196 28 130 34 66 Z"></path>
-                  <path class="{{cls.cath}}" style="--dc: #3D86C6" onClick="{{pick.cath}}" d="M160 100 C190 80 250 86 268 112 C282 136 270 186 238 198 C206 210 168 196 156 168 C146 144 146 116 160 100 Z"></path>
-                  <path class="{{cls.iron}}" style="--dc: #B0621C" onClick="{{pick.iron}}" d="M282 40 C320 28 372 36 386 62 C396 86 380 128 346 138 C312 146 284 132 276 104 C270 80 268 52 282 40 Z"></path>
-                  <path class="{{cls.old}}" style="--dc: #8E2B22" onClick="{{pick.old}}" d="M392 196 C426 182 478 192 492 226 C504 262 488 318 448 330 C410 340 380 316 376 280 C372 248 370 210 392 196 Z"></path>
-                  <path class="{{cls.arc}}" style="--dc: #6B44A8" onClick="{{pick.arc}}" d="M120 262 C156 240 214 248 232 282 C248 314 236 372 196 388 C156 402 112 384 100 348 C90 316 92 280 120 262 Z"></path>
-
-                  <path d="M276 178 C310 162 360 170 372 202 C384 238 368 286 330 296 C292 304 258 284 250 250 C244 220 250 192 276 178 Z" fill="#C9A24A" fill-opacity=".12" stroke="#7A5719" stroke-opacity=".5" stroke-dasharray="3 4"></path>
-                  <path d="M404 54 C436 42 482 52 492 82 C500 110 484 150 452 156 C420 160 402 138 398 110 C396 86 392 64 404 54 Z" fill="#C9A24A" fill-opacity=".3" stroke="#7A5719" stroke-width="1.6"></path>
-                  <path d="M434 120 V96 h6 v-6 h6 v6 h6 v-6 h6 v6 h6 V120 Z" fill="#7A5719"></path>
-                  <path d="M286 372 L324 372 L334 440 L276 440 Z" fill="#D9C49A" stroke="#7A5719" stroke-opacity=".6"></path>
-
-                  <text class="lbl" x="82" y="140">HARBOUR</text><text class="lbl sub" x="82" y="154">Quarter</text>
-                  <text class="lbl" x="212" y="140">CATHEDRAL</text><text class="lbl sub" x="212" y="154">Ward</text>
-                  <text class="lbl" x="330" y="82">IRON</text><text class="lbl sub" x="330" y="96">District</text>
-                  <text class="lbl" x="438" y="256">OLD</text><text class="lbl sub" x="438" y="270">Quarter</text>
-                  <text class="lbl" x="168" y="318">ARCANE</text><text class="lbl sub" x="168" y="332">Ward</text>
-                  <text class="lbl sub" x="312" y="238">Trade District</text>
-                  <text class="lbl" x="446" y="140" style="font-size: 9px">THE KEEP</text>
-                  <text class="lbl sub" x="305" y="400">The Gate</text>
-
-                  <g>
-                    <circle class="pulse" cx="228" cy="176" r="9" fill="none" stroke="#F3D98A" stroke-width="3"></circle>
-                    <path d="M228 162 C220 162 216 168 216 173 C216 181 228 192 228 192 C228 192 240 181 240 173 C240 168 236 162 228 162 Z" fill="#1B3570" stroke="#F3D98A" stroke-width="1.5"></path>
-                    <circle cx="228" cy="173" r="3.4" fill="#F3D98A"></circle>
-                  </g>
-                  <g fill="#2A1F14" opacity=".75">
-                    <path d="M98 196 l5 -5 l5 5 l-5 5 Z"></path>
-                    <path d="M350 112 l5 -5 l5 5 l-5 5 Z"></path>
-                    <path d="M462 296 l5 -5 l5 5 l-5 5 Z"></path>
-                    <path d="M196 352 l5 -5 l5 5 l-5 5 Z"></path>
-                  </g>
-
-                  <g transform="translate(470 392)" aria-hidden="true">
-                    <circle r="24" fill="none" stroke="#7A5719" stroke-width="1"></circle>
-                    <path d="M0 -30 L5 -5 L0 0 L-5 -5 Z" fill="#1B3570"></path>
-                    <path d="M0 30 L5 5 L0 0 L-5 5 Z" fill="#7A5719"></path>
-                    <path d="M-30 0 L-5 -5 L0 0 L-5 5 Z" fill="#7A5719"></path>
-                    <path d="M30 0 L5 -5 L0 0 L5 5 Z" fill="#7A5719"></path>
-                    <text y="-34" class="lbl" style="font-size: 9px">N</text>
+                  <g aria-hidden="true">
+                    <circle class="pulse" cx="846" cy="560" r="26" fill="none" stroke="#F3D98A" stroke-width="8"></circle>
+                    <path d="M846 516 C822 516 810 534 810 549 C810 573 846 606 846 606 C846 606 882 573 882 549 C882 534 870 516 846 516 Z" fill="#1B3570" stroke="#F3D98A" stroke-width="4.5"></path>
+                    <circle cx="846" cy="549" r="10" fill="#F3D98A"></circle>
                   </g>
                 </svg>
               </div>
@@ -140,7 +114,7 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                 </div>
                 <div class="plate" style="flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 14px 16px">
                   <span class="eyebrow" style="font-size: 9.5px">{{d.place}}</span>
-                  <h2 class="h-page" style="font-size: 21px">{{d.name}}</h2>
+                  <h2 class="h-page" style="font-size: 19px">{{d.name}}</h2>
                   <p class="small italic muted" style="margin: 0">{{d.character}}</p>
                   <div class="rule" style="margin: 3px 0"></div>
                   <div style="display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 4px; align-items: baseline">
@@ -221,9 +195,10 @@ class Component extends DCLogic {
       harb: { name: 'The Harbour Quarter', place: 'Stormwind Harbour', character: 'Trade, commerce and affairs abroad.', meet: 'Harbour Master’s Office', rep: 'Cassius Rowe', count: '13 citizens', lean: 'Azeroth Exchange' }
     };
     const keys = ['cath', 'old', 'arc', 'iron', 'harb'];
-    const cls = {}, btn = {}, pick = {};
+    const cls = {}, btn = {}, pick = {}, inn = {};
     keys.forEach((k) => {
       cls[k] = k === sel ? 'dz on' : 'dz';
+      inn[k] = k === sel ? 'dz-in on' : 'dz-in';
       btn[k] = k === sel ? 'dbtn on' : 'dbtn';
       pick[k] = set({ sel: k });
     });
@@ -231,7 +206,7 @@ class Component extends DCLogic {
       isMap: view === 'map', isCouncil: view === 'council', isRoll: view === 'roll',
       rb: { map: view === 'map' ? 'ribbon on' : 'ribbon', council: view === 'council' ? 'ribbon on' : 'ribbon', roll: view === 'roll' ? 'ribbon on' : 'ribbon' },
       show: { map: set({ view: 'map' }), council: set({ view: 'council' }), roll: set({ view: 'roll' }) },
-      cls, btn, pick,
+      cls, btn, pick, inn,
       d: data[sel]
     };
   }

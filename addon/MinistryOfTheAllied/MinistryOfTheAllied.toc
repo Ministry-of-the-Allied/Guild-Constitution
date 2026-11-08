@@ -32,6 +32,7 @@ Voice.lua
 Ring.lua
 Ballot.lua
 Party.lua
+District.lua
 Bank.lua
 Ledger.lua
 Contest.lua
@@ -43,11 +44,14 @@ UI\Crests.lua
 UI\Herald.lua
 UI\Settings.lua
 UI\Kit.lua
+UI\OnlineTip.lua
 UI\Statutes.lua
 UI\Constitution.lua
 UI\Ring.lua
 UI\BankPrompt.lua
 UI\Parties.lua
 UI\Treasury.lua
+UI\Districts.lua
+UI\WorldMap.lua
 UI\BallotHall.lua
 Commands.lua

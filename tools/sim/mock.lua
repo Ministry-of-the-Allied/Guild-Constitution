@@ -121,7 +121,7 @@ C_GuildInfo = { GuildRoster = function() py_roster_request() end }
 function GetNumGuildMembers() return ROSTER_READY and #ROSTER or 0, 0, 0 end
 function GetGuildRosterInfo(i)
   local m = ROSTER[i]
-  return m[1], m[2], m[3], 60, "Paladin", "Stormwind", "", "", m[4], 0, "PALADIN", 0, 0, false, false, 8, "Player-" .. m[1]
+  return m[1], m[2], m[3], 60, "Paladin", "Stormwind", "", "", m[4], 0, m[6] or "PALADIN", 0, 0, false, false, 8, "Player-" .. m[1]
 end
 
 C_AddOns = { GetAddOnMetadata = function(_, key) if key == "Version" then return ADDON_VERSION or "0.1.0" end end }

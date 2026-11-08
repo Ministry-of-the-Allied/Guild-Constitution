@@ -50,8 +50,12 @@ select.inp{padding:0 6px;cursor:pointer}
 .pill{height:30px;padding:0 14px;border:none;border-radius:2px;cursor:pointer;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
   color:#4A3A22;background:linear-gradient(180deg,#E6D6AE,#D2BB89);box-shadow:inset 0 0 0 1px rgba(110,79,23,.45)}
 .pill.on{color:#F3D98A;background:linear-gradient(180deg,#3460B4,#1B3570 58%,#12285A)}
-.xbtn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border:none;border-radius:50%;cursor:pointer;color:#6E1712;background:transparent;box-shadow:inset 0 0 0 1px rgba(110,79,23,.5)}
+.xbtn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border:none;cursor:pointer;color:#6E1712;background:transparent}
 .xbtn svg{width:14px;height:14px}
+/* the candidate's name box, with its remove X floating inside at the end */
+.inp-x{position:relative;flex:1;min-width:0;display:flex}
+.inp-x .inp{flex:1;min-width:0;padding-right:36px}
+.inp-x .xbtn{position:absolute;right:2px;top:2px}
 .ticks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
 .ticks li{position:relative;padding-left:18px;font-size:14.5px;line-height:1.35;color:#E8EEFF}
 .ticks li::before{content:"";position:absolute;left:2px;top:7px;width:6px;height:6px;transform:rotate(45deg);background:#F3D98A}
@@ -321,13 +325,15 @@ select.inp{padding:0 6px;cursor:pointer}
                   <div style="display: flex; flex-direction: column; gap: 6px">
                     <sc-for list="{{formCands}}" as="c" hint-placeholder-count="2">
                       <div style="display: flex; align-items: center; gap: 6px">
-                        <input class="inp" style="flex: 1; min-width: 0" type="text" aria-label="{{c.nameLabel}}" value="{{c.name}}" onChange="{{c.setName}}" placeholder="Name">
+                        <span class="inp-x">
+                          <input class="inp" type="text" aria-label="{{c.nameLabel}}" value="{{c.name}}" onChange="{{c.setName}}" placeholder="Name">
+                          <button class="xbtn" type="button" aria-label="{{c.removeLabel}}" disabled="{{c.noRemove}}" onClick="{{c.remove}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
+                        </span>
                         <select class="inp" style="width: 152px" aria-label="{{c.partyLabel}}" value="{{c.party}}" onChange="{{c.setParty}}">
                           <option value="sh">Silverhand</option>
                           <option value="ex">Azeroth Exchange</option>
                           <option value="ind">Independent</option>
                         </select>
-                        <button class="xbtn" type="button" aria-label="{{c.removeLabel}}" disabled="{{c.noRemove}}" onClick="{{c.remove}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
                       </div>
                     </sc-for>
                   </div>

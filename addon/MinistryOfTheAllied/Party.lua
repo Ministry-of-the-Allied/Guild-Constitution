@@ -16,7 +16,7 @@ local _, MOTA = ...
 local Party = {}
 MOTA.Party = Party
 
-Party.FEE = 5 -- copper. TESTING: the Charter's fee is 5 gold, which is 50000
+Party.FEE = 5000 -- copper: 50 silver, the Charter's fee (3.2, version 1.3)
 Party.WAIT = 14 * 86400
 Party.NAMES = { sh = "the Silverhand", ex = "the Azeroth Exchange" }
 Party.FUND_REASON = { sh = "party_sh", ex = "party_ex" }

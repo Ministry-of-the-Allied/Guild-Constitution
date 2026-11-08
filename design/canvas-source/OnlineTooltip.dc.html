@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Who's online</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/363d3ef98f46d5b67734ddb35c4cbcbd">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&amp;family=Cinzel+Decorative:wght@400;700;900&amp;family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F3D98A}a:hover{color:#FFF3C4}
+
+/* ---------- one skin = the window skin's leather, metal and inks (WindowSkins board) ---------- */
+.sk-min{--leather:radial-gradient(ellipse 90% 70% at 40% 0%,#3360B4 0%,#1E3B7C 34%,#142B5E 62%,#0B1838 100%);
+  --metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--head:#F3D98A;--pale:#AFC0E6;--hi:#C9A24A}
+.sk-sh{--leather:radial-gradient(ellipse 90% 70% at 40% 0%,#3A5DAE 0%,#1F4290 34%,#173470 62%,#0C1C44 100%);
+  --metal:linear-gradient(180deg,#FFFFFF 0%,#E3E8EE 18%,#AEB8C6 42%,#6B7483 58%,#AEB8C6 76%,#EEF2F6 100%);--dk:#1B1F27;
+  --rule:rgba(214,222,233,.55);--head:#F1F4F8;--pale:#C6D2EA;--hi:#B8C2CF}
+.sk-ex{--leather:radial-gradient(ellipse 90% 70% at 40% 0%,#B8343C 0%,#8E1A21 34%,#661118 62%,#2E0609 100%);
+  --metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--head:#F3D98A;--pale:#F2CDBE;--hi:#C9A24A}
+.sk-cr{--leather:radial-gradient(ellipse 90% 70% at 40% 0%,#86296A 0%,#58143F 10%,#3D0B2D 26%,#2A0720 52%,#140210 100%);
+  --metal:linear-gradient(180deg,#FFF3C4 0%,#EBCB7A 18%,#C9A24A 42%,#8A6420 58%,#C9A24A 76%,#F3D98A 100%);--dk:#2a1d06;
+  --rule:rgba(201,162,74,.55);--head:#F3D98A;--pale:#EBCBDF;--hi:#C9A24A}
+
+/* ---------- the tooltip ---------- */
+.tt{position:absolute;padding:2px;border-radius:5px;background:var(--metal);
+  box-shadow:0 0 0 1px var(--dk),0 14px 30px rgba(0,0,0,.7),0 4px 10px rgba(0,0,0,.5)}
+.tt-in{position:relative;border-radius:3px;padding:14px 18px 12px;display:flex;flex-direction:column;gap:10px;
+  background:url(/_blob/c2d86e49cc4f265a0371294274387bd7),var(--leather);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.65),inset 0 2px 0 rgba(255,255,255,.1),inset 0 0 26px rgba(0,0,0,.45)}
+.tt-in::before{content:"";position:absolute;inset:4px;border:1px solid var(--rule);border-radius:2px;pointer-events:none}
+
+/* the count: just the number, at the top */
+.count{display:flex;align-items:baseline;justify-content:center;gap:9px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+.count b{font-family:var(--f-deco);font-weight:900;font-size:30px;line-height:1;background:var(--metal);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.7))}
+.count span{font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--pale)}
+
+/* a section: its office, then a name per line */
+.sec{display:flex;flex-direction:column;gap:3px}
+.sec h4{margin:0 0 2px;display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:700;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--head);white-space:nowrap}
+.sec h4::after{content:"";flex:1;min-width:14px;height:1px;background:linear-gradient(90deg,var(--hi),rgba(0,0,0,0))}
+.nm{display:flex;align-items:center;gap:8px;font-family:var(--f-body);font-weight:500;font-size:15px;line-height:1.15;white-space:nowrap;text-shadow:1px 1px 0 rgba(0,0,0,.9)}
+.nm i{flex:none;width:7px;height:7px;border-radius:50%;background:#3FAE6E;box-shadow:0 0 0 1px rgba(8,36,18,.9),0 0 6px rgba(63,174,110,.85)}
+.nm small{font-size:13px;color:var(--pale);font-weight:400}
+
+/* 21 or more online: one column per office, side by side; a long office runs on into more columns under its heading */
+.cols{display:flex;gap:22px;align-items:flex-start}
+.cols .sec h4{margin-bottom:4px}
+.sub{display:flex;gap:16px}
+.sub > div{display:flex;flex-direction:column;gap:3px}
+
+.hint{padding-top:8px;border-top:1px solid var(--rule);font-family:var(--f-body);font-style:italic;font-size:12.5px;color:var(--pale);text-align:center;white-space:nowrap}
+
+/* ---------- the minimap, for where the tooltip hangs ---------- */
+.mm{position:absolute;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle at 42% 38%,#6F7A4A 0%,#4C5634 45%,#2C3320 100%);
+  box-shadow:0 0 0 3px #3A3326,0 0 0 5px #8A7A55,0 0 0 6px #1A160E,0 8px 18px rgba(0,0,0,.6)}
+.mm::after{content:"";position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px;background:#F3D98A;clip-path:polygon(50% 0,100% 100%,50% 75%,0 100%)}
+.mm img{position:absolute;left:-26px;top:20px;width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.mm.hover img{filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)) brightness(1.18)}
+
+.row-label{position:absolute;font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:rgba(243,217,138,.6)}
+</style>
+</helmet>
+<div class="stage" style="width: 2200px; height: 2440px">
+
+  <span class="board-label" style="left: 64px; top: 44px">Who's online · hovering the minimap seal</span>
+  <span class="board-note" style="left: 64px; top: 72px; width: 2000px">The number online at the top, then the online members by office: the Crown (both Crown ranks together), Prime Minister, Minister of War, Deputy PM, the Judiciary, Citizens last. A green dot by each name; names in class colours; an alt shows its main in brackets. Empty offices are left out.</span>
+  <span class="board-note" style="left: 64px; top: 98px; width: 2000px">Left: up to about 20 online, a name per line. Right: 21 or more, one column per office side by side, so the tooltip grows sideways; a long office (Citizens) runs on into more columns of up to 9 under its own heading. The frame wears the window's skin.</span>
+
+  <span class="row-label" style="left: 64px; top: 160px">12 online · a name per line</span>
+  <span class="row-label" style="left: 640px; top: 160px">34 online · a column per office</span>
+
+  <sc-for list="{{skins}}" as="s" hint-placeholder-count="4">
+    <div style="position: absolute; left: 0; top: {{s.top}}px; width: 2200px; height: 540px">
+      <span class="board-label" style="left: 64px; top: 0">{{s.label}}</span>
+
+      <!-- up to 20: a name per line -->
+      <div class="tt {{s.cls}}" style="left: 64px; top: 34px; width: 268px">
+        <div class="tt-in">
+          <div class="count"><b>12</b><span>online</span></div>
+          <sc-for list="{{short}}" as="sec" hint-placeholder-count="5">
+            <div class="sec">
+              <h4>{{sec.t}}</h4>
+              <sc-for list="{{sec.n}}" as="p" hint-placeholder-count="2">
+                <span class="nm" style="color: {{p.c}}"><i></i>{{p.n}}<small>{{p.m}}</small></span>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div class="hint">Click: open · Right-click: settings · Drag: move</div>
+        </div>
+      </div>
+      <div class="mm hover" style="left: 368px; top: 40px"><img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="The minimap seal"></div>
+
+      <!-- 21 or more: a column per office -->
+      <div class="tt {{s.cls}}" style="left: 640px; top: 34px">
+        <div class="tt-in">
+          <div class="count"><b>34</b><span>online</span></div>
+          <div class="cols">
+            <sc-for list="{{long}}" as="sec" hint-placeholder-count="6">
+              <div class="sec">
+                <h4>{{sec.t}}</h4>
+                <div class="sub">
+                  <sc-for list="{{sec.cols}}" as="col" hint-placeholder-count="1">
+                    <div>
+                      <sc-for list="{{col.n}}" as="p" hint-placeholder-count="3">
+                        <span class="nm" style="color: {{p.c}}"><i></i>{{p.n}}<small>{{p.m}}</small></span>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="hint">Click: open · Right-click: settings · Drag: move</div>
+        </div>
+      </div>
+      <div class="mm hover" style="left: 1912px; top: 40px"><img src="/_blob/95cd0584f50217d5706a3ab342656520" alt="The minimap seal"></div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2200,"height":2440}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // WoW class colours
+    const C = { war: '#C69B6D', pal: '#F48CBA', hun: '#AAD372', rog: '#FFF468', pri: '#FFFFFF', mag: '#3FC7EB', wlk: '#8788EE', dru: '#FF7C0A', sha: '#0070DD' };
+    const p = (n, c, m) => ({ n, c: C[c], m: m ? '(' + m + ')' : '' });
+    const short = [
+      { t: 'The Crown', n: [p('Aldmere', 'pal'), p('Corwen', 'war')] },
+      { t: 'Prime Minister', n: [p('Seraphine Vale', 'pal')] },
+      { t: 'Minister of War', n: [p('Dagna Stormbrow', 'war')] },
+      { t: 'The Judiciary', n: [p('Ysolde Quill', 'mag')] },
+      { t: 'Citizens', n: [p('Aldric Vane', 'pri'), p('Elowen Marsh', 'rog'), p('Hal Brennick', 'hun'), p('Corvin', 'wlk', 'Rook Daventry'),
+        p('Garrick Thorne', 'war'), p('Tamsin Reed', 'dru'), p('Osric Hale', 'sha')] },
+    ];
+    const citizens = [
+      p('Aldric Vane', 'pri'), p('Elowen Marsh', 'rog'), p('Hal Brennick', 'hun'), p('Corvin', 'wlk', 'Rook Daventry'), p('Garrick Thorne', 'war'),
+      p('Tamsin Reed', 'dru'), p('Osric Hale', 'sha'), p('Mira Ashdown', 'mag'), p('Bertram Fenn', 'pal'), p('Lysa Crowe', 'rog'),
+      p('Thane Morrow', 'war'), p('Wynn Adler', 'hun'), p('Isolde Pike', 'pri'), p('Cedric Vane', 'wlk'), p('Fenna Holt', 'dru'),
+      p('Rowan Tallis', 'mag'), p('Bryn Kettle', 'war'), p('Edda Lark', 'sha'), p('Jory Flint', 'rog'), p('Nessa Brook', 'pal'),
+      p('Pell', 'hun', 'Wynn Adler'), p('Quill Danton', 'mag'), p('Sable Rook', 'wlk'), p('Tobin Rusk', 'war'), p('Una Fairweather', 'pri'),
+      p('Vesper Lyle', 'dru'),
+    ];
+    const chunk = (list, n) => { const out = []; for (let i = 0; i < list.length; i += n) out.push({ n: list.slice(i, i + n) }); return out; };
+    const long = [
+      { t: 'The Crown', cols: [{ n: [p('Aldmere', 'pal'), p('Corwen', 'war')] }] },
+      { t: 'Prime Minister', cols: [{ n: [p('Seraphine Vale', 'pal')] }] },
+      { t: 'Minister of War', cols: [{ n: [p('Dagna Stormbrow', 'war')] }] },
+      { t: 'Deputy PM', cols: [{ n: [p('Bram Coppervein', 'hun')] }] },
+      { t: 'The Judiciary', cols: [{ n: [p('Ysolde Quill', 'mag'), p('Hilda Deepforge', 'war'), p('Cassius Rowe', 'rog')] }] },
+      { t: 'Citizens', cols: chunk(citizens, 9) },
+    ];
+    const skins = [
+      { cls: 'sk-min', label: 'Ministry · citizens in no party' },
+      { cls: 'sk-sh', label: 'Silverhand' },
+      { cls: 'sk-ex', label: 'Azeroth Exchange' },
+      { cls: 'sk-cr', label: 'The Crown' },
+    ].map((s, i) => Object.assign(s, { top: 200 + i * 560 }));
+    return { skins, short, long };
+  }
+}
+</script>
+</body>
+</html>

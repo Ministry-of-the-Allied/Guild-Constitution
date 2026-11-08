@@ -239,9 +239,66 @@ function UI:InkWindow()
   ink(self.footRight, "PALE_INK")
 end
 
+-- The window border (Max, 8 Nov: the lit tab's ornament round the whole window,
+-- 1.5 times its size; WindowBorders board). A nine-slice of window-frame-gold.svg
+-- as the board's border-image "28 / 42px round": the corners whole, the edges'
+-- middles repeated a whole number of times. Silverhand wears it greyed.
+function UI:BuildBorder(f)
+  local B, gold = M.border, M.pieces.border_gold
+  if not B or not gold then return end
+  local holder = CreateFrame("Frame", nil, f)
+  holder:SetAllPoints()
+  holder:SetFrameLevel(f:GetFrameLevel() + 25) -- over the frame and tabs, under the crest
+  local s, size, bw, out = B.slice, B.size, B.width, B.out
+  local ow, oh = W + 2 * out, H + 2 * out
+  local tile = (size - 2 * s) * bw / s -- an edge's repeating middle, as drawn
+  local parts = {}
+  local function part(u0, u1, v0, v1, x, y, w, h)
+    local t = holder:CreateTexture(nil, "ARTWORK")
+    t:SetSize(w, h)
+    t:SetPoint("TOPLEFT", f, "TOPLEFT", x - out, -(y - out))
+    parts[#parts + 1] = { t = t, u0 = u0, u1 = u1, v0 = v0, v1 = v1 }
+  end
+  local far = size - s
+  part(0, s, 0, s, 0, 0, bw, bw)
+  part(far, size, 0, s, ow - bw, 0, bw, bw)
+  part(0, s, far, size, 0, oh - bw, bw, bw)
+  part(far, size, far, size, ow - bw, oh - bw, bw, bw)
+  local function edge(len, horizontal)
+    local n = math.max(1, math.floor(len / tile + 0.5))
+    local step = len / n
+    for i = 0, n - 1 do
+      if horizontal then
+        part(s, far, 0, s, bw + i * step, 0, step, bw)
+        part(s, far, far, size, bw + i * step, oh - bw, step, bw)
+      else
+        part(0, s, s, far, 0, bw + i * step, bw, step)
+        part(far, size, s, far, ow - bw, bw + i * step, bw, step)
+      end
+    end
+  end
+  edge(ow - 2 * bw, true)
+  edge(oh - 2 * bw, false)
+  self.border = { holder = holder, parts = parts }
+  self:WearBorder()
+end
+
+function UI:WearBorder()
+  local b = self.border
+  if not b then return end
+  local p = M.pieces["border_" .. (MOTA.skin.METAL or "gold")] or M.pieces.border_gold
+  local size = M.border.size
+  for _, e in ipairs(b.parts) do
+    e.t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
+    e.t:SetTexCoord(p.l + (p.r - p.l) * e.u0 / size, p.l + (p.r - p.l) * e.u1 / size,
+      p.t + (p.b - p.t) * e.v0 / size, p.t + (p.b - p.t) * e.v1 / size)
+  end
+end
+
 -- A new skin: every skinned piece, the crest and the colours, at once.
 function UI:ReSkin()
   if not self.window then return end
+  self:WearBorder()
   for _, e in ipairs(skinned) do self:ApplySkinPiece(e) end
   self:ApplyCrest()
   self:InkWindow()
@@ -464,6 +521,7 @@ function UI:Build()
   top:SetAllPoints()
   top:SetFrameLevel(f:GetFrameLevel() + 30)
   self.crest = top:CreateTexture(nil, "ARTWORK")
+  self:BuildBorder(f)
   self:ApplyCrest()
   self:InkWindow()
 
@@ -507,13 +565,14 @@ function UI:SelectPage(i)
   self.heading:SetText(page.heading)
   self.note:SetText(page.note)
   -- A page with its own contents replaces the note about what it will hold.
-  local built = page.id == "statute" or page.id == "ring" or page.id == "parties" or page.id == "treasury" or full
+  local built = page.id == "statute" or page.id == "ring" or page.id == "parties" or page.id == "treasury" or page.id == "districts" or full
   self.note:SetShown(not built)
   self.note2:SetShown(not built)
   -- The built pages run from the parchment's top, as their boards do.
   self.heading:SetShown(not built)
   self.divider:SetShown(not built)
   self.eyebrows[i]:SetShown(not built)
+  self:FootRight()
   MOTA:Fire("PAGE_SHOWN", page.id)
 end
 
@@ -545,7 +604,8 @@ function UI:Refresh()
   self.initials:SetText(name:match("^[%z\1-\127\194-\244][\128-\191]*") or "?")
   -- The canvas shows your district here; until the Citizens module, your guild rank.
   local rank = MOTA.guild and select(2, GetGuildInfo("player"))
-  self.whoSmall:SetText(rank or "No guild yet")
+  local district = MOTA.District and MOTA.District:Of(MOTA.me)
+  self.whoSmall:SetText(district and district.short or rank or "No guild yet")
 
   local left
   if MOTA.guild then
@@ -556,6 +616,18 @@ function UI:Refresh()
     left = IsInGuild() and "Waiting for the guild roster" or "Not in a guild yet"
   end
   self.footLeft:SetText(left:upper())
+  self:FootRight()
+end
+
+-- The footer's right side: where you are and the day; on the Districts page,
+-- once your district is lit on the world map, a word about that (the board's footer).
+function UI:FootRight()
+  if not self.footRight then return end
+  local page = M.pages[self.page or 1]
+  if page and page.id == "districts" and MOTA.db.settings.glow and MOTA.District and MOTA.me and MOTA.District:Of(MOTA.me) then
+    self.footRight:SetText(("Your district glows on the world map too"):upper())
+    return
+  end
   local place = GetSubZoneText()
   if not place or place == "" then place = GetZoneText() or "" end
   self.footRight:SetText((place .. " · " .. weekday()):upper())
@@ -624,6 +696,8 @@ end
 MOTA:Listen("RECORD_ADDED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:Listen("GUILD_READY", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:Listen("ME_LEARNED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
+MOTA:Listen("GLOW_CHANGED", function() UI:FootRight() end)
+MOTA:Listen("DISTRICT_CHANGED", function() UI:FootRight() end)
 MOTA:On("ZONE_CHANGED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:On("ZONE_CHANGED_NEW_AREA", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 

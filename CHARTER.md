@@ -41,6 +41,10 @@ The Crown may dissolve a sitting government at any time. However, dissolution wi
 
 The two co-monarchs may hold formal ceremonial transitions of ruling authority between themselves at intervals of their choosing. These transitions are civic events and matters of public record.
 
+### 1.5 The Apolitical Crown
+
+The Crown stands above party politics. A monarch may not join, hold office in or fund a political party, and may not campaign for or against one. Monarchs retain their vote in General Elections.
+
 ---
 
 ## Part II — The Government
@@ -83,9 +87,15 @@ Political life in the Ministry of the Allied is organised around two registered 
 
 Each registered party operates its own membership system, independent of guild citizenship. Party membership is voluntary and open to any citizen in good standing.
 
-To become a party member, a citizen pays a minimum donation of **5 gold** directly to their chosen party's designated officer. Members may donate any amount above this floor. Total membership donations are published publicly at the close of each election campaign period — this serves as a visible measure of a party's support and its capacity to fund campaigning.
+To become a party member, a citizen pays a minimum donation of **50 silver** into the guild bank, recorded against their chosen party. Members may donate any amount above this floor. Each party's donations and spending are held as a separate account and published on the public ledger as they occur.
+
+Party funds are released only at the request of that party's leader, and are paid out by the Crown. Taking or using party funds without that authority is an offence.
 
 Party members elect their own party leader through an internal vote. That leader is the candidate who stands for Prime Minister in the General Election. Citizens who are not party members do not participate in internal leadership elections but retain their full vote in the General Election.
+
+The leadership ballot is open: once the count has been ratified by the Crown, how each member voted is published to the whole guild. A tie goes to a run-off within 48 hours between the tied candidates; a second tie is settled by the Crown by a public roll of the dice.
+
+Each party leader names a Deputy Leader. This is the leader's own decision. If the leader leaves office, the Deputy becomes leader without a vote.
 
 **Campaign funding** — parties may use their membership donations freely during the campaign period to advance their electoral prospects. This includes gifting elixirs, consumables, or other items to citizens to court their vote. Campaign spending is a matter of political competition, not regulation. Citizens are free to accept gifts and vote however they choose.
 
@@ -118,6 +128,12 @@ A Snap Election may be triggered in two ways:
 - By a successful Vote of No Confidence
 
 A Snap Election follows the same format as a General Election, compressed into a shorter campaign period at the Crown's discretion.
+
+### 3.6 Leadership Contests
+
+Every General Election includes a leadership contest in each party, opened by the Crown 28 days before polling day and concluded no later than 14 days before it. Snap Elections do not include one. The campaign period is not reset if a leader withdraws.
+
+If a party has neither leader nor Deputy when a campaign is due to begin or during it, polling day moves back 14 days while that party holds an emergency contest. This may happen only once per election. If the party still has no leader, the election proceeds without it.
 
 ---
 
@@ -239,3 +255,4 @@ This Charter may be amended by the Crown at any time. Proposed amendments brough
 *The Ministry of the Allied — Stormwind, Azeroth*
 *Version 1.1 — November 2026 — Added Part III §3.2 Party Membership*
 *Version 1.2 — 6 November 2026 — Part III §3.3: voting window shortened to 2 hours, by secret ballot*
+*Version 1.3 — 8 November 2026 — Agreed by both Kings: Part I §1.5 The Apolitical Crown; Part III §3.2 party donations of 50 silver into the guild bank on a public ledger, open leadership ballots, Deputy Leaders; Part III §3.6 Leadership Contests*
