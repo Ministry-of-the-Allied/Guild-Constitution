@@ -1150,7 +1150,8 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 - [ ] **The Ring:** fee in parts, unpaid left out of the draw, withdraw and `/mota refunds`, draw, results, prize in the ledger, a ninth payer. A citizen-rank character at the bank: can they read the money log?
 - [ ] **Skins:** every page in all four skins (Max's accent colours and Kit button colours together).
 - [ ] **Heralds:** long names and titles fit.
-- [ ] Anything built after this note: deputy and shadow cabinet, the election delay, the General Election.
+- [ ] **Front bench (0.6.5):** the leader names a Deputy and the five shadow posts in the Chamber; the public page shows them; the leader leaves and the Deputy takes the lead with a herald.
+- [ ] Anything built after this note: the election delay, the General Election.
 
 **Before launch:** `Party.FEE` in `Party.lua` is already the real fee, 5000 (50 silver, set 2026-11-08); clear test records with a reset on every copy; check the Crown can open the books at the real balance.
 

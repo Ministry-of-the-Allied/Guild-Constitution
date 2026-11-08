@@ -309,6 +309,10 @@ add("herald", "[1-3]", "show the sample heralds from the design canvas", functio
   MOTA.Herald:ShowSamples(tonumber(arg))
 end)
 
+add("heralds", "[number|all]", "preview the real heralds, on your screen only", function(arg)
+  MOTA.HeraldPreview:Run(arg ~= "" and arg or nil)
+end)
+
 add("fanfare", "[number]", "list the game's fanfare sounds, or play and choose one", function(arg)
   local list = MOTA.Herald:Fanfares()
   if #list == 0 then return MOTA:Print("This client has none of the fanfare sounds the add-on knows.") end

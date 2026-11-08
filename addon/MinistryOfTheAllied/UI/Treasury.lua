@@ -290,7 +290,7 @@ function Page:Refresh()
     end
   end
   emptyLine:SetShown(total == 0)
-  emptyLine:SetText(opened and "Nothing has moved since the books opened." or "A King opens the books, and the ledger starts from there.")
+  emptyLine:SetText(opened and "Nothing has moved since the books opened." or "The books are closed: nothing at the bank is logged until a King opens them.")
   prev:SetShown(first > 1)
   nextB:SetShown(first + ROWS <= total)
   pager:SetText(total > 0 and ("%d to %d of %d"):format(first, math.min(first + ROWS - 1, total), total) or "")

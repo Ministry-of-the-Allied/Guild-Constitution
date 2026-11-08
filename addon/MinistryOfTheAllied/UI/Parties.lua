@@ -147,6 +147,20 @@ local function buildPublic(key)
     text:SetText(hex("2A1F14") .. p[1] .. "|r " .. hex("5E4B33") .. p[2] .. "|r")
   end
 
+  -- The shadow cabinet, public, in two columns of three.
+  local benchY = 22 + #party.pillars * 34 + 14
+  Kit:Label(v.standsFor, "kitSection", "1B3570", 0.22, "Shadow cabinet"):SetPoint("TOPLEFT", v.standsFor, "TOPLEFT", 0, -benchY)
+  v.bench = {}
+  for i = 2, #MOTA.Bench.POSTS do
+    local post = MOTA.Bench.POSTS[i]
+    local col, line = (i - 2) % 2, math.floor((i - 2) / 2)
+    local t = Kit:Text(v.standsFor, "kitSmall")
+    t:SetPoint("TOPLEFT", v.standsFor, "TOPLEFT", col * (leftW / 2), -(benchY + 22 + line * 20))
+    t:SetWidth(leftW / 2 - 8)
+    t:SetMaxLines(1)
+    v.bench[post] = t
+  end
+
   -- The contest, public to the whole guild.
   v.contest = panel(v, nil, 0, y, leftW, BODY_H - y)
   v.contestTitle = Kit:Label(v.contest, "kitSection", "1B3570", 0.22, "The contest")
@@ -191,7 +205,7 @@ local function buildPublic(key)
   v.leader = leader
 
   v.values = {}
-  for i, row in ipairs({ { "Funds", "0g" }, { "Members", "None yet" }, { "Strongholds", party.home } }) do
+  for i, row in ipairs({ { "Deputy", "Not yet named" }, { "Funds", "0g" }, { "Members", "None yet" }, { "Strongholds", party.home } }) do
     local rowY = 72 + (i - 1) * 22
     Kit:Label(plate, "kitTiny", "7A5719", 0.2, row[1]):SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -rowY - 2)
     local value = Kit:Text(plate, "kitSmall")
@@ -201,9 +215,9 @@ local function buildPublic(key)
     value:SetText(row[2])
     v.values[row[1]] = value
   end
-  Kit:Rule(plate, plateW - 36):SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -142)
+  Kit:Rule(plate, plateW - 36):SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -164)
   local join = Kit:Text(plate, "kitItalic", "5E4B33")
-  join:SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -152)
+  join:SetPoint("TOPLEFT", plate, "TOPLEFT", 18, -174)
   join:SetWidth(plateW - 36)
   v.joinNote = join
   v.ask = Kit:Button(plate, 220, 36, "Ask to join", "blue", function() pressJoin(key) end)
@@ -295,13 +309,29 @@ local function buildMember()
 
   local x = leftW + 18
   local w = WIDTH - x
-  local roll = panel(v, "plain", x, 0, w, 200)
+  local roll = panel(v, "plain", x, 0, w, 112)
   Kit:Label(roll, "kitSection", "1B3570", 0.22, "The members"):SetPoint("TOPLEFT", roll, "TOPLEFT", 16, -14)
   v.members = Kit:Text(roll, "kitSmall")
   v.members:SetPoint("TOPLEFT", roll, "TOPLEFT", 16, -36)
   v.members:SetWidth(w - 32)
 
-  local floor = panel(v, "sunk", x, 212, w, 128)
+  -- The front bench: everyone sees it; the leader names people to it.
+  local bench = panel(v, "plain", x, 122, w, 222)
+  Kit:Label(bench, "kitSection", "1B3570", 0.22, "The front bench"):SetPoint("TOPLEFT", bench, "TOPLEFT", 16, -14)
+  v.benchRows = {}
+  for i, post in ipairs(MOTA.Bench.POSTS) do
+    local r = panel(bench, nil, 16, 36 + (i - 1) * 30, w - 32, 28)
+    Kit:Label(r, "kitTiny", "7A5719", 0.14, MOTA.Bench.TITLES[post]):SetPoint("LEFT", r, "LEFT", 0, 0)
+    r.name = Kit:Text(r, "kitSmall")
+    r.name:SetPoint("LEFT", r, "LEFT", 104, 0)
+    r.name:SetWidth(w - 32 - 104 - 84)
+    r.name:SetMaxLines(1)
+    r.button = Kit:Button(r, 78, 24, "Name", "quiet", function() Page:Pick(post, r) end)
+    r.button:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+    v.benchRows[post] = r
+  end
+
+  local floor = panel(v, "sunk", x, 354, w, BODY_H - 354)
   Kit:Label(floor, "kitSection", "1B3570", 0.22, "Roll of the floor"):SetPoint("TOPLEFT", floor, "TOPLEFT", 16, -14)
   v.floor = Kit:Text(floor, "kitSmall")
   v.floor:SetPoint("TOPLEFT", floor, "TOPLEFT", 16, -36)
@@ -539,6 +569,73 @@ local function refreshCrown()
   end
 end
 
+-- The leader's list of members to name to a post.
+local picker
+function Page:Pick(post, row)
+  local p = MOTA.Party:Of(MOTA.me)
+  if not p then return end
+  if not picker then
+    picker = CreateFrame("Frame", nil, root)
+    picker:SetFrameStrata("DIALOG")
+    picker:SetSize(190, 40)
+    Kit:Fill(picker, "FBF4E1", "F0E2BE")
+    Kit:Outline(picker, "6E4F17", 0.7)
+    picker:EnableMouse(true)
+    picker.buttons = {}
+  end
+  if picker:IsShown() and picker.post == post then picker:Hide() return end
+  picker.post = post
+  local names = {}
+  local Bench = MOTA.Bench
+  for _, name in ipairs(MOTA.Party:Members(p)) do
+    if not Bench:IsLeader(name, p) then names[#names + 1] = name end
+  end
+  local choices = {}
+  for _, name in ipairs(names) do choices[#choices + 1] = { label = MOTA:Short(name), v = name } end
+  if Bench:Holder(p, post) then choices[#choices + 1] = { label = "Leave it empty", v = false } end
+  if #choices == 0 then
+    MOTA:Print("Nobody else is in your party yet.")
+    return
+  end
+  for i, c in ipairs(choices) do
+    local b = picker.buttons[i]
+    if not b then
+      b = Kit:Button(picker, 174, 24, "", "quiet", function(self)
+        picker:Hide()
+        local _, err = MOTA.Bench:Name(picker.post, self.v or nil)
+        if err then MOTA:Print(err) end
+      end)
+      picker.buttons[i] = b
+    end
+    b.v = c.v
+    b:SetLabel(c.label)
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", picker, "TOPLEFT", 8, -8 - (i - 1) * 28)
+    b:Show()
+  end
+  for i = #choices + 1, #picker.buttons do picker.buttons[i]:Hide() end
+  picker:SetHeight(16 + #choices * 28 - 4)
+  picker:ClearAllPoints()
+  picker:SetPoint("TOPRIGHT", row.button, "BOTTOMRIGHT", 0, -2)
+  picker:Show()
+end
+
+local function refreshBench(p, v, rows)
+  local Bench = MOTA.Bench
+  local leads = MOTA.me and Bench:IsLeader(MOTA.me, p)
+  for post, r in pairs(rows) do
+    local who = Bench:Holder(p, post)
+    if r.SetText then
+      r:SetText(hex("7A5719") .. Bench.TITLES[post] .. "|r  " .. (who and MOTA:Short(who) or hex("8A7A5E") .. "vacant|r"))
+    else
+      r.name:SetText(who and MOTA:Short(who) or (hex("8A7A5E") .. "Vacant|r"))
+      r.button:SetShown(leads and true or false)
+      r.button:SetLabel(who and "Change" or "Name")
+    end
+  end
+  if picker and not leads then picker:Hide() end
+end
+
 function Page:Refresh()
   if not root then return end
   local Party = MOTA.Party
@@ -553,6 +650,9 @@ function Page:Refresh()
   outsider:SetShown(chamber and not mine and not isCrown)
 
   for key, v in pairs(public) do
+    local deputy = MOTA.Bench:Holder(key, "deputy")
+    v.values.Deputy:SetText(deputy and MOTA:Short(deputy) or "Not yet named")
+    refreshBench(key, v, v.bench)
     v.values.Funds:SetText(gold(Party:Funds(key)))
     v.values.Members:SetText(namesLine(Party:Members(key)))
     setJoin(v.ask, key, v.joinNote)
@@ -563,6 +663,7 @@ function Page:Refresh()
     member.title:SetText(("The %s Chamber"):format(mine == "sh" and "Silverhand" or "Exchange"))
     member.members:SetText(namesLine(Party:Members(mine)))
     refreshStage(mine)
+    refreshBench(mine, member, member.benchRows)
     local lines = {}
     for _, e in ipairs(Party:Roll().floor) do
       if e.p == mine then lines[#lines + 1] = floorLine(e) end

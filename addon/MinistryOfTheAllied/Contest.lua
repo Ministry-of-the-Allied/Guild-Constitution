@@ -85,7 +85,9 @@ end
 function Contest:Current() return self:Get().cur end
 
 -- The leader, while still a member of the party.
+-- If they've left, the Deputy they named leads instead (Bench.lua).
 function Contest:Leader(p)
+  if MOTA.Bench then return MOTA.Bench:Leader(p) end
   local l = self:Get().leaders[p]
   if l and MOTA.Party:Of(l.name) == p then return l end
 end

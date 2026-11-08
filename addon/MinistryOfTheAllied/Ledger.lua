@@ -109,3 +109,43 @@ end
 MOTA:Listen("GUILD_READY", changed)
 MOTA:Listen("PARTY_CHANGED", changed)
 MOTA:Listen("BANK_LOG_READ", function() MOTA:Fire("LEDGER_CHANGED") end)
+
+-- While the books are closed, nothing at the bank reaches the ledger. A King
+-- or Crown rank gets a herald that stays until they act on it, each login,
+-- until someone opens the books. At the bank, its button opens them there.
+local closedHerald
+
+local function booksClosed()
+  return MOTA.me and MOTA:IsCrown(MOTA.me) and not Ledger:Get().open
+end
+
+local function remindClosed()
+  if not booksClosed() or not MOTA.Herald then return end
+  local atBank = MOTA.Bank.seenBalance ~= nil
+  local h = {
+    seal = "treasury", eyebrow = "The Treasury", stay = false,
+    title = "The books are closed",
+    text = atBank and ("Open them now at " .. MOTA:Money(MOTA.Bank.seenBalance) .. ". Until then, nothing at the bank is logged.")
+      or "Nothing at the bank is logged until a King opens them. Visit the guild bank, then press Open the books.",
+    button = atBank and { label = "Open", style = "blue", onPress = function()
+      local _, err = Ledger:OpenBooks()
+      if err then MOTA:Print(err) end
+    end } or { label = "Open", style = "blue", page = 5 },
+    onGone = function(h) if closedHerald == h then closedHerald = nil end end,
+  }
+  if closedHerald then MOTA.Herald:Close(closedHerald) end
+  closedHerald = h
+  MOTA.Herald:Announce(h, true) -- shown even with heralds switched off
+end
+
+function Ledger:ClosedHerald() return closedHerald end
+
+-- After the first catch-up, so a copy that was offline doesn't nag for nothing.
+MOTA:Listen("GUILD_READY", function() C_Timer.After(30, remindClosed) end)
+-- At the bank: the balance is counted, so the herald can open the books itself.
+MOTA:Listen("BANK_LOG_READ", function()
+  if booksClosed() and not (closedHerald and closedHerald.button.onPress) then remindClosed() end
+end)
+MOTA:Listen("RECORD_ADDED", function(self, rec)
+  if rec.k == "bank.open" and closedHerald and self.Herald then self.Herald:Close(closedHerald) end
+end)
