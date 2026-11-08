@@ -1907,6 +1907,30 @@ check("Judiciary: the Court page lists them", E(em, J + 'return J:Line()') == "T
 em.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(3); MinistryOfTheAllied.StatutesPage:Select("court")')
 check("Judiciary: the Court view shows without errors", True)
 
+print("== 15d. the Cabinet at work")
+E(ek, J + 'J:Remove("Kael") return 1')
+run(1)
+check("Cabinet: before a War minister is named, there's none from the Cabinet", E(em, 'return M.Ring:Minister() == nil') is True)
+E(eb, 'M.Bench:Name("war", "Kael") return 1')
+run(1)
+check("Cabinet: the Cabinet's Minister of War runs the Ring", E(em, 'return M.Ring:Minister()') == "Kael" and E(ekk, 'return M.Ring:CanSetTerms()') is True)
+check("Cabinet: and nobody else", E(em, 'return M.Ring:CanSetTerms()') is False)
+E(eb, 'M.Bench:Name("treasury", "Kael") return 1')
+run(1)
+check("Cabinet: the Minister of the Treasury is seen by everyone", E(em, 'return M.Ledger:Minister()') == "Kael")
+check("Cabinet: they may fill in a general deposit's reason", E(em, 'return M.Ledger:CanFill("Kael", "tax")') is True)
+check("Cabinet: but never party money", E(em, 'return M.Ledger:CanFill("Kael", "party_sh")') is False)
+E(ekk, 'M.Bank:AskFor({ kind = "deposit", name = "Mira", amount = 500 }) return 1')
+check("Cabinet: filling in party money is refused on their own screen", "Crown's to fill in" in E(ekk, 'local _, e = M.Bank:Answer("party_ex") return e'))
+E(ekk, 'M.Bank:Answer("tax") return 1')
+run(1)
+check("Cabinet: a general reason they fill in reaches everyone", E(em, 'for n, r in pairs(M.guild.records.Kael or {}) do if r.k == "bank.fill" and r.d.r == "tax" then return true end end return false') is True)
+check("Polling day: the Ballot Hall's form is filled in with the election and both leaders",
+      E(ek, 'local f = MinistryOfTheAllied.BallotHall.ElectionForm() return f.kind == "general" and f.name:find("^General Election, ") ~= nil and f.cands[1].n == "Bram" and f.cands[2].n == "Mira"') is True)
+E(ek, 'Co:Current().at = GetServerTime() - 1 return 1')  # as if polling day had come
+check("Polling day: opening the polls is on the Crown's duties", E(ek, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Polling day") then return true end end return false') is True)
+check("Polling day: not on a citizen's", E(eb, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Polling day") then return false end end return true') is True)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

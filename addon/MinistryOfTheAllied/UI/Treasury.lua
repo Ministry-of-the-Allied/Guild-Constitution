@@ -116,8 +116,8 @@ local function buildAside()
     ex = amountRow(acc, 86, "Exchange"),
   }
 
-  -- "This term": money in and out, as bars against the larger of the two.
-  -- The add-on doesn't track terms yet, so for now it counts from when the books opened.
+  -- "This term": money in and out, as bars against the larger of the two,
+  -- from the start of the government's term (Ledger:ThisTerm).
   local block = panel(root, nil, 0, COFFER_H + 14 + 118 + 14, ASIDE_W, 70)
   Kit:Label(block, "kitSection", "1B3570", 0.22, "This term"):SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   term = {
@@ -140,6 +140,7 @@ local function buildAside()
   local initials = Kit:Text(foot, "initials", "F3D98A", "CENTER")
   initials:SetPoint("CENTER", portrait, "CENTER", 0, 0)
   initials:SetText("—")
+  root.ministerInitials = initials
   local name = Kit:Text(foot, "kitNameSmall")
   name:SetPoint("TOPLEFT", foot, "TOPLEFT", 46, -20)
   name:SetWidth(ASIDE_W - 46)
@@ -147,6 +148,7 @@ local function buildAside()
   local awaiting = Kit:Text(foot, "kitSmallest", "5E4B33")
   awaiting:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -1)
   awaiting:SetText("Appointed by the PM")
+  root.ministerName, root.ministerLine = name, awaiting
 end
 
 local function column(row, font, hex, justify, x, w)
@@ -260,11 +262,13 @@ function Page:Refresh()
   setAmount(accounts.treasury, data.treasury)
   setAmount(accounts.sh, MOTA.Party:Funds("sh"))
   setAmount(accounts.ex, MOTA.Party:Funds("ex"))
-  local biggest = math.max(data.moneyIn or 0, data.moneyOut or 0)
+  local termIn, termOut = L:ThisTerm()
+  local sums = { moneyIn = termIn, moneyOut = termOut }
+  local biggest = math.max(termIn, termOut)
   for key, row in pairs(term) do
-    setAmount(row.amount, data[key])
+    setAmount(row.amount, sums[key])
     row.bar:SetShown(opened)
-    row.bar:SetFraction(biggest > 0 and (data[key] or 0) / biggest or 0)
+    row.bar:SetFraction(biggest > 0 and sums[key] / biggest or 0)
   end
 
   local canOpen = isCrown and not opened
@@ -295,6 +299,11 @@ function Page:Refresh()
   nextB:SetShown(first + ROWS <= total)
   pager:SetText(total > 0 and ("%d to %d of %d"):format(first, math.min(first + ROWS - 1, total), total) or "")
 
+  local minister = L:Minister()
+  root.ministerName:SetText(minister and MOTA:Short(minister) or "None appointed")
+  root.ministerInitials:SetText(minister and MOTA:Short(minister):sub(1, 2) or "—")
+  root.ministerLine:SetText(minister and "In the Cabinet" or "Appointed by the PM")
+
   local unmatched = L:Unmatched()
   if not opened then
     checkLine:SetText(not isCrown and "The check starts once a King opens the books."
@@ -313,7 +322,7 @@ function Page:Refresh()
       r.entry = e
       r.text:SetText(("%s %s %s, no reason given"):format(MOTA:Short(e.name),
         e.kind == "repair" and "repaired for" or (e.kind == "withdraw" and "withdrew" or "deposited"), MOTA:Money(e.amount)))
-      r.button:SetShown(isCrown)
+      r.button:SetShown(isCrown or (MOTA.me ~= nil and L:Minister() == MOTA.me)) -- the Minister of the Treasury too (not for party money)
     end
   end
 end

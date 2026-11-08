@@ -55,8 +55,25 @@ end
 -- Who's active, and the gates
 ---------------------------------------------------------------------------
 
+-- Answers worked out from the whole book are kept until a record arrives or
+-- the roster changes, so the pages don't re-read the book on every redraw.
+local cache = {}
+local function forget() cache = {} end
+MOTA:Listen("RECORD_ADDED", forget)
+MOTA:Listen("GUILD_READY", forget)
+MOTA:Listen("ROSTER_UPDATED", forget)
+MOTA:Listen("HELLO_HEARD", function() cache.players = nil end)
+
 -- Guild members whose add-on has spoken, or written a record, in the last 14 days.
+-- Kept for a minute, as people come and go by the clock too.
 function Elect:ActivePlayers()
+  local now = GetServerTime()
+  if cache.players and now - cache.playersAt < 60 then return cache.players end
+  cache.players, cache.playersAt = self:CountActive(), now
+  return cache.players
+end
+
+function Elect:CountActive()
   local since = GetServerTime() - self.ACTIVE_DAYS * DAY
   local seen = {}
   if MOTA.me then seen[MOTA.me] = true end
@@ -89,6 +106,11 @@ local GOVERNS = { general = true, snap = true, runoff = true }
 
 -- The latest declared winner: { name, p, t, ends, kind }, or nil before the first.
 function Elect:Government()
+  if cache.gov == nil then cache.gov = self:FindGovernment() or false end
+  return cache.gov or nil
+end
+
+function Elect:FindGovernment()
   for _, r in ipairs(MOTA.Book:Latest()) do
     local d = r.d or {}
     if r.k == "ballot.result" and GOVERNS[d.kind] and d.w and type(d.cands) == "table" and d.cands[d.w] then

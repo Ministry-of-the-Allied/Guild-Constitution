@@ -825,6 +825,28 @@ local function blankForm()
   return { name = "", kind = "general", cands = { { n = "", p = "sh" }, { n = "", p = "ex" } } }
 end
 
+-- With an election called, the form comes filled in: its name and kind, and
+-- each party's leader as its candidate (Charter 3.2: the leader stands for
+-- Prime Minister). The Crown can still change any of it before opening.
+local function electionForm()
+  local El, Co = MOTA.Elect, MOTA.Contest
+  if not (El and El:Pending() and Co:Current()) then return blankForm() end
+  local cur = Co:Current()
+  local f = { name = Co:Kind() .. ", " .. date("%B %Y", Co:PollAt()), kind = cur.kind == "snap" and "snap" or "general", cands = {}, auto = true }
+  for _, p in ipairs({ "sh", "ex" }) do
+    local leader = Co:Leader(p)
+    if leader then f.cands[#f.cands + 1] = { n = MOTA:Short(leader.name), p = p } end
+  end
+  for _, p in ipairs({ "sh", "ex" }) do
+    if #f.cands >= 2 then break end
+    local taken = false
+    for _, c in ipairs(f.cands) do taken = taken or c.p == p end
+    if not taken then f.cands[#f.cands + 1] = { n = "", p = p } end
+  end
+  return f
+end
+Page.ElectionForm = electionForm
+
 local function formReady()
   local f = Page.form
   local named = 0
@@ -852,7 +874,7 @@ local function buildForm(v)
   caps(paper, "eyebrow", C.inkGold, 0.32):Set("Crown only", x + w, 28, nil, "RIGHT")
 
   caps(paper, "bEyebrow", C.inkGold, 0.24):Set("Election", x, 60)
-  F.name = input(paper, w, "e.g. The Snap Election", function(t) Page.form.name = t; updateFormButtons() end)
+  F.name = input(paper, w, "e.g. The Snap Election", function(t) Page.form.name = t; Page.form.auto = nil; updateFormButtons() end)
   at(F.name, paper, x, 76)
 
   caps(paper, "bEyebrow", C.inkGold, 0.24):Set("Kind", x, 122)
@@ -895,7 +917,7 @@ local function buildForm(v)
   for i = 1, Ballot.MAX_CANDS do
     local row = frame(list, 0, (i - 1) * CAND_ROW, w, 72)
     row.name = input(row, nameW, "Name", function(t)
-      if Page.form.cands[i] then Page.form.cands[i].n = t end
+      if Page.form.cands[i] then Page.form.cands[i].n = t; Page.form.auto = nil end
       updateFormButtons()
     end)
     at(row.name, row, 0, 0)
@@ -1236,7 +1258,7 @@ local function build()
   Page.frames = views
 end
 
-Page.form = blankForm()
+Page.form = electionForm()
 
 -- The view a ribbon shows: "ballot", "results" or "crown".
 function Page:CurrentView()
@@ -1320,7 +1342,7 @@ end
 function Page:OpenPolls()
   if not formReady() then return end
   if say(Ballot:Open(self.form.name, self.form.kind, self.form.cands)) then
-    self.form = blankForm()
+    self.form = electionForm()
     self.view = "crown"
   end
   self:Refresh()
@@ -1351,6 +1373,10 @@ function Page:Show(show)
   root:SetShown(show)
   if self.ticker then self.ticker:Cancel() self.ticker = nil end
   if show then
+    -- A form the Crown hasn't touched follows the election (leaders can change).
+    local f = self.form
+    local untouched = f.auto or (f.name == "" and not (f.cands[1].n or ""):match("%S") and not (f.cands[2] and (f.cands[2].n or ""):match("%S")))
+    if untouched then self.form = electionForm() end
     self:Refresh()
     -- The countdown and the close of the polls move with the clock.
     self.ticker = C_Timer.NewTicker(5, function() Page:Refresh() end)

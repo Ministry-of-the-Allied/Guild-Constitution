@@ -192,7 +192,7 @@ local function refreshAside(cur)
 
   local minister = Ring:Minister()
   aside.foot.name:SetText(minister and MOTA:Short(minister) or "None appointed")
-  aside.foot.line:SetText(minister and "Organises the Ring" or "Awaiting the rank")
+  aside.foot.line:SetText(minister and "Organises the Ring" or "Awaiting an appointment")
   -- A name too long for one line takes two, in place of the line beneath it.
   local nameFS = aside.foot.name
   local wide = nameFS.GetUnboundedStringWidth and nameFS:GetUnboundedStringWidth() or nameFS:GetStringWidth()
@@ -327,7 +327,7 @@ local function refreshForm(v, cur)
   local form, usable = v.form, Ring:CanSetTerms()
   form:SetAlpha(usable and 1 or 0.45)
   for _, control in ipairs({ form.season, form.bracket, form.fee, form.days, form.create }) do control:SetEnabled(usable) end
-  form.intro:SetText(not Ring:Minister() and "No Minister of War has been appointed. Give someone that guild rank to open the Ring."
+  form.intro:SetText(not Ring:Minister() and "No Minister of War yet. The Prime Minister names one to the Cabinet (before the first government, give someone that guild rank)."
     or (not usable and "Only the Minister of War or the Crown can open the Ring.")
     or (cur and "The last tournament is over. Set the terms of the next:" or "Set the terms of the first tournament:"))
 end

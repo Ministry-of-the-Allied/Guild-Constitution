@@ -35,12 +35,19 @@ function Throne:Ago(t)
   return math.floor(s / DAY) .. " d"
 end
 
+local cache = {}
+local function forget() cache = {} end
+MOTA:Listen("RECORD_ADDED", forget)
+MOTA:Listen("GUILD_READY", forget)
+
 local function governments()
+  if cache.governments then return cache.governments end
   local n = 0
   for _, r in ipairs(MOTA.Book:Latest()) do
     local d = r.d or {}
     if r.k == "ballot.result" and d.w and (d.kind == "general" or d.kind == "snap" or d.kind == "runoff") then n = n + 1 end
   end
+  cache.governments = n
   return n
 end
 
@@ -217,6 +224,10 @@ function Throne:Duties()
     local cur = Co:Current()
     if cur and cur.kind ~= "snap" and not cur.openedAt and El:Underway() and Co:Stage("sh") == "none" then add("Open the leadership contests", PAGES.parties) end
     if not El:Begun() and El:Gates().ok then add("Begin the first General Election", PAGES.parties) end
+    local open = b and MOTA.Ballot:Stage(b) ~= "declared"
+    if El:Pending() and cur and GetServerTime() >= Co:PollAt() and not open then
+      add("Polling day: open the polls for the " .. Co:Kind(), PAGES.ballot)
+    end
     if MOTA.Judiciary and #MOTA.Judiciary:Justices() < MOTA.Judiciary.SEATS then
       add((MOTA.Judiciary.SEATS - #MOTA.Judiciary:Justices()) .. " seat(s) on the High Judiciary to fill (/mota justice)", PAGES.statute)
     end
@@ -252,8 +263,11 @@ end
 local GEM = { crown = "1B3570", floor = "9E1B22", fail = "6E1712", party = "1F4290", ring = "7A5719" }
 
 function Throne:Decrees(limit)
-  local out = {}
   limit = limit or 4
+  local key = "decrees" .. limit
+  if cache[key] then return cache[key] end
+  local out = {}
+  cache[key] = out
   for _, r in ipairs(MOTA.Book:Latest(300)) do
     local d = r.d or {}
     local e

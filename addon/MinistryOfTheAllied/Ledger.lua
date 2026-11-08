@@ -17,7 +17,19 @@ MOTA.Ledger = Ledger
 local rules = MOTA.Book.rules
 local function crown(author) return MOTA:IsCrown(author) end
 rules["bank.open"] = crown
-rules["bank.fill"] = crown
+-- The Crown fills in any entry; the Cabinet's Minister of the Treasury, any
+-- but party money (Charter 3.2: party funds are the Crown's to handle).
+local PARTY_REASONS = { party_sh = true, party_ex = true }
+function Ledger:Minister()
+  local gov = MOTA.Elect and MOTA.Elect:Government()
+  return gov and gov.p and MOTA.Bench:Holder(gov.p, "treasury")
+end
+function Ledger:CanFill(name, reason)
+  if not name then return false end
+  if MOTA:IsCrown(name) then return true end
+  return name == self:Minister() and not PARTY_REASONS[reason]
+end
+rules["bank.fill"] = function(a, rec) return Ledger:CanFill(a, rec and rec.d and rec.d.r) end
 rules["bank.balance"] = function() return true end
 
 local cache
@@ -49,6 +61,22 @@ local function build()
     out.treasury = out.expected - party
   end
   return out
+end
+
+-- Money in and out this government's term (or since the books opened, if
+-- that's later, or there's no government yet).
+function Ledger:ThisTerm()
+  local data = self:Get()
+  if not data.open then return 0, 0 end
+  local gov = MOTA.Elect and MOTA.Elect:Government()
+  local from = math.max(data.open.t, gov and gov.t or 0)
+  local moneyIn, moneyOut = 0, 0
+  for _, line in ipairs(data.lines) do
+    if line.t >= from then
+      if line.io == "w" then moneyOut = moneyOut + line.amt else moneyIn = moneyIn + line.amt end
+    end
+  end
+  return moneyIn, moneyOut
 end
 
 function Ledger:Get()

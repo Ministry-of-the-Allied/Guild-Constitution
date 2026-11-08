@@ -6,9 +6,10 @@
 --                 Records can't be edited, so nobody can change the terms once
 --                 a tournament is open.
 --
--- The organisers are whoever holds the Minister of War guild rank, and the
--- Crown, who hold every power the government does. No tournament can be opened
--- until someone holds that rank.
+-- The organisers are the Minister of War and the Crown, who hold every power
+-- the government does. The Minister of War is the Cabinet's War post once
+-- there's a government (Bench.lua); before that, whoever holds the "Minister of
+-- War" guild rank. No tournament can be opened until there is one.
 --   ring.enter    anyone   { id }            signing yourself up
 --   ring.withdraw anyone   { id }            before the draw
 --   ring.paid     organiser   { id, p, paid }   by hand, for anyone paying without the add-on;
@@ -32,7 +33,19 @@ local CALL_DELAY = 1 -- seconds, so one draw's several records make one herald
 
 local FEEDERS = { [5] = { 1, 2 }, [6] = { 3, 4 }, [7] = { 5, 6 } }
 
-local function isMinister(name) return MOTA:RankOf(name) == MOTA.CONST.MINISTER_OF_WAR_RANK end
+local function hasRank(name) return MOTA:RankOf(name) == MOTA.CONST.MINISTER_OF_WAR_RANK end
+
+-- The Cabinet's Minister of War, while there's a government.
+local function cabinetWar()
+  local gov = MOTA.Elect and MOTA.Elect:Government()
+  return gov and gov.p and MOTA.Bench:Holder(gov.p, "war")
+end
+
+local function isMinister(name)
+  local war = cabinetWar()
+  if war then return name == war end
+  return hasRank(name)
+end
 local function organiser(author) return MOTA:IsCrown(author) or isMinister(author) end
 local rules = MOTA.Book.rules
 rules["ring.create"] = organiser
@@ -225,9 +238,11 @@ end
 
 -- The first character holding the rank, by name; the roster has offline members too.
 function Ring:Minister()
+  local war = cabinetWar()
+  if war then return war end
   local found
   for name in pairs(MOTA.roster or {}) do
-    if isMinister(name) and (not found or name < found) then found = name end
+    if hasRank(name) and (not found or name < found) then found = name end
   end
   return found
 end

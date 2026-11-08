@@ -44,6 +44,9 @@ function Bank:Answer(reason, note)
   if not move then return nil end
   local rec, err
   if move.who then
+    if not MOTA.Ledger:CanFill(MOTA.me, reason) then
+      return nil, "Party money is the Crown's to fill in (Charter 3.2)."
+    end
     rec, err = MOTA.Book:Write("bank.fill", { who = move.who, io = move.io, amt = move.amt, r = reason, note = note })
   else
     rec, err = MOTA.Book:Write("bank.move", { io = move.io, amt = move.amt, r = reason, note = note, at = move.t })
@@ -54,7 +57,7 @@ function Bank:Answer(reason, note)
   return rec
 end
 
--- The Crown gives the reason for a log entry nobody explained.
+-- The Crown (or the Minister of the Treasury) gives the reason for a log entry nobody explained.
 function Bank:AskFor(entry)
   local list = self:Pending()
   list[#list + 1] = { io = entry.kind == "deposit" and "d" or "w", amt = entry.amount, who = entry.name,

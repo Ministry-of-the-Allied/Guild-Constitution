@@ -172,7 +172,7 @@ add("voice", "[on, off, stop, next, reset]", "the Charter narration: how far it'
   end
 end)
 
-add("ring", "", "who holds the Minister of War rank", function()
+add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank before a government)", function()
   if not needGuild() then return end
   local m = MOTA.Ring:Minister()
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
