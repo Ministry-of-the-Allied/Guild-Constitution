@@ -10,6 +10,11 @@
 -- (decided 2026-11-07). The guild is small, and the risk of a modified add-on
 -- forging a record is accepted. A record the rules refuse is noted, so nobody
 -- asks for it again. Old records raise no heralds.
+--
+-- Records come author by author, so one may arrive before the records that
+-- allow it (a hunt from the Minister of Games before the result and the
+-- appointment that made them minister). A refused record is kept aside and
+-- tried again after every batch, and taken once the rules allow it.
 
 local _, MOTA = ...
 local Sync = {}
@@ -107,6 +112,30 @@ function Sync:Offer(target, theirs)
 end
 
 -- Takes passed-on records. Returns how many were new.
+-- Records refused so far are tried again: one taken may allow another.
+function Sync:Retry()
+  local g = MOTA.guild
+  if not g or not g.waiting then return 0 end
+  local added, again = 0, true
+  while again do
+    again = false
+    for author, list in pairs(g.waiting) do
+      for n, rec in pairs(list) do
+        if Book:Allowed(rec) then
+          list[n] = nil
+          if g.refused and g.refused[author] then g.refused[author][n] = nil end
+          if Book:Add(rec) == "added" then
+            added = added + 1
+            again = true
+          end
+        end
+      end
+      if not next(list) then g.waiting[author] = nil end
+    end
+  end
+  return added
+end
+
 function Sync:Take(records)
   local g, added = MOTA.guild, 0
   Book.replaying = true
@@ -120,9 +149,13 @@ function Sync:Take(records)
         g.refused = g.refused or {}
         g.refused[rec.a] = g.refused[rec.a] or {}
         g.refused[rec.a][rec.n] = true
+        g.waiting = g.waiting or {}
+        g.waiting[rec.a] = g.waiting[rec.a] or {}
+        g.waiting[rec.a][rec.n] = { a = rec.a, n = rec.n, t = rec.t, k = rec.k, d = rec.d }
       end
     end
   end
+  added = added + self:Retry()
   Book.replaying = false
   if MOTA.Ballot then MOTA.Ballot.passing = false end
   return added
@@ -181,6 +214,10 @@ end)
 
 local ticker
 MOTA:Listen("GUILD_READY", function(self)
+  local g = self.guild
+  if g and (g.refusedV or 0) < 2 then
+    g.refused, g.refusedV = nil, 2
+  end
   local function first()
     if not Sync:Send() then C_Timer.After(5, first) end
   end

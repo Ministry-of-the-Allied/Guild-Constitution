@@ -366,6 +366,28 @@ local function changed()
   cache, last = nil, nil
   MOTA:Fire("HUNT_CHANGED")
 end
+
+-- Someone logging in while a hunt runs hears of it once a session: the hunt
+-- may have begun while they were away, and records caught up on raise no herald.
+local reminded
+function Hunt:Remind()
+  local H = self:Current()
+  if reminded or self:Stage(H) ~= "running" or not MOTA.Herald or not MOTA.me then return end
+  reminded = H.id
+  startTicking()
+  if MOTA.Account:Same(MOTA.me, H.by) then
+    local n = #self:Hunters(H)
+    MOTA:Print("Your hunt", H.name, "is running:", n, n == 1 and "hunter has" or "hunters have", "found a spot so far.")
+    return
+  end
+  local found = self:Progress(MOTA.me, H)
+  local text, zone = self:Riddle(found + 1, H)
+  MOTA.Herald:Announce({ seal = "official", eyebrow = "The Treasure Hunt", title = H.name .. " is on",
+    text = (found > 0 and ("You've found " .. found .. " of " .. #H.clues .. ". ") or (#H.clues .. " clues. First to stand on the last spot wins. "))
+      .. "Clue " .. (found + 1) .. ", in " .. tostring(zone) .. (text and (": " .. text) or "."),
+    button = { label = "Open", style = "blue", page = 8 } })
+end
+
 MOTA:Listen("GUILD_READY", function()
   changed()
   C_Timer.After(6, function()
@@ -373,8 +395,13 @@ MOTA:Listen("GUILD_READY", function()
     local H = Hunt:Current()
     if H and Hunt:Stage(H) == "won" then record(H) end
   end)
+  -- After the first catch-up, so a hunt set while away is known.
+  C_Timer.After(25, function() Hunt:Remind() end)
 end)
-MOTA:Listen("CAUGHT_UP", changed)
+MOTA:Listen("CAUGHT_UP", function()
+  changed()
+  C_Timer.After(2, function() Hunt:Remind() end)
+end)
 MOTA:Listen("ACCOUNT_CHANGED", changed)
 
 MOTA:Listen("RECORD_ADDED", function(self, rec)
@@ -390,6 +417,7 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   local d = rec.d or {}
   local Hd = self.Herald
   if rec.k == "hunt.open" then
+    reminded = H.id
     Hd:Announce({ seal = "official", eyebrow = "The Treasure Hunt", title = tostring(d.name) .. " begins",
       text = #H.clues .. " clues, the first in " .. tostring(H.clues[1].z) .. ". First to stand on the last spot wins. See the Games Hall.",
       button = { label = "Open", style = "blue", page = 8 } })
