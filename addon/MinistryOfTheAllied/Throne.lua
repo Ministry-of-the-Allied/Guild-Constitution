@@ -12,7 +12,7 @@ local Throne = {}
 MOTA.Throne = Throne
 
 local DAY, HOUR = 86400, 3600
-local PAGES = { ballot = 2, statute = 3, parties = 4, treasury = 5, districts = 6, ring = 7 }
+local PAGES = { ballot = 2, statute = 3, parties = 4, treasury = 5, districts = 6, ring = 7, games = 8 }
 Throne.PAGES = PAGES
 local ORDINALS = { "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
   "Eleventh", "Twelfth" }
@@ -184,7 +184,7 @@ function Throne:Live()
   local ls = L and MOTA.Lottery:Stage(L)
   if ls == "selling" or ls == "closed" or (ls == "drawn" and now < L.drawn.t + 3 * DAY) then
     local mine = MOTA.Lottery:TicketsOf(me, L)
-    out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.treasury, button = "Open",
+    out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.games, button = "Open",
       line = MOTA.Lottery:Line(L) .. (ls == "selling" and mine > 0 and (" · you hold " .. mine) or ""), ends = ls == "selling" and L.closes or nil }
   end
 
@@ -310,7 +310,7 @@ function Throne:Decrees(limit)
     elseif r.k == "game.result" and type(d.places) == "table" and d.places[1] then
       e = { text = "|cff2A1F14" .. MOTA:Short(d.places[1]) .. "|r wins " .. tostring(d.name), hex = GEM.ring }
     elseif r.k == "lottery.open" and type(d.price) == "number" then
-      e = { text = "|cff2A1F14" .. tostring(d.name) .. "|r is open, tickets " .. MOTA:Money(d.price), hex = GEM.ring, page = PAGES.treasury }
+      e = { text = "|cff2A1F14" .. tostring(d.name) .. "|r is open, tickets " .. MOTA:Money(d.price), hex = GEM.ring, page = PAGES.games }
     elseif r.k == "ring.result" and d.s == 7 and d.w then
       e = { text = "|cff2A1F14" .. MOTA:Short(d.w) .. "|r is champion of the Ring", hex = GEM.ring, page = PAGES.ring }
     end

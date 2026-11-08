@@ -135,6 +135,7 @@ ICONS = {
     "parties": '<path d="M5 21V3.5M5 4h8.5l-2 3 2 3H5M13 21V9M13 9.5h7l-2 3 2 3h-7"></path>',
     "treasury": '<ellipse cx="12" cy="6" rx="7" ry="2.6"></ellipse><path d="M5 6v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6M5 10v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4M5 14v4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-4"></path>',
     "districts": '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"></path>',
+    "games": '<path d="M7.5 4h9v4.5a4.5 4.5 0 0 1-9 0zM7.5 5.5H5a2.5 2.5 0 0 0 3 3.6M16.5 5.5H19a2.5 2.5 0 0 1-3 3.6M12 13v3.5M9 20h6M10 16.5h4l.6 3.5H9.4z"></path>',
     "ring": '<path d="M4 4l10.5 10.5M4 4h3.5l9 9M4 4v3.5l9 9M13 17.5l4.5-4.5M15.5 15.5l4 4M20 4l-10.5 10.5M20 4h-3.5l-9 9M20 4v3.5l-9 9M11 17.5 6.5 13M8.5 15.5l-4 4"></path>',
 }
 
@@ -148,7 +149,7 @@ ACCENTS = {
 }
 # Pieces with blue in them, by layout: each is drawn once more per accent in the "accent" texture.
 ACCENT_PIECES = (
-    ["kitBlue", "kitStepTodo", "kitMark"] + [f"kitRibbonOn{i}" for i in range(1, 14)]
+    ["kitBlue", "kitStepTodo", "kitMark"] + [f"kitRibbonOn{i}" for i in range(1, 18)]
     + ["b_" + n for n in ("rb-ballot-on", "rb-ballot-on-dot", "rb-results-on", "rb-crown-on", "btn-seal", "btn-open",
                           "btn-close", "btn-runoff", "btn-last", "btn-add", "pill-general-on", "pill-snap-on",
                           "pill-runoff-on")]
@@ -188,7 +189,7 @@ HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss", "Stop", "Restart"]
 
 # Slots: places where the add-on draws live text or buttons, by root.
 SLOTS = {
-    "win": [f"tab{i}" for i in range(1, 8)] + [
+    "win": [f"tab{i}" for i in range(1, 9)] + [
         "title", "subtitle", "knob-settings", "knob-close", "page", "parch", "eyebrow", "heading",
         "divider", "note", "note2", "railfoot", "portrait", "initials", "who", "who-small",
         "foot", "foot-left", "foot-right", "pip", "crest", "seal", "sheen",
@@ -464,7 +465,10 @@ def pieces_to_draw(pages):
                  "kitRibbonOn8", "kitRibbonOn9", "kitRibbonOn10", "kitRibbonOff4", "kitRibbonOff8", "kitRibbonOff9", "kitRibbonOff10",
                  "kitStepTodo", "kitStepDone", "kitStepNow", "kitRibbonOn5", "kitRibbonOn6", "kitRibbonOn7",
                  "kitRibbonOff5", "kitRibbonOff6", "kitRibbonOff7", "kitPortraitSh", "kitPortraitEx",
-                 "kitRibbonOn11", "kitRibbonOn12", "kitRibbonOn13", "kitRibbonOff11", "kitRibbonOff12", "kitRibbonOff13"):
+                 "kitRibbonOn11", "kitRibbonOn12", "kitRibbonOn13", "kitRibbonOff11", "kitRibbonOff12", "kitRibbonOff13",
+                 # The Games Hall (Duncan, 8 Nov): Lottery, The Hunt, The Cup, Honours, and the medallions
+                 "kitRibbonOn14", "kitRibbonOn15", "kitRibbonOn16", "kitRibbonOn17",
+                 "kitRibbonOff14", "kitRibbonOff15", "kitRibbonOff16", "kitRibbonOff17", "kitMedalG", "kitMedalS"):
         d[name] = dict(tex="extras", scale=ATLAS_SCALE, layout="extras", root="kit", args={},
                        css=only(["#" + name, "#" + name + " *"]))
     # Wide parts are drawn smaller, to fit the atlas.
@@ -1052,7 +1056,7 @@ def preview_window(pieces, textures, slots, media, key, out):
     P("subtitle1", tint=pale)
     P(f"{metal}:subRule", at=(sub["x"] - media["subRule"]["gapL"] - rule["w"], rule["y"]))
     P(f"{metal}:subRule", at=(sub["x"] + sub["w"] + media["subRule"]["gapR"], rule["y"]), flip=(True, False))
-    for i in range(1, 8):
+    for i in range(1, len(media["pages"]) + 1):
         if i == 1:
             P(f"{metal}:tabOn")
         else:

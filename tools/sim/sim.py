@@ -1788,7 +1788,7 @@ def throne_draws(c, label):
     errs = len(errors)
     c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI:SelectPage(1); MinistryOfTheAllied.UI.window:Show()')
     for skin in ("crown", "silverhand", "exchange", "ministry"):
-        c.slash("skin " + skin)
+        c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
         c.lua.execute('MinistryOfTheAllied.ThronePage:Refresh()')
     drawn = c.lua.eval("(function() local P = MinistryOfTheAllied.ThronePage return P.root and P.root.shown and P.head.eyebrow.text ~= '' and P.head.plateText.text ~= '' end)()")
     check("Throne Room: draws in all four skins, " + label, len(errors) == errs and drawn is True)
@@ -2111,6 +2111,26 @@ jump(7 * 86400)
 check("Lottery: a week after the close, the Crown may draw without the secret", E(ek, LO + 'return Lo:Draw() ~= nil') is True)
 run(1)
 check("Lottery: drawn with no tickets sold", E(em, LO + 'return Lo:Stage() .. "|" .. tostring(Lo:Current().winner)') == "drawn|nil")
+
+print("== 15h. the Games Hall page")
+def games_draws(c, label):
+    errs = len(errors)
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8)')
+    seen = []
+    for skin in ("crown", "silverhand", "exchange", "ministry"):
+        c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
+        for v in ("lottery", "hunt", "cup", "honours"):
+            c.lua.execute('MinistryOfTheAllied.GamesPage:Select("%s")' % v)
+        seen.append(c.lua.eval('MinistryOfTheAllied.GamesPage:View()'))
+    check("Games Hall: draws in all four skins and every view, " + label, len(errors) == errs and seen == ["honours"] * 4)
+check("Games Hall: it's the eighth tab", E(eb, 'return #M.Media.pages .. "|" .. M.Media.pages[8].label') == "8|Games Hall")
+check("Games Hall: its ribbons and medallions were drawn", E(eb, 'return M.Media.pieces.kitRibbonOn17 ~= nil and M.Media.pieces["kitRibbonOn14~cr"] ~= nil and M.Media.pieces["kitRibbonOn14~ex"] ~= nil and M.Media.pieces.kitMedalG ~= nil') is True)
+games_draws(eb, "for a citizen")
+games_draws(ekk, "for the Minister of Games")
+E(ekk, 'M.GamesPage:Select("lottery") return 1')
+check("Games Hall: the organiser's desk shows for the Minister", E(ekk, 'return M.GamesPage ~= nil') is True)
+E(eb, 'M.GamesPage:Select("honours") M.GamesPage:Refresh() return 1')
+check("Throne Room: the lottery opens the Games Hall", E(eb, TH + 'for _, e in ipairs(T:Live()) do if e.key == "lottery" then return e.page end end return 8') == 8)
 
 print()
 print("Lua errors:", len(errors))

@@ -61,5 +61,14 @@
     "eyebrow": "Monthly duels",
     "heading": "The Gladiator's Ring",
     "note": "Sign-up, the bracket and the Hall of Champions for the monthly duelling tournament."
+  },
+  {
+    "id": "games",
+    "label": "Games Hall",
+    "small": "Games & honours",
+    "subtitle": "The Games Hall",
+    "eyebrow": "Games and honours",
+    "heading": "The Games Hall",
+    "note": "The Royal Lottery, treasure hunts, the District Cup and the Roll of Honour."
   }
 ]
