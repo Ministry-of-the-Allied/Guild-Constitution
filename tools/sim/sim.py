@@ -2063,7 +2063,7 @@ ekk.slash("lottery open Spring Draw, 1, 3")
 run(1)
 check("Lottery: the Minister of Games opens one, seen by everyone",
       E(em, LO + 'local L = Lo:Current() return L.name .. "|" .. L.price .. "|" .. Lo:Stage()') == "Spring Draw|10000|selling")
-check("Lottery: only the secret's hash is published", E(em, LO + 'local L = Lo:Current() return #L.c == 17 - 1 and M.guild.records.Kael ~= nil') is True
+check("Lottery: only the secret's hash is published", E(em, LO + 'local L = Lo:Current() return #L.c == 64 and M.guild.records.Kael ~= nil') is True
       and E(ekk, LO + 'return MOTADB.lotterySecrets[Lo:Current().id] ~= nil') is True and E(em, 'return MOTADB.lotterySecrets == nil') is True)
 check("Lottery: only one at a time", "already under way" in E(ek, LO + 'local _, e = Lo:Open("Two", 1, 3) return e'))
 check("Lottery: the bank prompt offers Lottery tickets", E(em, 'for _, r in ipairs(M.BankPrompt.REASONS.d) do if r[1] == "lottery" then return r[2] end end') == "Lottery tickets")
@@ -2089,8 +2089,11 @@ ekk.slash("lottery draw")
 run(2)
 winner = E(ek, LO + 'return Lo:Current().winner')
 check("Lottery: drawn, every copy finds the same winner", winner in ("Mira", "Bram") and E(em, LO + 'return Lo:Current().winner') == winner and E(eb, LO + 'return Lo:Current().winner') == winner)
+check("Lottery: every ticket wins about as often (7 tickets, 7000 draws)",
+      E(em, LO + 'local t = {} for i = 1, 7 do t[i] = { who = "P" .. i } end local w = {0,0,0,0,0,0,0} for i = 1, 7000 do local x = Lo:Pick("s" .. i, t) w[x] = w[x] + 1 end local lo, hi = 7000, 0 for i = 1, 7 do lo, hi = math.min(lo, w[i]), math.max(hi, w[i]) end return lo > 880 and hi < 1120') is True)
+check("Lottery: the hash is SHA-256", E(em, 'return M.Sha256("abc")') == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
 check("Lottery: anyone can check the draw from the secret and the tickets",
-      E(em, LO + 'local L = Lo:Current() return M.Account.Hash(L.drawn.s) == L.c and Lo:Pick(L.drawn.s, L.tickets) == L.win') is True)
+      E(em, LO + 'local L = Lo:Current() return M.Sha256(L.drawn.s) == L.c and Lo:Pick(L.drawn.s, L.tickets) == L.win') is True)
 check("Lottery: the result goes into the games log, without a medal", E(em, 'local e = M.Games:Log()[1] return e.g .. "|" .. e.places[1]') == "lottery|" + winner
       and E(ek, 'return M.Honours:Has("%s", "laurel")' % winner) is (winner == "Bram"))  # Bram won races before
 check("Lottery: the prize is owed, as a duty", E(ekk, LO + 'return Lo:Owed()') == 21000

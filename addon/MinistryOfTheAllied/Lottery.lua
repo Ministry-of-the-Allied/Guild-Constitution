@@ -11,6 +11,8 @@
 -- secret (s); the winning ticket comes from the secret and the list of
 -- tickets, which was fixed when sales closed. The organiser can't change the
 -- secret once tickets are sold, and can't buy tickets in their own draw.
+-- Both hashes are SHA-256 (Sha256.lua): the secret can't be swapped for
+-- another with the same hash, and every ticket has an even chance.
 -- If the organiser hasn't drawn within 7 days of the close, the Crown or the
 -- Minister of Games may draw without a secret, from the tickets alone.
 --
@@ -27,13 +29,13 @@ Lottery.LATE = 7 * 86400  -- after the close, when someone else may draw
 Lottery.REASON, Lottery.PRIZE_REASON = "lottery", "lottery_prize"
 
 local function str(v, max) return type(v) == "string" and v ~= "" and #v <= max end
-local function hash(text) return MOTA.Account.Hash(text) end
+local function hash(text) return MOTA.Sha256(text) end
 local function canRun(name) return MOTA.Games and MOTA.Games:CanRun(name) end
 
 MOTA.Book.rules["lottery.open"] = function(a, rec)
   local d = rec and rec.d or {}
   return canRun(a) and str(d.name, 40) and type(d.price) == "number" and d.price >= Lottery.MIN_PRICE
-    and type(d.closes) == "number" and str(d.c, 24)
+    and type(d.closes) == "number" and str(d.c, 64)
 end
 MOTA.Book.rules["lottery.draw"] = function(a, rec)
   local d = rec and rec.d or {}
@@ -42,11 +44,16 @@ MOTA.Book.rules["lottery.draw"] = function(a, rec)
 end
 
 -- The winning ticket, 1 to total, from the secret and the tickets in order.
+-- The first 13 hex digits of the hash are a number below 2^52, exact in Lua;
+-- its remainder by the number of tickets favours none by more than one in
+-- billions. They're read in two parts: the game's tonumber(x, 16) stops at
+-- 32 bits, and gives the same largest number for anything longer.
 function Lottery:Pick(secret, tickets)
   local names = {}
   for i, t in ipairs(tickets) do names[i] = t.who end
   local h = hash((secret or "") .. "|" .. table.concat(names, ","))
-  return (tonumber(h:sub(1, 8), 16) % #tickets) + 1
+  local n = tonumber(h:sub(1, 7), 16) * 16777216 + tonumber(h:sub(8, 13), 16) -- 28 bits, then 24
+  return (n % #tickets) + 1
 end
 
 local cache
