@@ -220,6 +220,7 @@ end
 -- The two rules either side of the page's name, which is a different width on each page.
 function UI:PlaceSubRule(t, right)
   local sub = M.pieces["subtitle" .. (self.page or 1)]
+  if self.settingsOpen and self.settingsSub then sub = self.settingsSub.place end
   local p = M.pieces[self:SkinName("subRule", "metal")]
   if right then
     self:SetPiece(t, self:SkinName("subRule", "metal"), 0, 0, nil, { sub.x + sub.w + M.subRule.gapR, p.y + HEADER_DROP }, true, false)
@@ -232,6 +233,10 @@ end
 function UI:InkWindow()
   for i, tab in ipairs(self.tabs) do setTabLook(tab, tab.look or "rest") end
   for _, sub in ipairs(self.subtitles) do ink(sub, "SUBTITLE") end
+  if self.settingsSub then
+    local c = MOTA.skin.SUBTITLE
+    for _, fs in ipairs(self.settingsSub.letters) do fs:SetTextColor(c.r, c.g, c.b) end
+  end
   if self.heading then self.heading:SetTextColor(MOTA:RGB(MOTA:Accent().INK)) end
   ink(self.who, "NAME_INK")
   ink(self.whoSmall, "PALE_INK")
@@ -309,7 +314,9 @@ end
 function UI:WearDivider()
   local t = self.divider
   if not t then return end
-  local p = M.pieces["divider" .. MOTA:Accent().SUFFIX] or M.pieces.divider
+  -- Silverhand's divider is silver with a blue jewel ("~sv"); the others wear the accent's jewel
+  local silver = MOTA.skin and MOTA.skin.METAL == "silver" and M.pieces["divider~sv"]
+  local p = silver or M.pieces["divider" .. MOTA:Accent().SUFFIX] or M.pieces.divider
   t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
   t:SetTexCoord(p.l, p.r, p.t, p.b)
 end
@@ -371,16 +378,16 @@ local function buildTab(f, i)
   tab.small:SetPoint("LEFT", f, "TOPLEFT", sp.x, -(sp.y + sp.h / 2))
 
   tab:SetScript("OnClick", function()
-    if UI.page ~= i then
+    if UI.page ~= i or UI.settingsOpen then
       play("IG_CHARACTER_INFO_TAB")
       UI:SelectPage(i)
     end
   end)
   tab:SetScript("OnEnter", function()
-    if UI.page ~= i then setTabLook(tab, "hover") end
+    if UI.page ~= i or UI.settingsOpen then setTabLook(tab, "hover") end
   end)
   tab:SetScript("OnLeave", function()
-    if UI.page ~= i then setTabLook(tab, "rest") end
+    if UI.page ~= i or UI.settingsOpen then setTabLook(tab, "rest") end
   end)
   setTabLook(tab, "rest")
   return tab
@@ -434,6 +441,11 @@ local function buildKnob(f, piece, slot, tooltip, onClick)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- lit while its page is open (the Settings board's .knob.lit)
+  b.lit = UI:SkinPiece(b, piece, "skin", "OVERLAY", 0, 0, HEADER_DROP)
+  b.lit:SetBlendMode("ADD")
+  b.lit:SetAlpha(0.45)
+  b.lit:Hide()
   return b
 end
 
@@ -467,11 +479,18 @@ function UI:Build()
     self.subtitles[i] = self:Piece(f, "subtitle" .. i, "ARTWORK", nil, 0, HEADER_DROP)
     self.eyebrows[i] = self:Piece(f, "eyebrow" .. i, "ARTWORK")
   end
+  local sp = M.pieces.subtitle1
+  self.settingsSub = MOTA:Tracked(f, "subtitle", "FFFFFF", 0.42)
+  self.settingsSub:SetText("SETTINGS")
+  local sw = self.settingsSub:GetWidth()
+  self.settingsSub.place = { x = sp.x + sp.w / 2 - sw / 2, w = sw }
+  self.settingsSub:SetPoint("TOPLEFT", f, "TOPLEFT", self.settingsSub.place.x, -(sp.y + HEADER_DROP))
+  self.settingsSub:Hide()
   self.subRules = {
     self:SkinPiece(f, "subRule", "metal", "ARTWORK", 0, 0, 0, function(t) UI:PlaceSubRule(t, false) end),
     self:SkinPiece(f, "subRule", "metal", "ARTWORK", 0, 0, 0, function(t) UI:PlaceSubRule(t, true) end),
   }
-  buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:OpenSettings() end)
+  self.knobSettings = buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:ShowSettings() end)
   buildKnob(f, "knobClose", "knob-close", "Close", function() f:Hide() end)
 
   -- The tab rail.
@@ -546,6 +565,10 @@ end
 
 function UI:SelectPage(i)
   if i < 1 or i > #M.pages then i = 1 end
+  self.settingsOpen = false
+  if self.settingsSub then self.settingsSub:Hide() end
+  if self.knobSettings then self.knobSettings.lit:Hide() end
+  if self.sheenClip then self.sheenClip:Show() end
   self.page = i
   MOTA.db.window.page = i
   local full = UI.fullPages[M.pages[i].id]
@@ -574,6 +597,32 @@ function UI:SelectPage(i)
   self.eyebrows[i]:SetShown(not built)
   self:FootRight()
   MOTA:Fire("PAGE_SHOWN", page.id)
+end
+
+-- The Settings page in place of the page (Max, 9 Nov): the gear knob lit, every
+-- tab resting, "Settings" between the rules. open nil toggles; any tab goes back.
+function UI:ShowSettings(open)
+  local f = self:Build()
+  if open == nil then open = not (self.settingsOpen and f:IsShown()) end
+  if not open then return self:SelectPage(self.page or 1) end
+  f:Show()
+  self.settingsOpen = true
+  for n, tab in ipairs(self.tabs) do
+    setTabLook(tab, "rest")
+    self.subtitles[n]:Hide()
+    self.eyebrows[n]:Hide()
+  end
+  self.sheenClip:Hide()
+  self.settingsSub:Show()
+  self:PlaceSubRule(self.subRules[1], false)
+  self:PlaceSubRule(self.subRules[2], true)
+  self.heading:Hide()
+  self.note:Hide()
+  self.note2:Hide()
+  self.divider:Show()
+  self.knobSettings.lit:Show()
+  self:FootRight()
+  MOTA:Fire("PAGE_SHOWN", "settings")
 end
 
 local function weekday()

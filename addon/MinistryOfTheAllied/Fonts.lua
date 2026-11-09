@@ -38,6 +38,8 @@ local STYLES = {
   heraldBody = { "garamond", 16 },          -- .herald p
   setLabel = { "cinzel", 12.5 },            -- .setrow label (spaced out)
   setSmall = { "garamond", 14 },            -- .setrow label small
+  subtitle = { "cinzelSemi", 11 },          -- .subtitle (the Settings page's name; the tabs' are drawn)
+  pageEyebrow = { "cinzel", 11 },           -- .eyebrow over a page's heading (spaced out)
   -- The canvas's sizes for page contents (UI/Kit.lua).
   kitSection = { "cinzel", 11 },            -- .h-sec at the boards' size
   kitTiny = { "cinzel", 9 },                -- small .eyebrow

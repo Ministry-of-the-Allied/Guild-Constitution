@@ -498,22 +498,24 @@ ns.db.settings.windowSkin = "ministry"  # an old saved choice
 ns.Skin.Refresh(ns.Skin, True)
 check("An old saved Ministry choice can't override a citizen's rank skin", ns.skin.KEY == "SILVERHAND")
 ns.db.settings.windowSkin = "party"
-def skin_parts(panel):
-    return [p for row in panel.crownRows.values() for p in row.values()]
+def Q(c, code):  # as below (section 13); needed here first
+    return c.lua.eval("(function() local M = MinistryOfTheAllied " + code + " end)()")
+
+
 def open_settings(client):
-    g = client.lua.globals()
+    """The Settings page, in the add-on's own window (Max, 9 Nov)."""
     client.slash("settings")
-    panel = g.SETTINGS_FRAME
-    panel.w, panel.h = 640, 560
-    panel.scripts.OnShow(panel)
-    return panel
+    return client.lua.globals().MinistryOfTheAllied.SettingsPage
 bram_panel = open_settings(ui_client)
-check("A citizen sees no Window skin row", skin_parts(bram_panel) and not any(p.shown for p in skin_parts(bram_panel)))
-skin_btn = bram_panel.controls[11]
+check("Settings: /mota settings opens the page in the window, the gear lit, no tab lit",
+      Q(ui_client, 'return M.UI.window:IsShown() and M.UI.settingsOpen and M.UI.knobSettings.lit.shown and M.UI.settingsSub.shown') is True
+      and Q(ui_client, 'for _, t in ipairs(M.UI.tabs) do if t.look == "on" then return false end end return true') is True)
+check("A citizen sees no Window skin group", not bram_panel.groups[3].shown and bram_panel.groups[2].shown)
+skin_btn = bram_panel.controls[10]
 skin_btn.scripts.OnClick(skin_btn)
 check("...and clicking it anyway changes nothing", ns.db.settings.windowSkin == "party" and ns.skin.KEY == "SILVERHAND")
 # the World map skin row (D5f): everyone's, Party at first; Plain takes the dress off at once
-map_btns = [bram_panel.controls[7], bram_panel.controls[8], bram_panel.controls[9]]
+map_btns = [bram_panel.controls[6], bram_panel.controls[7], bram_panel.controls[8]]
 check("A citizen sees the World map skin row, Party chosen", map_btns[0].on.shown and map_btns[1].off.shown and map_btns[2].off.shown
       and ns.db.settings.mapSkin == "party")
 ui_client.lua.execute('MAP_SKIN_HEARD = 0; MinistryOfTheAllied:Listen("MAP_SKIN_CHANGED", function() MAP_SKIN_HEARD = MAP_SKIN_HEARD + 1 end)')
@@ -523,14 +525,26 @@ check("...Plain chosen, the map is told", ns.db.settings.mapSkin == "plain" and 
 map_btns[0].scripts.OnClick(map_btns[0])
 check("...and Party again", ns.db.settings.mapSkin == "party" and map_btns[0].on.shown)
 max_panel = open_settings(max3)
-party_btn = max_panel.controls[10]
-check("The Crown sees the Window skin row, Party chosen", party_btn.on.shown and not party_btn.off.shown
-      and max_panel.controls[11].off.shown and sum(1 for p in skin_parts(max_panel) if p.shown) == len(skin_parts(max_panel)) - 2)
-ministry_btn = max_panel.controls[11]
+party_btn = max_panel.controls[9]
+check("The Crown sees the Window skin group, Party chosen", party_btn.on.shown and not party_btn.off.shown
+      and max_panel.controls[10].off.shown and max_panel.groups[3].shown)
+ministry_btn = max_panel.controls[10]
 ministry_btn.scripts.OnClick(ministry_btn)
 check("...and can use it", crown_ns.db.settings.windowSkin == "ministry" and crown_ns.skin.KEY == "UNREGISTERED")
 crown_ns.db.settings.windowSkin = "party"
 crown_ns.Skin.Refresh(crown_ns.Skin, True)
+# the gear again, or a tab, goes back to the page you were on
+Q(ui_client, 'M.UI:ShowSettings()')
+check("Settings: the gear again goes back to the page", Q(ui_client, 'return not M.UI.settingsOpen and not M.UI.knobSettings.lit.shown and M.UI.tabs[M.UI.page].look == "on"') is True)
+Q(ui_client, 'M.UI:ShowSettings(true)')
+ui_client.lua.execute('local t = MinistryOfTheAllied.UI.tabs[MinistryOfTheAllied.UI.page]; t.scripts.OnClick(t)')
+check("Settings: ...and so does the tab you were on", Q(ui_client, 'return not M.UI.settingsOpen and M.UI.tabs[M.UI.page].look == "on" and not M.UI.settingsSub.shown') is True)
+check("Settings: the game's options keep a small entry with Open settings", ui_client.lua.globals().MinistryOfTheAlliedOptions.open is not None)
+Q(max3, 'M.UI.window:Hide()')
+max3.slash("skin exchange")
+check("/mota skin changes the skin without opening the window",
+      Q(max3, 'return M.Skin.preview') == "AZEROTH_EXCHANGE" and not Q(max3, 'return M.UI.window:IsShown()'))
+max3.slash("skin")
 ui_client.slash("probe")
 check("Probe reports the fonts", ui_client.said(r"Add-on fonts \(Cinzel, EB Garamond\): loaded"))
 ui_client.slash("help")
@@ -596,12 +610,9 @@ check("...and shows when combat ends", hf.shown)
 hns.Herald.Press(hns.Herald)
 
 hc.slash("settings")
-check("/mota settings opens the game's options on our page", HL.SETTINGS_OPENED == 7)
-panel = HL.SETTINGS_FRAME
-panel.w, panel.h = 640, 560
-panel.scripts.OnShow(panel)
-controls = panel.controls
-herald_switch, glow_switch = controls[1], controls[3]
+check("/mota settings opens the Settings page in the window", hns.UI.settingsOpen is True and hns.UI.window.shown)
+controls = hns.SettingsPage.controls
+herald_switch, glow_switch = controls[1], controls[5]
 herald_switch.scripts.OnClick(herald_switch)
 check("The herald switch turns heralds off", hns.db.settings.herald == False and herald_switch.off.shown)
 check("A non-sample herald is then skipped", hns.Herald.Announce(hns.Herald, HL.MinistryOfTheAllied.Herald.samples[1]) == False)
@@ -611,22 +622,22 @@ glow_switch.scripts.OnClick(glow_switch)
 check("The District glow switch turns the glow off and tells the map",
       hns.db.settings.glow == False and glow_switch.off.shown and HL.GLOW_HEARD == 1)
 glow_switch.scripts.OnClick(glow_switch)
-cards_switch = controls[4]
+cards_switch = controls[11]
 cards_switch.scripts.OnClick(cards_switch)
 check("A switch for a later feature doesn't change", hns.db.settings.cards == False)
-modest = controls[5]
+modest = controls[3]
 modest.scripts.OnClick(modest)
-check("Modest is chosen", hns.db.settings.heraldSize == "small" and modest.on.shown and not controls[6].on.shown)
+check("Modest is chosen", hns.db.settings.heraldSize == "small" and modest.on.shown and not controls[4].on.shown)
 hc.slash("herald 3")
 check("A Modest herald is smaller", abs(hf.scale - 0.56) < 1e-6)
 hns.Herald.Press(hns.Herald)
 hc.slash("fanfare")
 hc.slash("fanfare 2")
 check("Fanfare 2 chosen", hns.db.settings.fanfareSound == "READY_CHECK" and HL.LAST_SOUND == 8960)
-HL.SETTINGS_OPENED = None
+hns.UI.window.Hide(hns.UI.window)
 seal = HL.MinistryOfTheAlliedMinimapButton
 seal.scripts.OnClick(seal, "RightButton")
-check("Right-clicking the minimap seal opens settings", HL.SETTINGS_OPENED == 7)
+check("Right-clicking the minimap seal opens the Settings page", hns.UI.settingsOpen is True and hns.UI.window.shown)
 
 max4 = Client("Max")
 clients.append(max4)
@@ -2813,6 +2824,114 @@ check("Hunt: a citizen can't end a hunt", "Only Kael" in E(em, HU + 'local _, e 
 ek.slash("hunt end")
 run(10)
 check("Hunt: the Crown ends it with no winner", E(em, HU + 'return Hu:Stage()') == "closed")
+
+print("== 103. the map skin beside other map add-ons (D5d, D5d2, D5e)")
+# Pretend EllesmereUI, ElvUI and Leatrix Maps, loaded before us as in the game (their names
+# come first): just the parts they decide the map's skin with.
+OTHERS = """
+  LOADED = LOADED or {}
+  C_AddOns.IsAddOnLoaded = function(n) return LOADED[n] or false end
+  function with_eui()
+    LOADED.EllesmereUI, LOADED.EllesmereUIBlizzardSkin = true, true
+    EllesmereUI = { GetBlizzWindowStyle = function(k) return "eui" end }
+  end
+  function with_elv(skins)
+    LOADED.ElvUI = true
+    LOADS = {}
+    local S = {}
+    function S:LoadSkin(info) LOADS[#LOADS + 1] = info.toggle end
+    local E = { private = { skins = { blizzard = { enable = true, worldmap = skins ~= false } } } }
+    function E:GetModule(name) if name == "Skins" then return S end end
+    ElvUI = { E }
+    ELV_S = S
+  end
+  function with_leatrix(simple)
+    LOADED.Leatrix_Maps = true
+    LeaMapsDB = { SimpleMapFrame = simple }
+  end
+"""
+
+
+def glow_shown(c):
+    return Q(c, 'return M.SettingsPage.Glow and M.SettingsPage:Glow()') is True
+
+
+def compat_client(setup, map_skin=None):
+    saved = OTHERS + setup
+    if map_skin:
+        saved += '\nMOTADB = { settings = { mapSkin = "%s" } }' % map_skin
+    c = Client("Cora", saved=saved)
+    return c, c.lua.globals().MinistryOfTheAllied
+
+
+c, ns = compat_client("with_eui()")
+check("EllesmereUI: with our map skin on, it's told to leave the world map alone",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "off")
+check("EllesmereUI: its other windows are its own as before",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("bags")') == "eui")
+check("EllesmereUI: our skin dresses the map", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None)
+c, ns = compat_client("with_eui()", "plain")
+check("EllesmereUI: with Plain, it skins the map as normal",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "eui")
+ns.db.settings.mapSkin = "party"
+c.lua.execute('MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("EllesmereUI: a skin chosen after login waits for a /reload (ours stays off, no clash)",
+      ns.WorldMapSkin.Key(ns.WorldMapSkin) is None and "reload" in (ns.MapCompat.Note(ns.MapCompat) or ""))
+check("EllesmereUI: ...and the chat says so", any("/reload" in l for l in c.log))
+c.slash("settings")
+check("Settings: Reload UI glows while a /reload is due", glow_shown(c))
+ns.db.settings.mapSkin = "plain"
+c.lua.execute('MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("Settings: ...and stops once nothing is due", not glow_shown(c))
+
+c, ns = compat_client("with_elv()")
+c.lua.execute('ELV_S:LoadSkin({ toggle = "worldmap" }); ELV_S:LoadSkin({ toggle = "bags" })')
+check("ElvUI: with our map skin on, its world map skin is skipped and the rest run",
+      list(c.lua.eval('LOADS').values()) == ["bags"])
+check("ElvUI: nothing it saved is changed", Q(c, 'return ElvUI[1].private.skins.blizzard.worldmap') is True)
+c, ns = compat_client("with_elv()", "plain")
+c.lua.execute('ELV_S:LoadSkin({ toggle = "worldmap" })')
+check("ElvUI: with Plain, it skins the map as normal", list(c.lua.eval('LOADS').values()) == ["worldmap"])
+ns.db.settings.mapSkin = "ministry"
+check("ElvUI: a skin chosen after login waits for a /reload", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None
+      and ns.MapCompat.NeedsReload(ns.MapCompat))
+ns.db.settings.mapSkin = "plain"
+check("ElvUI: back to Plain, no /reload needed", not ns.MapCompat.NeedsReload(ns.MapCompat))
+
+c, ns = compat_client('with_leatrix("On")')
+check("Leatrix Maps: its simple map frame on, ours steps aside", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None)
+check("Leatrix Maps: the Settings row says why", "Leatrix" in (ns.MapCompat.Note(ns.MapCompat) or ""))
+c, ns = compat_client('with_leatrix(nil)')
+check("Leatrix Maps: the simple frame counts as on when never set (its default)", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None)
+c, ns = compat_client('with_leatrix("Off")')
+check("Leatrix Maps: simple frame off, ours dresses the map", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None)
+c, ns = compat_client('with_leatrix("On"); with_elv()')
+check("Leatrix Maps: locked off by ElvUI's map skin, so ours dresses (and ElvUI's is skipped)",
+      ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None and ns.MapCompat.skipping is True)
+c, ns = compat_client('with_leatrix("On"); with_eui()')
+check("Leatrix Maps + EllesmereUI: with ours stepped aside, EllesmereUI keeps the map",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "eui")
+c, ns = compat_client("")
+check("No other map add-ons: our skin dresses the map, no note on the Settings row", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None and ns.MapCompat.Note(ns.MapCompat) is None)
+
+# OpenMap: the district layer goes just over its stitched art
+d4c.lua.execute('OpenMapAPI = { ArtTopLevel = function() return 500 end }; WorldMapFrame:SetMapID(1429); WorldMapFrame:SetMapID(1453)')
+check("OpenMap: the district layer sits just over its stitched art", WM.layer.shown and Q(d4c, 'return M.WorldMap.layer:GetFrameLevel()') == 501)
+d4c.lua.execute('OpenMapAPI = { ArtTopLevel = function() return nil end }; WorldMapFrame:SetMapID(1429); WorldMapFrame:SetMapID(1453)')
+check("OpenMap: before its map has opened, the layer keeps the map's own level", Q(d4c, 'return M.WorldMap.layer:GetFrameLevel()') == 40)
+d4c.lua.execute('OpenMapAPI = nil')
+
+print("== 104. the minimap seal in a button bag, Silverhand's silver")
+c, ns = compat_client("")
+seal_ok = Q(c, """local b = MinistryOfTheAlliedMinimapButton
+  local icon = b and b.icon
+  if not icon then return false end
+  local p = M.Media.pieces.seal
+  icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)  -- as ElvUI and EllesmereUI crop an icon
+  local l, r, t, bt = icon.coords[1], icon.coords[2], icon.coords[3], icon.coords[4]
+  return l > p.l and r < p.r and t > p.t and bt < p.b and r > l and bt > t""")
+check("Minimap seal: a button bag's crop shows the seal itself, not the whole picture", seal_ok is True)
+check("Silverhand: the silver switch and divider are drawn", Q(c, 'return M.Media.pieces["swOn~sv"] ~= nil and M.Media.pieces["divider~sv"] ~= nil') is True)
 
 print()
 print("Lua errors:", len(errors))
