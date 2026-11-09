@@ -77,8 +77,30 @@ function Book:Write(kind, details)
   local msg = MOTA.Comm:EncodeRecord(rec)
   if #msg > MOTA.Comm.MAX_LEN then return nil, "too long to send (" .. #msg .. " bytes)" end
   self:Add(rec)
-  MOTA.Comm:Send(msg, "GUILD")
+  -- Until the add-on knows my full name, a record goes out under the first
+  -- name alone ("Kíng"), which the guild refuses: senders always have the full
+  -- name. So it's held, and sent once the name is learned (SendHeld).
+  if MOTA.meLearned then
+    MOTA.Comm:Send(msg, "GUILD")
+  else
+    self.held = self.held or {}
+    self.held[#self.held + 1] = rec.n
+  end
   return rec
+end
+
+-- Sends the records held while my full name wasn't known, under that name.
+-- MoveMyBook has already moved them there.
+function Book:SendHeld()
+  local held = self.held
+  self.held = nil
+  if not held or not MOTA.guild then return end
+  for _, n in ipairs(held) do
+    local r = self:Get(MOTA.me, n)
+    if r then
+      MOTA.Comm:Send(MOTA.Comm:EncodeRecord({ a = MOTA.me, n = n, t = r.t, k = r.k, d = r.d }), "GUILD")
+    end
+  end
 end
 
 function Book:Count()
