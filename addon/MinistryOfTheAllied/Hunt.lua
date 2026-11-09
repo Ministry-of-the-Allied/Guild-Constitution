@@ -241,7 +241,8 @@ function Hunt:Look()
   if dist and dist <= self.FOUND then return self:Found(H, i) end
   local warm = dist ~= nil and dist <= self.WARM
   if MOTA.HuntGlow then
-    MOTA.HuntGlow:Set(warm and (0.12 + 0.88 * (self.WARM - dist) / (self.WARM - self.FOUND)) or 0)
+    -- From the strength it used to have at 30 yards (0.56), at 50, to full at 10 (Duncan, 2026-11-09).
+    MOTA.HuntGlow:Set(warm and (0.56 + 0.44 * (self.WARM - dist) / (self.WARM - self.FOUND)) or 0)
   end
   -- Chat, every 10 yards: 50, 40, 30, 20.
   local band = warm and math.ceil(dist / 10) * 10 or nil
