@@ -256,6 +256,19 @@ Max noticed the canvas's window skins didn't match the add-on. The live canvas a
 - Planned as D0 (design) and D1 (build) above.
 - [ ] designed  [ ] Max approves  [ ] built  [ ] Max checks in game
 
+## Two canvases (since 9 Nov 2026)
+Max works from two Claude accounts. Each can edit only its own canvas, so there are two:
+- **Original canvas** (Max's main account, the real home): https://claude.ai/artifact/V6ZmxpJtw85SrWT9S87acJ. Never delete or replace it. The other account can read it but not change it.
+- **Copy canvas** (the second account, used while the main one is out of usage): https://claude.ai/artifact/B3CUign4X11zvnVd9KQsn5. Copied from the original on 9 Nov (all 13 boards, the shared stylesheet, the fonts and all pictures re-uploaded, so its `/_blob/` ids differ from the original's).
+- **Rule:** work on whichever canvas this account can edit, and log every board change below so the other one can be brought level. When Max is back on the main account, copy each logged change into the original canvas (same board, same edit; keep the original's own `/_blob/` ids), tick it, and do the same the other way round for changes made there.
+- The repo copy in `design/canvas-source/` keeps the original's `/_blob/` ids (they match `tools/textures/build.py`).
+
+**Changes on the copy, not yet on the original:**
+- [ ] 9 Nov: Extras board, settings page header: gap between the crest and the title 12px → 36px (the title's decorative "M" ran into the crest). Line 128 of `Extras.dc.html`.
+
+**Changes on the original, not yet on the copy:**
+- (none)
+
 ## Canvas sync debt
 The canvas is the design source. When the add-on moves away from it, say so to Max and offer to update the canvas:
 - A2: header shifted down (title, subtitle, rules, Close, Settings).
