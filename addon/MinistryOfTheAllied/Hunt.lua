@@ -30,6 +30,8 @@ Hunt.FINE, Hunt.WARM = 7, 16 -- square sizes in yards: with the squares round, a
 Hunt.MIN_CLUES, Hunt.MAX_CLUES = 2, 10
 Hunt.MAX_RIDDLE = 140
 Hunt.TICK = 2 -- seconds between looks at where you stand
+Hunt.COLD = 50 -- yards from where you got warm: wandered off, so colder
+Hunt.WARM_AGAIN = 60 -- seconds before the warmer herald may show again
 
 local function str(v, max) return type(v) == "string" and v ~= "" and #v <= max end
 local function canRun(name) return MOTA.Games and MOTA.Games:CanRun(name) end
@@ -272,6 +274,14 @@ end
 
 Hunt.warm = false
 local last -- the square last looked at, so the same one isn't fingerprinted again
+local warmAt -- where you stood when you got warm: { inst, x, y, i }
+local warmShown = 0 -- when the warmer herald last showed
+
+local function herald(title, text)
+  if not MOTA.Herald then return end
+  MOTA.Herald:Announce({ seal = "official", eyebrow = "The Treasure Hunt", title = title, text = text,
+    button = { label = "Dismiss", style = "quiet" } })
+end
 
 -- Looks round where you stand. Returns "found", "warm", or nil.
 function Hunt:Look()
@@ -282,6 +292,16 @@ function Hunt:Look()
   if not c then return nil end
   local inst, x, y = self:Where()
   if not x then return nil end
+  -- Wandered 50 yards from where you got warm, without finding it: colder.
+  if warmAt and not self.warm and (warmAt.inst ~= inst or warmAt.i ~= i
+      or (x - warmAt.x) ^ 2 + (y - warmAt.y) ^ 2 > self.COLD ^ 2) then
+    local same = warmAt.i == i
+    warmAt = nil
+    if same then
+      herald("You're getting colder", "You've wandered away from clue " .. i .. ". It was back where you felt warm.")
+      MOTA:Fire("HUNT_CHANGED")
+    end
+  end
   local fx, fy = square(x, y, self.FINE)
   local key = H.id .. "|" .. i .. "|" .. inst .. "|" .. fx .. "," .. fy
   if key == last then return self.warm and "warm" or nil end
@@ -302,7 +322,14 @@ function Hunt:Look()
   end
   if warm ~= self.warm then
     self.warm = warm
-    if warm then MOTA:Print(MOTA:Color("leaf", "You're close."), "Clue", i, "is within about 24 yards.") end
+    if warm then
+      warmAt = { inst = inst, x = x, y = y, i = i }
+      local now = GetServerTime()
+      if now - warmShown >= self.WARM_AGAIN then
+        warmShown = now
+        herald("You're getting warmer", "Clue " .. i .. " is within about 25 yards. Stand on the spot itself to find it.")
+      end
+    end
     MOTA:Fire("HUNT_CHANGED")
   end
   return warm and "warm" or nil
@@ -316,7 +343,8 @@ function Hunt:Found(H, i, key)
     opened()[H.id] = opened()[H.id] or {}
     opened()[H.id][i + 1] = text
   end
-  self.warm, last = false, nil
+  self.warm, last, warmAt, warmShown = false, nil, nil, 0
+  if DoEmote then DoEmote("CHEER") end -- found it!
   MOTA.Book:Write("hunt.found", { id = H.id, i = i })
   return "found"
 end
