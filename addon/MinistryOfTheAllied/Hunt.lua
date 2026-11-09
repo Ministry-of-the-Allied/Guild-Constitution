@@ -1,46 +1,37 @@
 -- Ministry of the Allied: the Treasure Hunt (Duncan, 2026-11-08).
 -- The Crown or the Minister of Games stands at real places in the world and
 -- marks each one with a riddle. Hunters solve the riddles and stand on the
--- spots: within about 50 yards they're told they're getting warmer (and
--- colder as they leave), within 10 the spot is
--- found and the next riddle opens. The first to find the last spot wins, and
--- the hunt closes. Glory only: the games log, the Pathfinder's Medal, and
--- (later) points for the District Cup.
+-- spots: within 50 yards they're told they're getting warmer (and colder as
+-- they leave), within 3.5 yards the spot is found and the next riddle opens.
+-- The first to find the last spot wins, and the hunt closes. Glory only: the
+-- games log, the Pathfinder's Medal, and (later) points for the District Cup.
 --
---   hunt.open   the Crown or the Minister of Games  { name, salt, ws, wr, clues = { { z, h, w, e } } }
+--   hunt.open   the Crown or the Minister of Games  { name, clues = { { z, inst, x, y, r } } }
 --   hunt.found  a hunter                             { id, i }   found spot i
 --   hunt.close  the organiser or the Crown           { id }      ends it with no winner
 --
--- Keeping the spots secret: a spot is never written down, only two
--- fingerprints of it (SHA-256, Sha256.lua): h, of the 7-yard square it's in,
--- and w, of the ws-yard square (20). A hunter's add-on fingerprints the squares
--- round where they stand (wr squares each way for w, 2, so about 50 yards)
--- and compares. Hunts set before 0.8.4 have no ws or wr: 16 and 1. Each riddle after the first is sealed
--- (e) with a key made from the spot before it, so riddle 3 can only be read by
--- someone who has stood on spot 2. Clue 1's riddle is open (e is plain text).
--- z is the zone's name, shown with each riddle.
+-- Each spot is kept as it is: the world it's in (inst) and x, y in yards, from
+-- where the organiser stood (Max and Duncan, 2026-11-09: true circles rather
+-- than hidden squares; reading the spots out of the saved data is cheating,
+-- and a matter for the Court). r is the riddle and z the zone's name. The
+-- add-on shows riddle 3 only once spot 2 is found.
 --
--- Positions come from UnitPosition, in yards; the game gives none inside
--- dungeons and raids, so spots are outdoors. Each player's add-on is trusted
--- about where they stood, as with every other record.
+-- Positions come from UnitPosition, in yards and flat (a spot on a bridge also
+-- counts underneath it); the game gives none inside dungeons and raids, so
+-- spots are outdoors. Each player's add-on is trusted about where they stood.
 
 local _, MOTA = ...
 local Hunt = {}
 MOTA.Hunt = Hunt
 
-Hunt.FINE = 7                -- the spot's square, in yards: with the squares round it, about 10
-Hunt.WARM, Hunt.REACH = 20, 2 -- the warm square, and how many round it count: about 50 yards
+Hunt.FOUND = 3.5 -- yards: stand this close to the spot to find it
+Hunt.WARM = 50   -- yards: warmer inside, colder on leaving
 Hunt.MIN_CLUES, Hunt.MAX_CLUES = 2, 10
 Hunt.MAX_RIDDLE = 140
-Hunt.TICK = 0.5 -- seconds between looks at where you stand
+Hunt.TICK = 0.2 -- seconds between looks at where you stand: on a mount you'd ride over a spot otherwise
 
 local function str(v, max) return type(v) == "string" and v ~= "" and #v <= max end
 local function canRun(name) return MOTA.Games and MOTA.Games:CanRun(name) end
-local sha = function(t) return MOTA.Sha256(t) end
-
----------------------------------------------------------------------------
--- Squares, fingerprints and sealing
----------------------------------------------------------------------------
 
 -- Where the player stands: the world (instance) and x, y in yards, or nil.
 function Hunt:Where()
@@ -50,37 +41,10 @@ function Hunt:Where()
   return inst or 0, x, y
 end
 
-local function square(x, y, size) return math.floor(x / size), math.floor(y / size) end
-
-function Hunt:SpotPrint(salt, inst, cx, cy) return sha("spot|" .. salt .. "|" .. inst .. "|" .. cx .. "," .. cy):sub(1, 16) end
-function Hunt:WarmPrint(salt, inst, cx, cy) return sha("near|" .. salt .. "|" .. inst .. "|" .. cx .. "," .. cy):sub(1, 16) end
-local function keyFor(salt, inst, cx, cy) return sha("key|" .. salt .. "|" .. inst .. "|" .. cx .. "," .. cy) end
-
--- Seals or opens text with a key (the same XOR both ways), as hex.
-local function stream(key, n)
-  local out, block = {}, 0
-  while #out < n do
-    local h = sha(key .. "#" .. block)
-    for i = 1, 63, 2 do out[#out + 1] = tonumber(h:sub(i, i + 1), 16) end
-    block = block + 1
-  end
-  return out
-end
-function Hunt:Seal(text, key)
-  local ks, out = stream(key, #text), {}
-  for i = 1, #text do out[i] = string.format("%02x", MOTA.ByteXor(text:byte(i), ks[i])) end
-  return table.concat(out)
-end
-function Hunt:Open(hex, key)
-  if type(hex) ~= "string" or #hex % 2 ~= 0 then return nil end
-  local n = #hex / 2
-  local ks, out = stream(key, n), {}
-  for i = 1, n do
-    local b = tonumber(hex:sub(i * 2 - 1, i * 2), 16)
-    if not b then return nil end
-    out[i] = string.char(MOTA.ByteXor(b, ks[i]))
-  end
-  return table.concat(out)
+-- Yards from where you stand to a clue's spot, or nil if it's in another world.
+function Hunt:Distance(c, inst, x, y)
+  if not c or c.inst ~= inst then return nil end
+  return math.sqrt((x - c.x) ^ 2 + (y - c.y) ^ 2)
 end
 
 ---------------------------------------------------------------------------
@@ -89,10 +53,11 @@ end
 
 MOTA.Book.rules["hunt.open"] = function(a, rec)
   local d = rec and rec.d or {}
-  if not canRun(a) or not str(d.name, 40) or not str(d.salt, 40) or type(d.clues) ~= "table" then return false end
+  if not canRun(a) or not str(d.name, 40) or type(d.clues) ~= "table" then return false end
   if #d.clues < Hunt.MIN_CLUES or #d.clues > Hunt.MAX_CLUES then return false end
   for _, c in ipairs(d.clues) do
-    if type(c) ~= "table" or not str(c.h, 16) or not str(c.w, 16) or not str(c.z, 60) or not str(c.e, Hunt.MAX_RIDDLE * 2) then return false end
+    if type(c) ~= "table" or type(c.x) ~= "number" or type(c.y) ~= "number" or type(c.inst) ~= "number"
+      or not str(c.z, 60) or not str(c.r, Hunt.MAX_RIDDLE) then return false end
   end
   return true
 end
@@ -113,9 +78,9 @@ local function build()
   for i = #list, 1, -1 do -- oldest first
     local r = list[i]
     local d = r.d or {}
-    if r.k == "hunt.open" and type(d.clues) == "table" and #d.clues >= Hunt.MIN_CLUES then
-      local H = { id = r.a .. "#" .. r.n, by = r.a, t = r.t, name = d.name, salt = d.salt, clues = d.clues,
-        ws = tonumber(d.ws) or 16, wr = tonumber(d.wr) or 1,
+    -- Hunts from before 0.8.5 kept their spots hidden; they can't be played now.
+    if r.k == "hunt.open" and type(d.clues) == "table" and #d.clues >= Hunt.MIN_CLUES and type(d.clues[1].x) == "number" then
+      local H = { id = r.a .. "#" .. r.n, by = r.a, t = r.t, name = d.name, clues = d.clues,
         progress = {}, found = {} }
       byId[H.id] = H
       out.all[#out.all + 1] = H
@@ -178,22 +143,15 @@ end
 -- Riddles: the first is open; the rest open as their spots are found
 ---------------------------------------------------------------------------
 
-local function opened()
-  MOTA.db.huntRiddles = MOTA.db.huntRiddles or {} -- account-wide, so alts keep them
-  return MOTA.db.huntRiddles
-end
-
--- The riddle of clue i, if this player can read it, and its zone.
+-- The riddle of clue i, if this player may see it yet, and its zone: the first
+-- for everyone, the next once the spot before it is found, all for the organiser.
 function Hunt:Riddle(i, H)
   H = H or self:Current()
   local c = H and H.clues[i]
   if not c then return nil end
-  if i == 1 then return c.e, c.z end
-  local mine = opened()[H.id]
-  if mine and mine[i] then return mine[i], c.z end
-  -- The organiser wrote them, so their add-on keeps them.
-  local draft = MOTA.db.huntSet and MOTA.db.huntSet[H.id]
-  if draft and draft[i] then return draft[i], c.z end
+  if i == 1 or MOTA.Account:Same(MOTA.me, H.by) or self:Progress(MOTA.me, H) >= i - 1 or H.ended then
+    return c.r, c.z
+  end
   return nil, c.z
 end
 
@@ -243,22 +201,13 @@ function Hunt:Publish(name)
   if name == "" then name = "The Treasure Hunt" end
   if #name > 40 then return nil, "Keep the name to 40 letters." end
   if #d.clues < self.MIN_CLUES then return nil, "Mark at least " .. self.MIN_CLUES .. " spots first." end
-  local salt = GetServerTime() .. "." .. math.random(100000000, 999999999)
-  local clues, keys = {}, {}
+  local clues = {}
   for i, c in ipairs(d.clues) do
-    local fx, fy = square(c.x, c.y, self.FINE)
-    local wx, wy = square(c.x, c.y, self.WARM)
-    keys[i] = keyFor(salt, c.inst, fx, fy)
-    clues[i] = { z = c.z, h = self:SpotPrint(salt, c.inst, fx, fy), w = self:WarmPrint(salt, c.inst, wx, wy),
-      e = i == 1 and c.riddle or self:Seal(c.riddle, keys[i - 1]) }
+    -- To a tenth of a yard: plenty, and short.
+    clues[i] = { z = c.z, inst = c.inst, x = math.floor(c.x * 10 + 0.5) / 10, y = math.floor(c.y * 10 + 0.5) / 10, r = c.riddle }
   end
-  local rec, err = MOTA.Book:Write("hunt.open", { name = name, salt = salt, ws = self.WARM, wr = self.REACH, clues = clues })
+  local rec, err = MOTA.Book:Write("hunt.open", { name = name, clues = clues })
   if not rec then return nil, err end
-  -- Keep the riddles, so the organiser's page can show them.
-  MOTA.db.huntSet = MOTA.db.huntSet or {}
-  local mine = {}
-  for i, c in ipairs(d.clues) do mine[i] = c.riddle end
-  MOTA.db.huntSet[rec.a .. "#" .. rec.n] = mine
   MOTA.db.huntDraft = nil
   return rec
 end
@@ -275,21 +224,6 @@ end
 ---------------------------------------------------------------------------
 
 Hunt.warm = false
-local last -- the square last looked at, so the same one isn't fingerprinted again
-local prints = {} -- fingerprints already worked out: [hunt id][kind .. square] = print
-
--- A fingerprint, worked out once per square and kept.
-local function fingerprint(H, kind, inst, cx, cy)
-  local memo = prints[H.id]
-  if not memo then memo = {}; prints[H.id] = memo end
-  local k = kind .. inst .. "|" .. cx .. "," .. cy
-  local v = memo[k]
-  if not v then
-    v = kind == "f" and Hunt:SpotPrint(H.salt, inst, cx, cy) or Hunt:WarmPrint(H.salt, inst, cx, cy)
-    memo[k] = v
-  end
-  return v
-end
 
 -- Warmer and colder share one herald: a new one takes the place of the last
 -- rather than waiting behind it.
@@ -309,7 +243,7 @@ local function herald(title, text)
   Hd:Announce(temp)
 end
 
--- Looks round where you stand. Returns "found", "warm", or nil.
+-- Looks where you stand. Returns "found", "warm", or nil.
 function Hunt:Look()
   local H = self:Current()
   if self:Stage(H) ~= "running" or not MOTA.me or MOTA.Account:Same(MOTA.me, H.by) then return nil end
@@ -318,29 +252,14 @@ function Hunt:Look()
   if not c then return nil end
   local inst, x, y = self:Where()
   if not x then return nil end
-  local fx, fy = square(x, y, self.FINE)
-  local wx, wy = square(x, y, H.ws)
-  local key = H.id .. "|" .. i .. "|" .. inst .. "|" .. fx .. "," .. fy .. "|" .. wx .. "," .. wy
-  if key == last then return self.warm and "warm" or nil end
-  last = key
-  for dx = -1, 1 do
-    for dy = -1, 1 do
-      if fingerprint(H, "f", inst, fx + dx, fy + dy) == c.h then
-        return self:Found(H, i, keyFor(H.salt, inst, fx + dx, fy + dy))
-      end
-    end
-  end
-  local warm = false
-  for dx = -H.wr, H.wr do
-    for dy = -H.wr, H.wr do
-      if not warm and fingerprint(H, "w", inst, wx + dx, wy + dy) == c.w then warm = true end
-    end
-  end
-  -- Each time you come into the warm ring, warmer; each time you leave it, colder.
+  local dist = self:Distance(c, inst, x, y)
+  if dist and dist <= self.FOUND then return self:Found(H, i) end
+  local warm = dist ~= nil and dist <= self.WARM
+  -- Each time you come into the warm circle, warmer; each time you leave it, colder.
   if warm ~= self.warm then
     self.warm = warm
     if warm then
-      herald("You're getting warmer", "Clue " .. i .. " is within about 50 yards. Stand on the spot itself to find it.")
+      herald("You're getting warmer", "Clue " .. i .. " is within 50 yards. Stand on the spot itself to find it.")
     else
       herald("You're getting colder", "You've moved away from clue " .. i .. ". Turn back the way you came.")
     end
@@ -349,15 +268,9 @@ function Hunt:Look()
   return warm and "warm" or nil
 end
 
--- Spot i is found: open the next riddle and tell the guild.
-function Hunt:Found(H, i, key)
-  local nextClue = H.clues[i + 1]
-  if nextClue then
-    local text = self:Open(nextClue.e, key)
-    opened()[H.id] = opened()[H.id] or {}
-    opened()[H.id][i + 1] = text
-  end
-  self.warm, last = false, nil
+-- Spot i is found: tell the guild, and the next riddle shows.
+function Hunt:Found(H, i)
+  self.warm = false
   if DoEmote then DoEmote("CHEER") end -- found it!
   MOTA.Book:Write("hunt.found", { id = H.id, i = i })
   return "found"
@@ -405,7 +318,7 @@ local function record(H)
 end
 
 local function changed()
-  cache, last = nil, nil
+  cache = nil
   MOTA:Fire("HUNT_CHANGED")
 end
 

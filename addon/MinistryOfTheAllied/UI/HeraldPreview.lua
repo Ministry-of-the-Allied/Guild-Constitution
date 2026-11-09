@@ -78,7 +78,7 @@ local function list()
     { "Hunt: clue found", { seal = "official", eyebrow = "The Treasure Hunt", title = "Clue 2 found!",
       text = "Clue 3, in Elwynn Forest: where the old wheel turns though no grain has come in years, stand where the water falls and listen.", button = { label = "Dismiss", style = "quiet" } } },
     { "Hunt: warmer", { seal = "official", eyebrow = "The Treasure Hunt", title = "You're getting warmer",
-      text = "Clue 3 is within about 50 yards. Stand on the spot itself to find it.", button = { label = "Dismiss", style = "quiet" } } },
+      text = "Clue 3 is within 50 yards. Stand on the spot itself to find it.", button = { label = "Dismiss", style = "quiet" } } },
     { "Hunt: colder", { seal = "official", eyebrow = "The Treasure Hunt", title = "You're getting colder",
       text = "You've moved away from clue 3. Turn back the way you came.", button = { label = "Dismiss", style = "quiet" } } },
     { "Hunt: won", { seal = "official", eyebrow = "The Treasure Hunt", title = "You found the treasure!",

@@ -574,7 +574,7 @@ local function buildHuntAside()
 
   local how = panel(h, "sunk", 0, 190, ASIDE_W, 120)
   Kit:Label(how, "kitTiny", "7A5719", 0.2, "How it works"):SetPoint("TOPLEFT", how, "TOPLEFT", 14, -12)
-  line(how, "kitSmallest", nil, 14, 30, ASIDE_W - 28):SetText("Stand on the spot, write its riddle, and mark it. The spot is sealed: nobody can read where it is, only find it.")
+  line(how, "kitSmallest", nil, 14, 30, ASIDE_W - 28):SetText("Stand on the spot, write its riddle, and mark it. Hunters find it within 3.5 yards of where you stood.")
   h.how = how
   aside.hunt = h
 end
@@ -753,7 +753,7 @@ local function buildHunt()
 
   local note = panel(set, "sunk", 0, TOP_H + 12, MAIN_W, HEIGHT - BODY_Y - TOP_H - 12)
   Kit:Label(note, "kitSection", BLUE, 0.22, "Spots must be outdoors"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
-  line(note, "kitSmall", nil, 14, 30, MAIN_W - 28):SetText("The game gives no position inside dungeons and raids. Hunters are told they're getting warmer within about 50 yards, and find the spot within 10. You can't play a hunt you set.")
+  line(note, "kitSmall", nil, 14, 30, MAIN_W - 28):SetText("The game gives no position inside dungeons and raids. Hunters are told they're getting warmer within 50 yards, and find the spot within 3.5. You can't play a hunt you set.")
   v.set = set
   return v
 end
@@ -795,7 +795,7 @@ local function refreshHunt(v)
     clue.head:SetText("Clue " .. i .. " of " .. #H.clues)
     clue.zone:SetText(zone or "")
     clue.riddle:SetText(text or "The riddle opens when you find the spot before it.")
-    clue.hint:SetText(organiser and "You set this hunt, so you can't play it." or (Hu.warm and "Within about 50 yards. Stand on the spot itself to find it."
+    clue.hint:SetText(organiser and "You set this hunt, so you can't play it." or (Hu.warm and "Within 50 yards. Stand on the spot itself to find it."
       or "Solve the riddle, then go and stand on the spot. Your add-on knows when you're there."))
   elseif stage == "won" then
     clue.head:SetText("The treasure is found")
