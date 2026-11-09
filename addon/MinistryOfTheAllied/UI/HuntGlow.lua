@@ -2,8 +2,8 @@
 -- A gold glow round the edge of the screen, from the game's own low-health
 -- vignette with its colour taken out and gold put in, so nobody takes it for
 -- dying. It begins, faint, 50 yards from the spot you're hunting and grows as
--- you close in; walking away, it fades. A slow heartbeat in it quickens as you
--- get near. It goes out in combat, where it could hide real danger, and anyone
+-- you close in; walking away, it fades, smoothly and steady (no pulse: a
+-- flashing screen edge was too much, and a risk for some). It goes out in combat, where it could hide real danger, and anyone
 -- can turn it off (/mota hunt glow), keeping the chat lines every 10 yards.
 
 local _, MOTA = ...
@@ -13,10 +13,9 @@ MOTA.HuntGlow = Glow
 local TEXTURE = "Interface\\FullScreenTextures\\LowHealth"
 local GOLD = { 1.0, 0.82, 0.32 }
 local FADE = 1.6           -- how fast it follows: the share of the gap closed each second
-local BEAT_SLOW, BEAT_FAST = 0.8, 2.2 -- heartbeats a second, far and near
 
 local frame, tex
-Glow.target, Glow.now, Glow.t = 0, 0, 0
+Glow.target, Glow.now = 0, 0
 
 function Glow:Enabled()
   return MOTA.db == nil or MOTA.db.settings.huntGlow ~= false
@@ -56,15 +55,12 @@ function Glow:Set(strength)
   end
 end
 
--- Each frame: follow the target smoothly, with the heartbeat on top.
+-- Each frame: follow the target smoothly.
 function Glow:Step(elapsed)
   local inCombat = (InCombatLockdown and InCombatLockdown()) or (UnitAffectingCombat and UnitAffectingCombat("player"))
   local goal = inCombat and 0 or self.target
   self.now = self.now + (goal - self.now) * math.min(1, elapsed * FADE)
-  self.t = self.t + elapsed
-  local rate = BEAT_SLOW + (BEAT_FAST - BEAT_SLOW) * self.now
-  local beat = 0.78 + 0.22 * math.sin(self.t * rate * 2 * math.pi)
-  local alpha = self.now * beat
+  local alpha = self.now
   if tex then tex:SetAlpha(alpha) end
   if goal == 0 and self.now < 0.01 then
     self.now = 0

@@ -2747,7 +2747,7 @@ check("Hunt: every 10 yards nearer, another line", em.said(r"Warmer: clue 1 is a
 check("Hunt: the glow grows as you near it", E(em, GL + 'return G.target') > faint > 0)
 check("Hunt: no heralds for warmer or colder", heard(em, "You're getting warmer") == 0 and heard(em, "You're getting colder") == 0)
 E(em, GL + 'G.now = 0 for _ = 1, 40 do G:Step(0.1) end return 1')
-check("Hunt: the glow fades in, and beats", E(em, GL + 'return G.now') > 0.5 and E(em, GL + 'local a = G:Step(0.1) local b = G:Step(0.15) return a ~= b') is True)
+check("Hunt: the glow fades in, steady, with no pulse", E(em, GL + 'return G.now') > 0.5 and E(em, GL + 'for _ = 1, 60 do G:Step(0.1) end local a = G:Step(0.1) local b = G:Step(0.15) return math.abs(a - b) < 0.001') is True)
 E(em, GL + 'UnitAffectingCombat = function() return true end for _ = 1, 40 do G:Step(0.1) end return 1')
 check("Hunt: in combat the glow goes out", E(em, GL + 'return G.now') < 0.05)
 E(em, GL + 'UnitAffectingCombat = function() return false end return 1')
