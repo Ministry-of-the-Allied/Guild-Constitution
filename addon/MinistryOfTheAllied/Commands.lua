@@ -237,8 +237,8 @@ add("skin", "[crown|silverhand|exchange|ministry]", "try a window skin on your o
   if not S:Preview(arg) then
     return MOTA:Print("There's no skin called \"" .. arg .. "\". Try crown, silverhand, exchange or ministry.")
   end
+  -- changed in the background: the window (and the map) wear it next time they open (Max, 9 Nov)
   MOTA.UI:Build()
-  MOTA.UI.window:Show()
   if S.preview then
     MOTA:Print("Trying the skin of " .. S.titles[S.preview] .. ". /mota skin goes back to yours; /reload does too.")
   else
