@@ -212,6 +212,33 @@ Comm:Handle("CU", function(self, _, channel, f)
   end
 end)
 
+-- Catching up early after a loading screen, when live messages may have been
+-- missed, without waiting for the 5-minute summary. At most one early summary
+-- every REQUEST_GAP seconds, so a run of loading screens costs one message.
+local REQUEST_GAP = 15
+local ZONE_DELAY = 3 -- seconds after a loading screen
+local lastRequest, requestQueued = 0, false
+
+-- Sends a summary now, or once REQUEST_GAP has passed since the last one.
+function Sync:Request()
+  if requestQueued then return end
+  local wait = REQUEST_GAP - (GetServerTime() - math.max(lastRequest, lastSummary))
+  if wait <= 0 then
+    lastRequest = GetServerTime()
+    return self:Send()
+  end
+  requestQueued = true
+  C_Timer.After(wait, function()
+    requestQueued = false
+    Sync:Request()
+  end)
+end
+
+MOTA:On("PLAYER_ENTERING_WORLD", function(self, _, isLogin, isReload)
+  if isLogin or isReload or not self.guild then return end
+  C_Timer.After(ZONE_DELAY, function() Sync:Request() end)
+end)
+
 local ticker
 MOTA:Listen("GUILD_READY", function(self)
   local g = self.guild
