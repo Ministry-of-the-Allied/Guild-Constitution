@@ -175,6 +175,8 @@ ACCENT_PIECES = (
                           "pill-runoff-on")]
     + [f"hbtn_{style}_{{}}" for style in ("blue", "quiet")]  # filled in per herald label below
     + ["segModestOn", "segRoyalOn", "segPartyOn", "segMinistryOn"]
+    # the world map skin's lit choice and the lit switches follow the accent too (Max, 9 Nov)
+    + ["segMapPartyOn", "segMapMinistryOn", "segMapPlainOn", "swOn"]
 )
 
 
@@ -189,6 +191,7 @@ def accent_css(a):
         ".btn.quiet{color:INK!important;box-shadow:inset 0 0 0 1px rgba(RGB,.65),"
         "inset 0 0 0 3px rgba(255,250,235,.4)!important}",
         ".seg button.on{background:linear-gradient(180deg,TOP,MID)!important}",
+        ".sw.on{background:linear-gradient(180deg,TOP,BOT)!important;box-shadow:inset 0 0 0 1px DARK,0 0 0 2px #C9A24A!important}",
         ".plate.blue{background:url(GRAIN),linear-gradient(180deg,PLATETOP,PLATEBOT)!important;"
         "box-shadow:inset 0 0 0 1px #F3D98A,inset 0 0 0 3px DARK,inset 0 0 0 4px rgba(201,162,74,.55),"
         "0 4px 10px rgba(60,40,10,.35)!important}",
@@ -217,7 +220,8 @@ SLOTS = {
     "kit": ["kit"],
     "herald": ["herald", "hseal", "htext", "heyebrow", "htitle", "hbody", "hbutton"],
     "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal",
-                 "segskin", "seg-party", "seg-ministry", "segmap", "seg-mparty", "seg-mministry", "seg-mplain"]
+                 "segskin", "seg-party", "seg-ministry", "segmap", "seg-mparty", "seg-mministry", "seg-mplain",
+                 "sreload", "sreload-glow"]
     + [f"row{i}" for i in range(1, 8)] + [f"slabel{i}" for i in range(1, 8)]
     + [f"ssmall{i}" for i in range(1, 8)] + [f"sw{i}" for i in range(1, 5)],
     # The Ballot Hall's pieces, so the add-on knows each one's own box (without its shadow).
@@ -605,6 +609,8 @@ def pieces_to_draw(pages):
     settings("segMinistryOff", only(["#seg-ministry"]), skin_seg="party")
     # The world map skin switch (Batch D5f): Party, Ministry, Plain
     settings("segMapBox", only(["#segmap"]))
+    # Reload UI's soft glow, shown when a /reload is due (Max, 9 Nov); the button itself is a live Kit button
+    settings("sReloadGlow", only(["#sreload-glow"]))
     for value, el in (("party", "seg-mparty"), ("ministry", "seg-mministry"), ("plain", "seg-mplain")):
         name = "segMap" + value.title()
         settings(name + "On", only([f"#{el}"]), map_seg=value)

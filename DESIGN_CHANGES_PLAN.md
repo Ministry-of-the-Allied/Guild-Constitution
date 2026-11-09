@@ -269,6 +269,8 @@ Max works from two Claude accounts. Each can edit only its own canvas, so there 
 
 **Changes on the copy, not yet on the original:**
 - [ ] 9 Nov: Extras board, settings page header: gap between the crest and the title 12px → 36px (the title's decorative "M" ran into the crest). Line 128 of `Extras.dc.html`.
+- [ ] 9 Nov: Extras board, settings page: a **Reload UI** button (`.btn`, 150 x 30) centred at the foot, with a soft gold glow behind it (radial gradient, shown only while a /reload is due); the page is 506 tall (was 440) and the board 940 (was 900), with a label under the page saying when the glow shows. Same markup as `tools/textures/extras.html` (`#sreload`, `#sreload-glow`).
+- [ ] 9 Nov: new **Settings** board (`Settings.dc.html`, 2480 x 2060, below the World map skins board): the settings as a page inside the add-on window, in the four skins, gear knob lit, grouped rows that scroll, Reload UI at the foot. Waiting for Max's approval before it is built.
 
 **Changes on the original, not yet on the copy:**
 - (none)

@@ -53,6 +53,10 @@ local function buildSwitch(i, row)
   UI:AtSlot(b, "sw" .. i, 0, 0, page)
   b:SetSize(slot.w, slot.h)
   b.on = piece("swOn", "ARTWORK", 0, slot.y - M.slots.sw1.y)
+  MOTA.Kit:Track(function() -- the lit switch is blue in the canvas: it follows the skin's accent
+    local drawn = "swOn" .. MOTA:Accent().SUFFIX
+    MOTA.Kit:Look(b.on, M.pieces[drawn] and drawn or "swOn")
+  end)
   b.off = piece("swOff", "ARTWORK", 0, slot.y - M.slots.sw4.y)
   function b:Update()
     local v = MOTA.db.settings[row.key] and true or false
@@ -169,8 +173,17 @@ local function build()
       page:SetScale(math.min((w - 20) / root.w, (h - 24) / root.h, 1.4))
     end
   end
+  -- Reload UI at the foot (Max, 9 Nov): a soft gold glow behind it while a
+  -- /reload is due (the map skin changed with EllesmereUI or ElvUI here).
+  panel.reloadGlow = piece("sReloadGlow", "BORDER")
+  panel.reloadGlow:Hide()
+  local rs = M.slots.sreload
+  panel.reload = MOTA.Kit:Button(page, rs.w, rs.h, "Reload UI", "blue", function() ReloadUI() end)
+  UI:AtSlot(panel.reload, "sreload", 0, 0, page)
+
   -- A row's small line can say why its choice is held back (the map skin, UI/MapCompat.lua).
   function panel:Notes()
+    self.reloadGlow:SetShown(MOTA.MapCompat and MOTA.MapCompat:NeedsReload() or false)
     for _, row in ipairs(ROWS) do
       if row.note and row.smallText then
         local n = row.note()

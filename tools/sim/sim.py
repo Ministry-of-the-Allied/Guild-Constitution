@@ -2863,6 +2863,10 @@ c.lua.execute('MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
 check("EllesmereUI: a skin chosen after login waits for a /reload (ours stays off, no clash)",
       ns.WorldMapSkin.Key(ns.WorldMapSkin) is None and "reload" in (ns.MapCompat.Note(ns.MapCompat) or ""))
 check("EllesmereUI: ...and the chat says so", any("/reload" in l for l in c.log))
+check("Settings: Reload UI glows while a /reload is due", Q(c, 'return MinistryOfTheAlliedOptions.reloadGlow.shown') is True)
+ns.db.settings.mapSkin = "plain"
+c.lua.execute('MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("Settings: ...and stops once nothing is due", not Q(c, 'return MinistryOfTheAlliedOptions.reloadGlow.shown'))
 
 c, ns = compat_client("with_elv()")
 c.lua.execute('ELV_S:LoadSkin({ toggle = "worldmap" }); ELV_S:LoadSkin({ toggle = "bags" })')
