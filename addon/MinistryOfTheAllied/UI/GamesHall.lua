@@ -648,7 +648,7 @@ local function buildHunt()
   local warm = panel(clue, nil, 18, TOP_H - 64, 128, 24)
   Kit:Fill(warm, "B9503F", "8E2B22")
   Kit:Outline(warm, "3A0C08", 1)
-  Kit:Label(warm, "kitTiny", "FBE9C8", 0.18, "You're close"):SetPoint("CENTER", warm, "CENTER", 0, 0)
+  Kit:Label(warm, "kitTiny", "FBE9C8", 0.18, "Getting warmer"):SetPoint("CENTER", warm, "CENTER", 0, 0)
   clue.warm = warm
   clue.hint = line(clue, "kitItalic", "5E4B33", 18, TOP_H - 34, CLUE_W - 36)
   v.clue = clue
@@ -753,7 +753,7 @@ local function buildHunt()
 
   local note = panel(set, "sunk", 0, TOP_H + 12, MAIN_W, HEIGHT - BODY_Y - TOP_H - 12)
   Kit:Label(note, "kitSection", BLUE, 0.22, "Spots must be outdoors"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
-  line(note, "kitSmall", nil, 14, 30, MAIN_W - 28):SetText("The game gives no position inside dungeons and raids. Hunters get a nudge within 24 yards, and find the spot within 10. You can't play a hunt you set.")
+  line(note, "kitSmall", nil, 14, 30, MAIN_W - 28):SetText("The game gives no position inside dungeons and raids. Hunters are told they're getting warmer within about 50 yards, and find the spot within 10. You can't play a hunt you set.")
   v.set = set
   return v
 end
@@ -795,7 +795,7 @@ local function refreshHunt(v)
     clue.head:SetText("Clue " .. i .. " of " .. #H.clues)
     clue.zone:SetText(zone or "")
     clue.riddle:SetText(text or "The riddle opens when you find the spot before it.")
-    clue.hint:SetText(organiser and "You set this hunt, so you can't play it." or (Hu.warm and "Within 24 yards. Stand on the spot itself to find it."
+    clue.hint:SetText(organiser and "You set this hunt, so you can't play it." or (Hu.warm and "Within about 50 yards. Stand on the spot itself to find it."
       or "Solve the riddle, then go and stand on the spot. Your add-on knows when you're there."))
   elseif stage == "won" then
     clue.head:SetText("The treasure is found")
