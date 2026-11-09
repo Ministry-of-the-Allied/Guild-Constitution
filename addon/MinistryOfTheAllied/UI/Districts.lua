@@ -398,11 +398,7 @@ local function buildCouncil(v)
   text:SetText("Must be consulted before a law that mainly affects one district. May petition the government, and may censure a minister by majority vote.")
 end
 
-local function initials(name)
-  local a = name:match("^[%z\1-\127\194-\244][\128-\191]*") or "?"
-  local b = name:match("%s([%z\1-\127\194-\244][\128-\191]*)")
-  return a .. (b or "")
-end
+local function initials(name) return MOTA:Initials(name) end
 
 local function refreshCouncil()
   for _, c in ipairs(cards) do
@@ -426,7 +422,7 @@ end
 -- The Citizen Roll
 ---------------------------------------------------------------------------
 
-local COLS = { name = 24, district = 230, party = 340, office = 450 }
+local COLS = { name = 24, district = 180, party = 340, office = 450 }
 
 local function seen(r)
   if r.online then return "Online" end
@@ -502,7 +498,7 @@ local function buildRoll(v)
     r.name:SetPoint("LEFT", r, "LEFT", COLS.name, 0)
     r.name:SetWidth(COLS.district - COLS.name - 8)
     r.name:SetMaxLines(1)
-    r.district = chip(r, 96)
+    r.district = chip(r, 146)
     r.district:SetPoint("LEFT", r, "LEFT", COLS.district, 0)
     r.district:SetScript("OnClick", function()
       if MOTA.me and MOTA:IsCrown(MOTA.me) and r.who then Page:OpenPicker(r) end

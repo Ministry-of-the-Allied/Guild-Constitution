@@ -301,7 +301,7 @@ function Page:Refresh()
 
   local minister = L:Minister()
   root.ministerName:SetText(minister and MOTA:Short(minister) or "None appointed")
-  root.ministerInitials:SetText(minister and MOTA:Short(minister):sub(1, 2) or "—")
+  root.ministerInitials:SetText(MOTA:Initials(minister, "—"))
   root.ministerLine:SetText(minister and "In the Cabinet" or "Appointed by the PM")
 
   local unmatched = L:Unmatched()

@@ -601,7 +601,7 @@ function UI:Refresh()
       self.who:SetFont(file, size, flags)
     end
   end
-  self.initials:SetText(name:match("^[%z\1-\127\194-\244][\128-\191]*") or "?")
+  self.initials:SetText(MOTA:Initials(name))
   -- The canvas shows your district here; until the Citizens module, your guild rank.
   local rank = MOTA.guild and select(2, GetGuildInfo("player"))
   local district = MOTA.District and MOTA.District:Of(MOTA.me)

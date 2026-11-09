@@ -71,4 +71,5 @@ UI\WorldMap.lua
 UI\WorldMapSkin.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
+UI\FullText.lua
 Commands.lua

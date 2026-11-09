@@ -83,10 +83,7 @@ local function portrait(parent, size)
   return t
 end
 
-local function initials(name)
-  local short = name and MOTA:Short(name) or ""
-  return short ~= "" and short:sub(1, 2) or "—"
-end
+local function initials(name) return MOTA:Initials(name, "—") end
 
 -- A line of text that opens a page when clicked.
 local function linkRow(parent, y, w)
@@ -337,7 +334,7 @@ local function refreshPower()
   power.k1.initials:SetShown(kings[1] ~= nil)
   power.k2.initials:SetShown(kings[2] ~= nil)
   local names = {}
-  for i, n in ipairs(kings) do if i <= 2 then names[#names + 1] = "King " .. MOTA:Short(n) end end
+  for i, n in ipairs(kings) do if i <= 2 then names[#names + 1] = MOTA:Short(n) end end
   power.crown:SetText(#names > 0 and table.concat(names, " & ") or "The Crown")
 
   power.gov:SetShown(data.pm ~= nil)

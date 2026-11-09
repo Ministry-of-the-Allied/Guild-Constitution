@@ -461,7 +461,7 @@ local function refreshContest(key, v)
   v.bannerLabel:SetText(Co:Banner(key))
   local leader = Co:Leader(key)
   v.leader:SetText(leader and MOTA:Short(leader.name) or "Not yet chosen")
-  v.initials:SetText(leader and MOTA:Short(leader.name):sub(1, 2) or "—")
+  v.initials:SetText(MOTA:Initials(leader and leader.name, "—"))
   local cands = Co:Candidates(key)
   local active = stage ~= "none" or leader ~= nil
   v.switch:SetShown(active)

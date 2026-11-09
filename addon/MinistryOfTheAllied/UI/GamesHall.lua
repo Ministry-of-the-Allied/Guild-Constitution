@@ -179,7 +179,7 @@ local function refreshAside()
   local minister = MOTA.Games:Minister()
   aside.foot.name:SetText(minister and MOTA:Short(minister) or "None appointed")
   aside.foot.line:SetText(minister and "Runs the Games" or "The Crown runs the Games")
-  aside.foot.initials:SetText(minister and MOTA:Short(minister):sub(1, 2) or "—")
+  aside.foot.initials:SetText(MOTA:Initials(minister, "—"))
 end
 
 ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ local function buildLottery()
   Kit:Label(desk, "kitSection", BLUE, 0.22, "Organiser's desk"):SetPoint("TOPLEFT", desk, "TOPLEFT", 14, -12)
   desk.line = line(desk, "kitSmallest", nil, 14, 30, SIDE_W - 28)
   local half = (SIDE_W - 28 - 8) / 2
-  desk.draw = Kit:Button(desk, half, 28, "Draw now", "blue", function() report(MOTA.Lottery:Draw()) end)
+  desk.draw = Kit:Button(desk, half, 28, "Draw", "blue", function() report(MOTA.Lottery:Draw()) end)
   desk.draw:SetPoint("BOTTOMLEFT", desk, "BOTTOMLEFT", 14, 46)
   -- Cancelling asks once more: the first press says "Sure?", the second cancels.
   desk.cancel = Kit:Button(desk, half, 28, "Cancel", "quiet", function(b)

@@ -197,7 +197,7 @@ local function refreshAside(cur)
   local nameFS = aside.foot.name
   local wide = nameFS.GetUnboundedStringWidth and nameFS:GetUnboundedStringWidth() or nameFS:GetStringWidth()
   aside.foot.line:SetShown(wide <= nameFS:GetWidth())
-  aside.foot.initials:SetText(minister and MOTA:Short(minister):sub(1, 2) or "—")
+  aside.foot.initials:SetText(MOTA:Initials(minister, "—"))
 end
 
 ---------------------------------------------------------------------------

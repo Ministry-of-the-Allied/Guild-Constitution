@@ -312,11 +312,7 @@ end
 
 local function short(name) return MOTA:Short(name) end
 
-local function initials(name)
-  local a, b = short(name):match("^(%S)%S*%s+(%S)")
-  if a then return (a .. b):upper() end
-  return (short(name):match("^[%z\1-\127\194-\244][\128-\191]*") or "?"):upper()
-end
+local function initials(name) return MOTA:Initials(name) end
 
 local function party(p) return Ballot.PARTIES[p] or Ballot.PARTIES.ind end
 

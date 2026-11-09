@@ -157,6 +157,17 @@ function MOTA:Short(name)
   return self:Bare(name) or "?"
 end
 
+-- Initials for the portrait bubbles: forename and surname ("Kíng Sinnclaír" → "KS").
+-- Whole UTF-8 letters, so an accent never splits into a box. One name → one letter.
+local LETTER = "[%z\1-\127\194-\244][\128-\191]*"
+function MOTA:Initials(name, blank)
+  local short = name and self:Bare(name)
+  if not short or short == "" then return blank or "?" end
+  local a = short:match("^%s*(" .. LETTER .. ")") or "?"
+  local b = short:match("%s(" .. LETTER .. ")[^%s]*%s*$")
+  return (a .. (b or "")):upper()
+end
+
 function MOTA:Ago(t)
   if not t then return "never" end
   local s = GetServerTime() - t
