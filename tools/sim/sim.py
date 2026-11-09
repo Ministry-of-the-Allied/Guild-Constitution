@@ -2814,6 +2814,93 @@ ek.slash("hunt end")
 run(10)
 check("Hunt: the Crown ends it with no winner", E(em, HU + 'return Hu:Stage()') == "closed")
 
+print("== 103. the map skin beside other map add-ons (D5d, D5d2, D5e)")
+# Pretend EllesmereUI, ElvUI and Leatrix Maps, loaded before us as in the game (their names
+# come first): just the parts they decide the map's skin with.
+OTHERS = """
+  LOADED = LOADED or {}
+  C_AddOns.IsAddOnLoaded = function(n) return LOADED[n] or false end
+  function with_eui()
+    LOADED.EllesmereUI, LOADED.EllesmereUIBlizzardSkin = true, true
+    EllesmereUI = { GetBlizzWindowStyle = function(k) return "eui" end }
+  end
+  function with_elv(skins)
+    LOADED.ElvUI = true
+    LOADS = {}
+    local S = {}
+    function S:LoadSkin(info) LOADS[#LOADS + 1] = info.toggle end
+    local E = { private = { skins = { blizzard = { enable = true, worldmap = skins ~= false } } } }
+    function E:GetModule(name) if name == "Skins" then return S end end
+    ElvUI = { E }
+    ELV_S = S
+  end
+  function with_leatrix(simple)
+    LOADED.Leatrix_Maps = true
+    LeaMapsDB = { SimpleMapFrame = simple }
+  end
+"""
+
+
+def compat_client(setup, map_skin=None):
+    saved = OTHERS + setup
+    if map_skin:
+        saved += '\nMOTADB = { settings = { mapSkin = "%s" } }' % map_skin
+    c = Client("Cora", saved=saved)
+    return c, c.lua.globals().MinistryOfTheAllied
+
+
+c, ns = compat_client("with_eui()")
+check("EllesmereUI: with our map skin on, it's told to leave the world map alone",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "off")
+check("EllesmereUI: its other windows are its own as before",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("bags")') == "eui")
+check("EllesmereUI: our skin dresses the map", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None)
+c, ns = compat_client("with_eui()", "plain")
+check("EllesmereUI: with Plain, it skins the map as normal",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "eui")
+ns.db.settings.mapSkin = "party"
+c.lua.execute('MinistryOfTheAllied:Fire("MAP_SKIN_CHANGED")')
+check("EllesmereUI: a skin chosen after login waits for a /reload (ours stays off, no clash)",
+      ns.WorldMapSkin.Key(ns.WorldMapSkin) is None and "reload" in (ns.MapCompat.Note(ns.MapCompat) or ""))
+check("EllesmereUI: ...and the chat says so", any("/reload" in l for l in c.log))
+
+c, ns = compat_client("with_elv()")
+c.lua.execute('ELV_S:LoadSkin({ toggle = "worldmap" }); ELV_S:LoadSkin({ toggle = "bags" })')
+check("ElvUI: with our map skin on, its world map skin is skipped and the rest run",
+      list(c.lua.eval('LOADS').values()) == ["bags"])
+check("ElvUI: nothing it saved is changed", Q(c, 'return ElvUI[1].private.skins.blizzard.worldmap') is True)
+c, ns = compat_client("with_elv()", "plain")
+c.lua.execute('ELV_S:LoadSkin({ toggle = "worldmap" })')
+check("ElvUI: with Plain, it skins the map as normal", list(c.lua.eval('LOADS').values()) == ["worldmap"])
+ns.db.settings.mapSkin = "ministry"
+check("ElvUI: a skin chosen after login waits for a /reload", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None
+      and ns.MapCompat.NeedsReload(ns.MapCompat))
+ns.db.settings.mapSkin = "plain"
+check("ElvUI: back to Plain, no /reload needed", not ns.MapCompat.NeedsReload(ns.MapCompat))
+
+c, ns = compat_client('with_leatrix("On")')
+check("Leatrix Maps: its simple map frame on, ours steps aside", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None)
+check("Leatrix Maps: the Settings row says why", "Leatrix" in (ns.MapCompat.Note(ns.MapCompat) or ""))
+c, ns = compat_client('with_leatrix(nil)')
+check("Leatrix Maps: the simple frame counts as on when never set (its default)", ns.WorldMapSkin.Key(ns.WorldMapSkin) is None)
+c, ns = compat_client('with_leatrix("Off")')
+check("Leatrix Maps: simple frame off, ours dresses the map", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None)
+c, ns = compat_client('with_leatrix("On"); with_elv()')
+check("Leatrix Maps: locked off by ElvUI's map skin, so ours dresses (and ElvUI's is skipped)",
+      ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None and ns.MapCompat.skipping is True)
+c, ns = compat_client('with_leatrix("On"); with_eui()')
+check("Leatrix Maps + EllesmereUI: with ours stepped aside, EllesmereUI keeps the map",
+      Q(c, 'return EllesmereUI.GetBlizzWindowStyle("worldmap")') == "eui")
+c, ns = compat_client("")
+check("No other map add-ons: our skin dresses the map, no note on the Settings row", ns.WorldMapSkin.Key(ns.WorldMapSkin) is not None and ns.MapCompat.Note(ns.MapCompat) is None)
+
+# OpenMap: the district layer goes just over its stitched art
+d4c.lua.execute('OpenMapAPI = { ArtTopLevel = function() return 500 end }; WorldMapFrame:SetMapID(1429); WorldMapFrame:SetMapID(1453)')
+check("OpenMap: the district layer sits just over its stitched art", WM.layer.shown and Q(d4c, 'return M.WorldMap.layer:GetFrameLevel()') == 501)
+d4c.lua.execute('OpenMapAPI = { ArtTopLevel = function() return nil end }; WorldMapFrame:SetMapID(1429); WorldMapFrame:SetMapID(1453)')
+check("OpenMap: before its map has opened, the layer keeps the map's own level", Q(d4c, 'return M.WorldMap.layer:GetFrameLevel()') == 40)
+d4c.lua.execute('OpenMapAPI = nil')
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

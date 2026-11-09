@@ -58,15 +58,25 @@ end
 -- The map's own layer for highlights sits above the base map and its explored
 -- parts and below every pin (quests, flight masters, the player arrow). Asked of
 -- the map's level manager each time, as the map may have moved levels.
+-- With OpenMap, its stitched art can reach above that: the layer goes just over
+-- it (OpenMap lifts the pins two over its art, so they stay on top; D5e).
+local function overOpenMap(l)
+  local api = _G.OpenMapAPI
+  local ok, top = false, nil
+  if type(api) == "table" and type(api.ArtTopLevel) == "function" then ok, top = pcall(api.ArtTopLevel) end
+  if ok and type(top) == "number" and top >= l then return top + 1 end
+  return l
+end
+
 local function level(canvas)
   local mgr = map.GetPinFrameLevelsManager and map:GetPinFrameLevelsManager()
   if mgr and mgr.GetValidFrameLevel then
     for _, kind in ipairs({ "PIN_FRAME_LEVEL_MAP_HIGHLIGHT", "PIN_FRAME_LEVEL_MAP_EXPLORATION" }) do
       local ok, l = pcall(mgr.GetValidFrameLevel, mgr, kind)
-      if ok and type(l) == "number" then return l end
+      if ok and type(l) == "number" then return overOpenMap(l) end
     end
   end
-  return canvas:GetFrameLevel() + 1
+  return overOpenMap(canvas:GetFrameLevel() + 1)
 end
 
 ---------------------------------------------------------------------------

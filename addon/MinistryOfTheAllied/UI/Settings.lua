@@ -20,7 +20,8 @@ local ROWS = {
   { key = "mapSkin", label = "World map skin", small = "How the world map is dressed", box = "segMapBox",
     choice = { { "party", "seg-mparty", "segMapParty" }, { "ministry", "seg-mministry", "segMapMinistry" },
                { "plain", "seg-mplain", "segMapPlain" } },
-    changed = function() MOTA:Fire("MAP_SKIN_CHANGED") end },
+    changed = function() MOTA:Fire("MAP_SKIN_CHANGED") end,
+    note = function() return MOTA.MapCompat and MOTA.MapCompat:Note() end },
   -- Window skins (ADDON_SPEC.md 9.1): Crown ranks only, so this row is hidden
   -- for everyone else. Party is the Crown's skin for them.
   { key = "windowSkin", label = "Window skin", small = "The Crown's colours, or the Ministry's", box = "segSkinBox", crownOnly = true,
@@ -135,6 +136,7 @@ local function build()
     UI:AtSlot(small, "ssmall" .. i, 0, 0, page)
     if parts then parts[#parts + 1] = small end
     small:SetText(row.small .. (row.later and " · later" or ""))
+    row.smallText = small
     if row.later then
       label:SetAlpha(0.5)
       small:SetAlpha(0.6)
@@ -167,8 +169,20 @@ local function build()
       page:SetScale(math.min((w - 20) / root.w, (h - 24) / root.h, 1.4))
     end
   end
+  -- A row's small line can say why its choice is held back (the map skin, UI/MapCompat.lua).
+  function panel:Notes()
+    for _, row in ipairs(ROWS) do
+      if row.note and row.smallText then
+        local n = row.note()
+        row.smallText:SetText(n or row.small)
+        row.smallText:SetTextColor(MOTA:RGB(n and "8E2B22" or "5E4B33"))
+      end
+    end
+  end
+
   panel:SetScript("OnShow", function()
     fitPage()
+    panel:Notes()
     for _, c in ipairs(panel.controls) do c:Update() end
     panel:ShowRows()
   end)
@@ -204,4 +218,9 @@ end)
 -- The guild rank arrives after login: show or hide the Crown's rows.
 MOTA:Listen("GUILD_READY", function()
   if panel then panel:ShowRows() end
+end)
+
+-- The map skin's row says when it is held back or needs a /reload (UI/MapCompat.lua).
+MOTA:Listen("MAP_SKIN_CHANGED", function()
+  if panel then panel:Notes() end
 end)

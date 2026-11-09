@@ -5,6 +5,7 @@
 ## Version: 0.8.8
 ## IconTexture: Interface\Icons\INV_Misc_Note_02
 ## SavedVariables: MOTADB
+## OptionalDeps: ElvUI, EllesmereUI, EllesmereUIBlizzardSkin
 ## AddonCompartmentFunc: MinistryOfTheAllied_OnAddonCompartmentClick
 
 # Milestone 1: skeleton, guild handshake, first records, probe.
@@ -69,6 +70,7 @@ UI\Treasury.lua
 UI\Districts.lua
 UI\WorldMap.lua
 UI\WorldMapSkin.lua
+UI\MapCompat.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\FullText.lua

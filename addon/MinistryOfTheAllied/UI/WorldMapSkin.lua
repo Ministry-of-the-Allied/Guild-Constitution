@@ -115,6 +115,9 @@ end
 function WS:Key()
   local s = MOTA.db and MOTA.db.settings.mapSkin or "party"
   if s == "plain" then return nil end
+  -- another add-on keeps the map (Leatrix's simple frame), or ElvUI/EllesmereUI
+  -- dressed it this session and a /reload is due (UI/MapCompat.lua)
+  if MOTA.MapCompat and not MOTA.MapCompat:Allowed() then return nil end
   if s == "ministry" then return "UNREGISTERED" end
   return MOTA.skin and MOTA.skin.KEY or "UNREGISTERED"
 end
