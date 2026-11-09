@@ -2,7 +2,7 @@
 ## Title: |cffC9A24AMinistry of the Allied|r
 ## Notes: The political state of the Ministry of the Allied
 ## Author: The Crown
-## Version: 0.8.5
+## Version: 0.8.6
 ## IconTexture: Interface\Icons\INV_Misc_Note_02
 ## SavedVariables: MOTADB
 ## AddonCompartmentFunc: MinistryOfTheAllied_OnAddonCompartmentClick
@@ -62,6 +62,7 @@ UI\Statutes.lua
 UI\Constitution.lua
 UI\Ring.lua
 UI\GamesHall.lua
+UI\HuntGlow.lua
 UI\BankPrompt.lua
 UI\Parties.lua
 UI\Treasury.lua

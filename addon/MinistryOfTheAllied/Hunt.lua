@@ -1,8 +1,9 @@
 -- Ministry of the Allied: the Treasure Hunt (Duncan, 2026-11-08).
 -- The Crown or the Minister of Games stands at real places in the world and
 -- marks each one with a riddle. Hunters solve the riddles and stand on the
--- spots: within 50 yards they're told they're getting warmer (and colder as
--- they leave), within 3.5 yards the spot is found and the next riddle opens.
+-- spots: within 50 yards a gold glow round the screen grows as they near the
+-- spot (and fades as they leave), with a chat line every 10 yards; within 10
+-- yards the spot is found and the next riddle opens.
 -- The first to find the last spot wins, and the hunt closes. Glory only: the
 -- games log, the Pathfinder's Medal, and (later) points for the District Cup.
 --
@@ -24,7 +25,7 @@ local _, MOTA = ...
 local Hunt = {}
 MOTA.Hunt = Hunt
 
-Hunt.FOUND = 3.5 -- yards: stand this close to the spot to find it
+Hunt.FOUND = 10  -- yards: stand this close to the spot to find it
 Hunt.WARM = 50   -- yards: warmer inside, colder on leaving
 Hunt.MIN_CLUES, Hunt.MAX_CLUES = 2, 10
 Hunt.MAX_RIDDLE = 140
@@ -225,25 +226,9 @@ end
 
 Hunt.warm = false
 
--- Warmer and colder share one herald: a new one takes the place of the last
--- rather than waiting behind it.
-local temp
-local function herald(title, text)
-  local Hd = MOTA.Herald
-  if not Hd then return end
-  if temp and Hd:IsShowing(temp) then
-    temp.title, temp.text = title, text
-    Hd:Update(temp)
-    Hd:HideLater(5)
-    return
-  end
-  if temp then Hd:Close(temp) end
-  temp = { seal = "official", eyebrow = "The Treasure Hunt", title = title, text = text, stay = 5, noFanfare = true,
-    button = { label = "Dismiss", style = "quiet" } }
-  Hd:Announce(temp)
-end
-
 -- Looks where you stand. Returns "found", "warm", or nil.
+-- Within 50 yards the gold glow shows (UI/HuntGlow.lua), stronger the nearer
+-- you are, and a chat line says how far, every 10 yards in or out.
 function Hunt:Look()
   local H = self:Current()
   if self:Stage(H) ~= "running" or not MOTA.me or MOTA.Account:Same(MOTA.me, H.by) then return nil end
@@ -255,14 +240,22 @@ function Hunt:Look()
   local dist = self:Distance(c, inst, x, y)
   if dist and dist <= self.FOUND then return self:Found(H, i) end
   local warm = dist ~= nil and dist <= self.WARM
-  -- Each time you come into the warm circle, warmer; each time you leave it, colder.
+  if MOTA.HuntGlow then
+    MOTA.HuntGlow:Set(warm and (0.12 + 0.88 * (self.WARM - dist) / (self.WARM - self.FOUND)) or 0)
+  end
+  -- Chat, every 10 yards: 50, 40, 30, 20.
+  local band = warm and math.ceil(dist / 10) * 10 or nil
+  if band ~= self.band then
+    local gold = MOTA:Color("leaf", band and (not self.band or band < self.band) and "Warmer:" or "Colder:")
+    if band then
+      MOTA:Print(gold, "clue " .. i .. " is about " .. band .. " yards away.")
+    else
+      MOTA:Print(gold, "you've left the 50 yards round clue " .. i .. ".")
+    end
+    self.band = band
+  end
   if warm ~= self.warm then
     self.warm = warm
-    if warm then
-      herald("You're getting warmer", "Clue " .. i .. " is within 50 yards. Stand on the spot itself to find it.")
-    else
-      herald("You're getting colder", "You've moved away from clue " .. i .. ". Turn back the way you came.")
-    end
     MOTA:Fire("HUNT_CHANGED")
   end
   return warm and "warm" or nil
@@ -270,7 +263,8 @@ end
 
 -- Spot i is found: tell the guild, and the next riddle shows.
 function Hunt:Found(H, i)
-  self.warm = false
+  self.warm, self.band = false, nil
+  if MOTA.HuntGlow then MOTA.HuntGlow:Set(0) end
   if DoEmote then DoEmote("CHEER") end -- found it!
   MOTA.Book:Write("hunt.found", { id = H.id, i = i })
   return "found"
@@ -283,6 +277,7 @@ local function startTicking()
     if Hunt:Stage() ~= "running" then
       ticker:Cancel()
       ticker = nil
+      if MOTA.HuntGlow then MOTA.HuntGlow:Set(0) end
       return
     end
     Hunt:Look()

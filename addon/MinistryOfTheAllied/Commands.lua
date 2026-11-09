@@ -397,7 +397,7 @@ add("lottery", "[open <name>, <gold per ticket>, <days>, draw, cancel]", "the Ro
   if err then MOTA:Print(err) elseif rec then MOTA:Print("Done.") end
 end)
 
-add("hunt", "[mark <riddle>, unmark, publish <name>, discard, end]", "the Treasure Hunt: your clue, or set one (the Crown and the Minister of Games)", function(arg)
+add("hunt", "[mark <riddle>, unmark, publish <name>, discard, end, glow]", "the Treasure Hunt: your clue, or set one (the Crown and the Minister of Games)", function(arg)
   if not needGuild() then return end
   local Hu = MOTA.Hunt
   local word, rest = (arg or ""):match("^(%S*)%s*(.-)$")
@@ -409,6 +409,10 @@ add("hunt", "[mark <riddle>, unmark, publish <name>, discard, end]", "the Treasu
   elseif word == "publish" then rec, err = Hu:Publish(rest)
   elseif word == "discard" then rec, err = Hu:Discard()
   elseif word == "end" then rec, err = Hu:Close()
+  elseif word == "glow" then
+    local on = not MOTA.HuntGlow:Enabled()
+    MOTA.HuntGlow:SetEnabled(on)
+    return MOTA:Print(on and "The hunt's gold glow is on." or "The hunt's gold glow is off. Chat still tells you how far, every 10 yards.")
   else
     local H = Hu:Current()
     MOTA:Print((H and (H.name .. ": ") or "") .. Hu:Line(H))
