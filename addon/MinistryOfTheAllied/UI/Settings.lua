@@ -9,8 +9,11 @@
 -- keep a small entry with an Open settings button.
 --
 -- The switches and choices are the Extras board's pictures (Media "swOn",
--- "segModestOn"...), laid by their place relative to their control's slot, so
--- they sit the same in a row of any width.
+-- "segModestOn"...). Each sits centred on its control's box, and a choice's
+-- halves keep their place in its box, so the pictures and the click areas
+-- line up in a row of any width. (The board's measured boxes and its pictures
+-- can be a row apart further down the old page, so a picture is never placed
+-- by its own measured spot.)
 
 local _, MOTA = ...
 local UI = MOTA.UI
@@ -82,22 +85,36 @@ local function play(kit)
   if SOUNDKIT and SOUNDKIT[kit] then PlaySound(SOUNDKIT[kit]) end
 end
 
--- Puts piece name so that slot sits at x, y in parent (the piece keeps its place beside the slot).
-local function lay(t, name, parent, x, y, slot)
-  local p, s = M.pieces[name], M.slots[slot]
-  UI:SetPiece(t, name, 0, 0, parent, { x + p.x - s.x, y + p.y - s.y })
+-- Puts piece name with its top-left at x, y in parent.
+local function lay(t, name, parent, x, y)
+  UI:SetPiece(t, name, 0, 0, parent, { x, y })
 end
 
-local function newPiece(parent, name, layer, x, y, slot)
+-- A piece centred on the box x, y, w, h in parent.
+local function centred(parent, name, layer, x, y, w, h)
+  local p = M.pieces[name]
   local t = parent:CreateTexture(nil, layer or "ARTWORK")
-  lay(t, name, parent, x, y, slot)
+  lay(t, name, parent, x + (w - p.w) / 2, y + (h - p.h) / 2)
   return t
 end
 
--- A blue picture follows the skin's accent (its drawn copy, "~cr" or "~ex").
+-- A piece that keeps its place beside another piece (bx, by: where that one is).
+local function beside(parent, name, layer, ref, bx, by)
+  local p, r = M.pieces[name], M.pieces[ref]
+  local t = parent:CreateTexture(nil, layer or "ARTWORK")
+  lay(t, name, parent, bx + p.x - r.x, by + p.y - r.y)
+  return t
+end
+
+local function silver()
+  return MOTA.skin and MOTA.skin.METAL == "silver"
+end
+
+-- A blue-and-gold picture follows the skin: its accent ("~cr", "~ex") and, for
+-- Silverhand, its silver metal ("~sv": a silver rim and knob on the blue; Max, 9 Nov).
 local function accent(t, name)
   MOTA.Kit:Track(function()
-    local drawn = name .. MOTA:Accent().SUFFIX
+    local drawn = silver() and name .. "~sv" or name .. MOTA:Accent().SUFFIX
     MOTA.Kit:Look(t, M.pieces[drawn] and drawn or name)
   end)
 end
@@ -108,7 +125,7 @@ local function dots(parent, y, w)
   local n = math.ceil(w / p.w)
   for i = 1, n do
     local t = parent:CreateTexture(nil, "BORDER")
-    lay(t, "rowLine", parent, (i - 1) * p.w, y, "row1")
+    lay(t, "rowLine", parent, (i - 1) * p.w, y)
     local part = math.min(1, (w - (i - 1) * p.w) / p.w)
     if part < 1 then
       t:SetWidth(p.w * part)
@@ -123,9 +140,10 @@ local function buildSwitch(parent, row, x, y)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(s.w, s.h)
   b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
-  b.on = newPiece(parent, SW.on[1], "ARTWORK", x, y, SW.on[2])
+  -- both pictures centred on the switch, so off sits where on did (Max, 9 Nov)
+  b.on = centred(parent, SW.on[1], "ARTWORK", x, y, s.w, s.h)
   accent(b.on, SW.on[1])
-  b.off = newPiece(parent, SW.off[1], "ARTWORK", x, y, SW.off[2])
+  b.off = centred(parent, SW.off[1], "ARTWORK", x, y, s.w, s.h)
   function b:Update()
     local v = MOTA.db.settings[row.key] and true or false
     self.on:SetShown(v)
@@ -149,8 +167,9 @@ end
 -- A choice of two or three, its box's slot at x, y in parent.
 local function buildChoice(parent, row, x, y)
   local seg = row.seg
-  newPiece(parent, seg.box, "BORDER", x, y, seg.slot)
-  local box = M.slots[seg.slot]
+  local box, pb = M.slots[seg.slot], M.pieces[seg.box]
+  local bx, by = x + (box.w - pb.w) / 2, y + (box.h - pb.h) / 2
+  centred(parent, seg.box, "BORDER", x, y, box.w, box.h)
   local buttons = {}
   for _, opt in ipairs(seg) do
     local value, slotName, prefix = opt[1], opt[2], opt[3]
@@ -158,9 +177,9 @@ local function buildChoice(parent, row, x, y)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(s.w, s.h)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", x + s.x - box.x, -(y + s.y - box.y))
-    b.on = newPiece(parent, prefix .. "On", "ARTWORK", x, y, seg.slot)
+    b.on = beside(parent, prefix .. "On", "ARTWORK", seg.box, bx, by)
     accent(b.on, prefix .. "On")
-    b.off = newPiece(parent, prefix .. "Off", "ARTWORK", x, y, seg.slot)
+    b.off = beside(parent, prefix .. "Off", "ARTWORK", seg.box, bx, by)
     function b:Update()
       local chosen = MOTA.db.settings[row.key] == value
       self.on:SetShown(chosen)
@@ -257,12 +276,16 @@ local function buildBar()
   local left = thumb:CreateTexture(nil, "ARTWORK")
   left:SetPoint("TOPLEFT")
   left:SetPoint("BOTTOMRIGHT", thumb, "BOTTOM", 0, 0)
-  MOTA.Kit:Gradient(left, "8A6420", "E9C979", 1, 1, true)
   local right = thumb:CreateTexture(nil, "ARTWORK")
   right:SetPoint("TOPLEFT", thumb, "TOP", 0, 0)
   right:SetPoint("BOTTOMRIGHT")
-  MOTA.Kit:Gradient(right, "E9C979", "8A6420", 1, 1, true)
   MOTA.Kit:Outline(thumb, "4A330C", 0.7)
+  MOTA.Kit:Track(function() -- the metal: gold, or Silverhand's silver
+    local dark, light = "8A6420", "E9C979"
+    if silver() then dark, light = "6B7483", "EEF2F6" end
+    MOTA.Kit:Gradient(left, dark, light, 1, 1, true)
+    MOTA.Kit:Gradient(right, light, dark, 1, 1, true)
+  end)
   -- a click on the bar jumps a page towards it
   bar:SetScript("OnClick", function()
     local top = thumb:GetTop() or 0
@@ -339,7 +362,9 @@ local function buildFoot()
   rule:SetPoint("TOPRIGHT")
   local rs = M.slots.sreload
   local bx, by = WIDTH - rs.w, FOOT_H - rs.h - 2
-  foot.glow = newPiece(foot, "sReloadGlow", "BACKGROUND", bx, by, "sreload")
+  -- the glow is drawn white and worn in the skin's accent, like the button (Max, 9 Nov)
+  foot.glow = centred(foot, "sReloadGlow", "BACKGROUND", bx, by, rs.w, rs.h)
+  MOTA.Kit:Track(function() foot.glow:SetVertexColor(MOTA:RGB(MOTA:Accent().TOP)) end)
   foot.glow:Hide()
   foot.reload = MOTA.Kit:Button(foot, rs.w, rs.h, "Reload UI", "blue", function() ReloadUI() end)
   foot.reload:SetPoint("TOPLEFT", foot, "TOPLEFT", bx, -by)
@@ -362,7 +387,8 @@ local function build()
   heading:SetPoint("TOPLEFT", root, "TOPLEFT", 0, -HEADING_Y)
   heading:SetText("Settings")
   local aside = MOTA.Kit:Text(root, "kitItalic", "5E4B33", "RIGHT")
-  aside:SetPoint("BOTTOMRIGHT", root, "TOPRIGHT", 0, -(LIST_Y - 16))
+  -- clear of the divider under it (Max, 9 Nov: it sat on the rule)
+  aside:SetPoint("BOTTOMRIGHT", root, "TOPRIGHT", 0, -(M.slots.divider.y - TOP - 2))
   aside:SetText("Changes take effect at once,\nunless the page asks for a reload.")
 
   scroll = CreateFrame("ScrollFrame", nil, root)

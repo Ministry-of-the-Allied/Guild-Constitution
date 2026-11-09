@@ -648,6 +648,14 @@ def pieces_to_draw(pages):
     for suffix, a in ACCENTS.items():
         for base in bases:
             d[base + suffix] = dict(d[base], tex="accent", css=d[base]["css"] + "\n" + accent_css(a))
+    # Silverhand's silver: the divider (silver, its jewel the party blue) and the lit switch's rim
+    # and knob (Max, 9 Nov), named "<piece>~sv"; the pages ask for them when the metal is silver.
+    sv_url = (HERE / "divider-ink-sv.svg").resolve().as_uri()
+    d["divider~sv"] = dict(d["divider"], css=d["divider"]["css"]
+                           + "\n.divider{background-image:url(" + sv_url + ")!important}")
+    d["swOn~sv"] = dict(d["swOn"], tex="accent", css=d["swOn"]["css"]
+                        + "\n.sw.on{box-shadow:inset 0 0 0 1px #0A1636,0 0 0 2px #B8C2CF!important}"
+                        + "\n.sw.on span{background:radial-gradient(circle at 35% 30%,#FFFFFF,#AEB8C6 60%,#6B7483)!important}")
     return d
 
 

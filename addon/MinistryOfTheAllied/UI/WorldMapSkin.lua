@@ -335,9 +335,13 @@ local function putBack()
     faded[r] = nil
   end
   if not InCombatLockdown() then
+    -- every moved part is let go first: the location bar hangs off the tracking
+    -- button while the button's own place was the bar, so putting one back while
+    -- the other still held it made a loop (Max's game, 9 Nov: "Cannot anchor to a
+    -- region dependent on it")
+    for f in pairs(moved) do f:ClearAllPoints() end
     for f, m in pairs(moved) do
-      f:ClearAllPoints()
-      for _, p in ipairs(m.pts) do f:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
+      for _, p in ipairs(m.pts) do pcall(f.SetPoint, f, p[1], p[2], p[3], p[4], p[5]) end
       if type(m.w) == "number" and m.w > 0 then f:SetWidth(m.w) end
       if type(m.h) == "number" and m.h > 0 then f:SetHeight(m.h) end
       moved[f] = nil

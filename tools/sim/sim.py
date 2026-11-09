@@ -2921,6 +2921,18 @@ d4c.lua.execute('OpenMapAPI = { ArtTopLevel = function() return nil end }; World
 check("OpenMap: before its map has opened, the layer keeps the map's own level", Q(d4c, 'return M.WorldMap.layer:GetFrameLevel()') == 40)
 d4c.lua.execute('OpenMapAPI = nil')
 
+print("== 104. the minimap seal in a button bag, Silverhand's silver")
+c, ns = compat_client("")
+seal_ok = Q(c, """local b = MinistryOfTheAlliedMinimapButton
+  local icon = b and b.icon
+  if not icon then return false end
+  local p = M.Media.pieces.seal
+  icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)  -- as ElvUI and EllesmereUI crop an icon
+  local l, r, t, bt = icon.coords[1], icon.coords[2], icon.coords[3], icon.coords[4]
+  return l > p.l and r < p.r and t > p.t and bt < p.b and r > l and bt > t""")
+check("Minimap seal: a button bag's crop shows the seal itself, not the whole picture", seal_ok is True)
+check("Silverhand: the silver switch and divider are drawn", Q(c, 'return M.Media.pieces["swOn~sv"] ~= nil and M.Media.pieces["divider~sv"] ~= nil') is True)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

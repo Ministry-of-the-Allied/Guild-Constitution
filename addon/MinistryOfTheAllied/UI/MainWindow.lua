@@ -314,7 +314,9 @@ end
 function UI:WearDivider()
   local t = self.divider
   if not t then return end
-  local p = M.pieces["divider" .. MOTA:Accent().SUFFIX] or M.pieces.divider
+  -- Silverhand's divider is silver with a blue jewel ("~sv"); the others wear the accent's jewel
+  local silver = MOTA.skin and MOTA.skin.METAL == "silver" and M.pieces["divider~sv"]
+  local p = silver or M.pieces["divider" .. MOTA:Accent().SUFFIX] or M.pieces.divider
   t:SetTexture(texturePath(p.tex), "CLAMP", "CLAMP", "TRILINEAR")
   t:SetTexCoord(p.l, p.r, p.t, p.b)
 end

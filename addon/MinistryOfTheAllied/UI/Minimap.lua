@@ -47,10 +47,32 @@ local function build()
     t:SetPoint("TOPLEFT", button, "CENTER", -cx, cy)
     return t
   end
-  draw("ARTWORK")
+  local art = draw("ARTWORK")
   local glow = draw("HIGHLIGHT")
+  glow:ClearAllPoints()
+  glow:SetAllPoints(art)
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
+
+  -- Minimap button bags (ElvUI, EllesmereUI, MinimapButtonBag...) take a
+  -- button's icon, fit it inside their box and crop it with SetTexCoord(0..1
+  -- numbers). Ours sits in a corner of its texture with its shadow round it,
+  -- so a crop of the whole texture showed it tiny, and the hover glow stayed
+  -- full size (Max, 9 Nov). The icon is named, the glow follows it, and a
+  -- crop given as four 0-1 numbers is read as a crop of the seal itself.
+  local sl = p.l + (s.x - p.x) / p.w * (p.r - p.l)
+  local sr = p.l + (s.x + s.w - p.x) / p.w * (p.r - p.l)
+  local st = p.t + (s.y - p.y) / p.h * (p.b - p.t)
+  local sb = p.t + (s.y + s.h - p.y) / p.h * (p.b - p.t)
+  local raw = art.SetTexCoord
+  art.SetTexCoord = function(self, a, b, c, d, ...)
+    if select("#", ...) > 0 or type(d) ~= "number" then return raw(self, a, b, c, d, ...) end
+    local l, r = sl + (sr - sl) * a, sl + (sr - sl) * b
+    local t, bt = st + (sb - st) * c, st + (sb - st) * d
+    raw(glow, l, r, t, bt)
+    return raw(self, l, r, t, bt)
+  end
+  button.icon = art
 
   button:SetScript("OnClick", function(_, mouse)
     if mouse == "RightButton" then UI:OpenSettings() else UI:Toggle() end
