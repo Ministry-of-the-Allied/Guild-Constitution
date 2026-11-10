@@ -1196,18 +1196,14 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 
 ### 19.1 Open items
 
-- **Party Chamber, when party data is built:** remove the As member / As outsider preview switch in `UI/Parties.lua` and the example text. Members of a party see their own party's chamber; everyone else, including members of the other party, sees that chamber sealed. The Chamber tab opens on the player's own party. Requested by Duncan, 2026-11-06.
-- **Throne Room, for Duncan and Max to agree before anyone builds it (Duncan, 2026-11-06):** Duncan has held off so the two lines of work don't clash. To settle: who builds it; the "Vote now" link to the Ballot Hall; Cabinet posts (guild ranks like `Minister of War`, or appointments); how window skins affect it. Page parts already exist in `UI/Kit.lua` (plates, ribbons, buttons, gems, coins), so reuse them rather than rebuilding them.
-- **The real map:** district shapes need tracing against the live Stormwind map after launch.
+- **Throne Room: scrolling page and extra features (Max, 2026-11-10):** give the Throne Room page a scrolling function (the page is longer than the window allows), and think of extra features to add to the page (ideas to propose to Max first). Still open from Duncan's note (2026-11-06): who builds it, the "Vote now" link to the Ballot Hall, Cabinet posts (guild ranks like `Minister of War`, or appointments) and how window skins affect it. Page parts already exist in `UI/Kit.lua` (plates, ribbons, buttons, gems, coins), so reuse them.
+- **Key binding on the Ministry's own Settings page (Max, 2026-11-10, later):** a row in `UI/Settings.lua` (and the Settings board on the canvas) that shows the current key and lets you set it from there, using the same binding (`MOTA_TOGGLE`, `SetBinding` / `SaveBindings`). The binding itself is built and works (`Bindings.xml`).
+- **Transfer district through an NPC (Max, 2026-11-10, later):** talk to an NPC in your district to move to another district, allowed only if the population levels allow it. Not designed. Placing at join already balances populations (`District.lua`, Duncan 2026-11-08). Goes with the Registrar in the world-extending features below.
 - **Herald voice lines:** a town crier calling "Hear ye! The polls are open!" with heralds. Fixed lines only (lines with names or numbers stay as text). Same voice rules as section 12. The game's own text-to-speech is a possible flat-voiced fallback.
 - **Clip 4 is out of date:** The Parties narration says polls open for forty-eight hours; Charter 3.3 has said 2 hours since 2026-11-06. It needs regenerating.
 - **Voice volume and a settings switch:** only `/mota voice on|off` so far; the settings board and the Statute Book layout need adding to the canvas.
-- **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build.
+- **Notice board:** citizens can have a notice pinned on the Throne Room, by request; the Crown can take it down. Agreed 2026-11-03, not in the first build. Parked (Max, 2026-11-10: skip for now).
 - **Encrypted ballots (v2.0):** the voter's addon locks the ballot so only the Kings can open it and posts it into the shared book, so it reaches the Kings even if the voter is never online with one. Needs encryption written in Lua and a key handed out by each King. Agreed for later on 2026-11-06; until then held ballots follow 8.2, step 4.
-- **Settings title overlaps the crest (Max, 2026-11-09):** in the add-on's settings window the title sits on top of the crest. Move the title over to the right so it clears the crest (`UI/Settings.lua`; check it in every skin, and match the canvas's settings board).
-- **Throne Room, boxes after the K's (Max, 2026-11-09):** remove or replace the boxes after K's on the Throne Room tab.
-- **Hover tooltips for cut-off text (Max, 2026-11-09):** any text on the UI that is cut off should show its full text in a hover tooltip, not just the "..." buttons.
-- **Throne Room, double King on names (Max, 2026-11-09):** the names on the Throne Room tab show "King" twice. Find where the title is added and show it once.
 - **Own prestige system and quests (Max, 2026-11-09; idea, not yet designed):** the add-on gets its own prestige system with its own XP bar, earned from quests the add-on makes itself.
   - Quests start by coordinates with a really strict radius, or from unused NPCs through event triggers, coordinates or gossip.
   - Our own pop-ups for offering and finishing quests.
