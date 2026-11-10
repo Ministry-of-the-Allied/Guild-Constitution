@@ -18,26 +18,37 @@ local WIDTH, HEIGHT = PARCH.w - 60, PARCH.h - 42
 local HEAD_H = 72
 local GRID_Y = HEAD_H + 16
 local GAP = 20
-local LEFT_W = math.floor((WIDTH - GAP) * 1.12 / 2.12) -- the board's 1.12fr / 1fr
+-- Below the banner the page scrolls (Max, 10 Nov): a body taller than the window, with a gold bar beside it.
+local BAR_W, BAR_GAP, WHEEL = 10, 12, 40
+local BODY_W = WIDTH - BAR_W - BAR_GAP
+local LEFT_W = math.floor((BODY_W - GAP) * 1.12 / 2.12) -- the board's 1.12fr / 1fr
 local RIGHT_X = LEFT_W + GAP
-local RIGHT_W = WIDTH - RIGHT_X
-local GRID_H = HEIGHT - GRID_Y
+local RIGHT_W = BODY_W - RIGHT_X
+local VIEW_H = HEIGHT - GRID_Y
 local LIVE_H, DUTY_H, PLACE_H, VGAP = 130, 104, 78, 10
-local DUTY_ROWS, DECREE_ROWS = 3, 3
+local DUTY_ROWS, DECREE_ROWS = 3, 5
+local DECREE_ROW_H = 26
+-- the right column's natural height: the four panels and the decrees under them
+local BODY_H = math.max(VIEW_H, LIVE_H + DUTY_H + PLACE_H + 3 * VGAP + 18 + DECREE_ROWS * DECREE_ROW_H + 8)
+local GRID_H = BODY_H
 
 local PARTY = { sh = { name = "Silverhand", hex = "1F4290", portrait = "kitPortraitSh", seal = "hseal_silverhand" },
   ex = { name = "Exchange", hex = "9E1B22", portrait = "kitPortraitEx", seal = "hseal_exchange" } }
 local SEAL_FOR = { ballot = "hseal_official", nc = "hseal_official", election = "hseal_crown", bench = "hseal_crown",
   ring = "hseal_ring", books = "hseal_treasury", contest_sh = "hseal_silverhand", contest_ex = "hseal_exchange" }
 
-local root, head, power, recruit, live, duties, place, decrees
+local root, head, power, recruit, live, duties, place, decrees, scroll, body, bar, thumb
 local liveIndex = 1
 
 local function panel(parent, kind, x, y, w, h)
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(w, h)
   f:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
-  if kind then Kit:Plate(f, kind) end
+  if kind == "blue" then
+    Kit:PlateArt(f, "kitBlue", "BACKGROUND") -- the drawn accent plate, as the Treasury's coffer (follows the skin)
+  elseif kind then
+    Kit:Plate(f, kind)
+  end
   return f
 end
 
@@ -128,7 +139,7 @@ end
 ---------------------------------------------------------------------------
 
 local function buildPower()
-  local p = panel(root, "plain", 0, GRID_Y, LEFT_W, GRID_H)
+  local p = panel(body, "plain", 0, 0, LEFT_W, GRID_H)
   power = { frame = p }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Who holds power"):SetPoint("TOPLEFT", p, "TOPLEFT", 18, -16)
 
@@ -219,7 +230,7 @@ end
 ---------------------------------------------------------------------------
 
 local function buildLive()
-  local p = panel(root, "blue", RIGHT_X, GRID_Y, RIGHT_W, LIVE_H)
+  local p = panel(body, "blue", RIGHT_X, 0, RIGHT_W, LIVE_H)
   live = { frame = p }
   Kit:Label(p, "kitSection", "F3D98A", 0.22, "What's on"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -14)
   -- LIVE, with its red dot
@@ -261,8 +272,8 @@ local function buildLive()
 end
 
 local function buildDuties()
-  local y = GRID_Y + LIVE_H + VGAP
-  local p = panel(root, "plain", RIGHT_X, y, RIGHT_W, DUTY_H)
+  local y = LIVE_H + VGAP
+  local p = panel(body, "plain", RIGHT_X, y, RIGHT_W, DUTY_H)
   duties = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Your duties"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -12)
   for i = 1, DUTY_ROWS do duties.rows[i] = linkRow(p, 28 + (i - 1) * 22, RIGHT_W - 32) end
@@ -273,8 +284,8 @@ local function buildDuties()
 end
 
 local function buildPlace()
-  local y = GRID_Y + LIVE_H + VGAP + DUTY_H + VGAP
-  local p = panel(root, "plain", RIGHT_X, y, RIGHT_W, PLACE_H)
+  local y = LIVE_H + VGAP + DUTY_H + VGAP
+  local p = panel(body, "plain", RIGHT_X, y, RIGHT_W, PLACE_H)
   place = { frame = p }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Your place"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -12)
   place.district = chip(p)
@@ -288,11 +299,11 @@ local function buildPlace()
 end
 
 local function buildDecrees()
-  local y = GRID_Y + LIVE_H + VGAP + DUTY_H + VGAP + PLACE_H + VGAP
-  local p = panel(root, nil, RIGHT_X, y, RIGHT_W, HEIGHT - y)
+  local y = LIVE_H + VGAP + DUTY_H + VGAP + PLACE_H + VGAP
+  local p = panel(body, nil, RIGHT_X, y, RIGHT_W, BODY_H - y)
   decrees = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Recent decrees"):SetPoint("TOPLEFT", p, "TOPLEFT", 2, 0)
-  local rowH = math.min(26, math.floor((HEIGHT - y - 20) / DECREE_ROWS))
+  local rowH = DECREE_ROW_H
   for i = 1, DECREE_ROWS do
     local r = CreateFrame("Button", nil, p)
     r:SetSize(RIGHT_W, rowH)
@@ -452,17 +463,94 @@ function Page:Refresh()
   refreshDecrees()
 end
 
+---------------------------------------------------------------------------
+-- Scrolling: the wheel, a click on the bar, or dragging its gold thumb
+---------------------------------------------------------------------------
+
+local function range() return math.max(0, BODY_H - VIEW_H) end
+
+local function placeThumb()
+  local r = range()
+  bar:SetShown(r > 0)
+  if r <= 0 then return end
+  local h = math.max(30, VIEW_H * VIEW_H / (VIEW_H + r))
+  thumb:SetHeight(h)
+  local at = (scroll:GetVerticalScroll() or 0) / r
+  thumb:ClearAllPoints()
+  thumb:SetPoint("TOPLEFT", bar, "TOPLEFT", 1, -(2 + at * (VIEW_H - 4 - h)))
+end
+
+local function scrollTo(v)
+  scroll:SetVerticalScroll(math.max(0, math.min(range(), v)))
+  placeThumb()
+end
+
+local function cursorY()
+  local _, y = GetCursorPosition()
+  return y / (bar:GetEffectiveScale() or 1)
+end
+
+local function silver() return MOTA.skin and MOTA.skin.METAL == "silver" end
+
+local function buildBar()
+  bar = CreateFrame("Button", nil, root)
+  bar:SetSize(BAR_W, VIEW_H)
+  bar:SetPoint("TOPLEFT", root, "TOPLEFT", BODY_W + BAR_GAP, -GRID_Y)
+  local track = bar:CreateTexture(nil, "BACKGROUND")
+  Kit:Solid(track, "6E4F17", 0.18)
+  track:SetAllPoints()
+  Kit:Outline(bar, "6E4F17", 0.4)
+  thumb = CreateFrame("Button", nil, bar)
+  thumb:SetWidth(BAR_W - 2)
+  local left = thumb:CreateTexture(nil, "ARTWORK")
+  left:SetPoint("TOPLEFT")
+  left:SetPoint("BOTTOMRIGHT", thumb, "BOTTOM", 0, 0)
+  local right = thumb:CreateTexture(nil, "ARTWORK")
+  right:SetPoint("TOPLEFT", thumb, "TOP", 0, 0)
+  right:SetPoint("BOTTOMRIGHT")
+  Kit:Outline(thumb, "4A330C", 0.7)
+  Kit:Track(function() -- the metal: gold, or Silverhand's silver
+    local dark, light = "8A6420", "E9C979"
+    if silver() then dark, light = "6B7483", "EEF2F6" end
+    Kit:Gradient(left, dark, light, 1, 1, true)
+    Kit:Gradient(right, light, dark, 1, 1, true)
+  end)
+  bar:SetScript("OnClick", function()
+    local top = thumb:GetTop() or 0
+    scrollTo(scroll:GetVerticalScroll() + (cursorY() > top and -VIEW_H or VIEW_H))
+  end)
+  thumb:SetScript("OnMouseDown", function(self)
+    self.from, self.start = cursorY(), scroll:GetVerticalScroll()
+    self:SetScript("OnUpdate", function()
+      local free = VIEW_H - 4 - self:GetHeight()
+      if free <= 0 then return end
+      scrollTo(self.start + (self.from - cursorY()) / free * range())
+    end)
+  end)
+  thumb:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+  placeThumb()
+end
+
 local function build()
   root = CreateFrame("Frame", nil, UI.window)
   root:SetSize(WIDTH, HEIGHT)
   root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
   buildHead()
+  scroll = CreateFrame("ScrollFrame", nil, root)
+  scroll:SetSize(BODY_W, VIEW_H)
+  scroll:SetPoint("TOPLEFT", root, "TOPLEFT", 0, -GRID_Y)
+  body = CreateFrame("Frame", nil, scroll)
+  body:SetSize(BODY_W, BODY_H)
+  scroll:SetScrollChild(body)
+  scroll:EnableMouseWheel(true)
+  scroll:SetScript("OnMouseWheel", function(_, delta) scrollTo(scroll:GetVerticalScroll() - delta * WHEEL) end)
   buildPower()
   buildLive()
   buildDuties()
   buildPlace()
   buildDecrees()
-  Page.root, Page.head, Page.live = root, head, live -- for the pretend client's checks
+  buildBar()
+  Page.root, Page.scroll, Page.head, Page.live = root, scroll, head, live -- for the pretend client's checks
 end
 
 function Page:Show(show)

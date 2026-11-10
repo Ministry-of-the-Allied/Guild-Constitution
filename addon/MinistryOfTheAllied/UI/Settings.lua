@@ -60,6 +60,12 @@ local GROUPS = {
               { "party", "seg-party", "segParty" }, { "ministry", "seg-ministry", "segMinistry" } },
       changed = function() MOTA.Skin:Refresh(true) end },
   } },
+  -- The window's key (Max, 10 Nov): shows the key bound to MOTA_TOGGLE; click it, then press a new key.
+  { title = "Keys", rows = {
+    { key = "windowKey", label = "Window key", small = "Click, then press a key · Esc cancels · Backspace clears",
+      act = { label = function() return Page:KeyText() end, w = 150,
+              onClick = function(b) Page:CaptureKey(b) end } },
+  } },
   { title = "Coming later", rows = {
     { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members · later", sw = SW, later = true },
   } },
@@ -207,13 +213,77 @@ end
 -- A button in a row (the herald's Preview), its box's top-left at x, y in parent.
 local ACT = { w = 110, h = 30 }
 local function buildAction(parent, row, x, y)
-  local b = MOTA.Kit:Button(parent, ACT.w, ACT.h, row.act.label, "blue", function()
+  local b = MOTA.Kit:Button(parent, row.act.w or ACT.w, ACT.h,
+    type(row.act.label) == "function" and row.act.label() or row.act.label, "blue", function(self)
     play("IG_MAINMENU_OPTION_CHECKBOX_ON")
-    row.act.onClick()
+    row.act.onClick(self)
   end)
   b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
   row.button = b
-  return ACT.w
+  if type(row.act.label) == "function" then
+    function b:Update() self:SetLabel(row.act.label()) end
+    controls[#controls + 1] = b
+  end
+  return row.act.w or ACT.w
+end
+
+---------------------------------------------------------------------------
+-- The window key: the game's binding for MOTA_TOGGLE (Bindings.xml)
+---------------------------------------------------------------------------
+
+local BIND = "MOTA_TOGGLE"
+local capturing
+
+function Page:KeyText()
+  if capturing then return "Press a key..." end
+  local k = GetBindingKey and GetBindingKey(BIND)
+  if not k then return "Not set" end
+  return GetBindingText and GetBindingText(k) or k
+end
+
+-- Binds key (or clears when nil) and saves it; false when the game won't allow it (combat).
+function Page:SetKey(key)
+  if InCombatLockdown and InCombatLockdown() then return false end
+  while true do
+    local old = GetBindingKey(BIND)
+    if not old then break end
+    SetBinding(old)
+  end
+  if key then SetBinding(key, BIND) end
+  if SaveBindings and GetCurrentBindingSet then SaveBindings(GetCurrentBindingSet()) end
+  return true
+end
+
+local MODIFIERS = { LSHIFT = 1, RSHIFT = 1, LCTRL = 1, RCTRL = 1, LALT = 1, RALT = 1, LMETA = 1, RMETA = 1 }
+
+function Page:CaptureKey(b)
+  if capturing then return end
+  if InCombatLockdown and InCombatLockdown() then
+    b:SetLabel("Not in combat")
+    return
+  end
+  capturing = b
+  b:SetLabel(self:KeyText())
+  b:EnableKeyboard(true)
+  b:SetScript("OnKeyDown", function(self, key)
+    if MODIFIERS[key] then
+      self:SetPropagateKeyboardInput(false)
+      return
+    end
+    self:SetPropagateKeyboardInput(false)
+    local done = true
+    if key == "BACKSPACE" then
+      done = Page:SetKey(nil)
+    elseif key ~= "ESCAPE" then
+      local combo = (IsAltKeyDown() and "ALT-" or "") .. (IsControlKeyDown() and "CTRL-" or "")
+        .. (IsShiftKeyDown() and "SHIFT-" or "") .. key
+      done = Page:SetKey(combo)
+    end
+    capturing = nil
+    self:EnableKeyboard(false)
+    self:SetScript("OnKeyDown", nil)
+    self:SetLabel(done and Page:KeyText() or "Not in combat")
+  end)
 end
 
 -- One row: its label and small line on the left, its control on the right, dots along its foot.
@@ -232,7 +302,7 @@ local function buildRow(parent, row, y, last)
     small:SetAlpha(0.6)
   end
   if row.note then notes[#notes + 1] = { row = row, fs = small } end
-  local slot = row.act and ACT or M.slots[row.sw and SW.slot or row.seg.slot]
+  local slot = row.act and { w = row.act.w or ACT.w, h = ACT.h } or M.slots[row.sw and SW.slot or row.seg.slot]
   local cx, cy = LIST_W - slot.w, y + (ROW_H - slot.h) / 2
   if row.sw then
     buildSwitch(parent, row, cx, cy)

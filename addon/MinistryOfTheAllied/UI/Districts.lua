@@ -380,7 +380,7 @@ local function buildCouncil(v)
   local h = BODY_H - y
   local half = (WIDTH - 16) / 2
   local sitting = frame(v, 0, y, half, h)
-  Kit:Plate(sitting, "blue")
+  Kit:PlateArt(sitting, "kitBlue", "BACKGROUND") -- the drawn accent plate, as the Treasury coffer
   Kit:Label(sitting, "kitTiny", "C9D6F5", 0.22, "Next sitting"):SetPoint("TOPLEFT", sitting, "TOPLEFT", 16, -16)
   local when = Kit:Text(sitting, "kitName", "F3D98A")
   when:SetPoint("TOPLEFT", sitting, "TOPLEFT", 16, -34)

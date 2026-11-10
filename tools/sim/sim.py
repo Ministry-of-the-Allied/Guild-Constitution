@@ -646,7 +646,7 @@ glow_switch.scripts.OnClick(glow_switch)
 check("The District glow switch turns the glow off and tells the map",
       hns.db.settings.glow == False and glow_switch.off.shown and HL.GLOW_HEARD == 1)
 glow_switch.scripts.OnClick(glow_switch)
-cards_switch = controls[12]
+cards_switch = controls[13]
 cards_switch.scripts.OnClick(cards_switch)
 check("A switch for a later feature doesn't change", hns.db.settings.cards == False)
 modest = controls[3]
