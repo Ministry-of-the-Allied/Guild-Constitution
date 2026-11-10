@@ -140,6 +140,8 @@ function Tip:Refresh()
       local n = name(ni)
       local letters = MOTA.Honours and MOTA.Honours:Letters(p.name)
       local shown = letters and (p.name .. " |cffC9A24A" .. letters .. "|r") or p.name
+      local title = MOTA.Honours and MOTA.Honours:Title(p.name)
+      if title then shown = shown .. " |cffC9A24A· " .. title .. "|r" end
       n.fs:SetText(p.main and (shown .. " (" .. p.main .. ")") or shown)
       local r, g, b = colorOf(p, skin.ACCENT)
       n.fs:SetTextColor(r, g, b)

@@ -1,6 +1,6 @@
 -- Ministry of the Allied: the games log (Duncan, 2026-11-08).
 -- Every guild game's result is written to the book, so the District Cup can
--- count it and the winners are honoured (Honours.lua).
+-- count it (Cup.lua) and the winners are honoured (Honours.lua).
 --
 --   game.result  the Crown or the Minister of Games
 --                { g = kind, name, places = { first, second, ... }, ds = { district of each } }
@@ -84,7 +84,8 @@ function Games:Record(kind, name, places)
     if seen[who] then return nil, MOTA:Short(who) .. " is named twice." end
     seen[who] = true
     clean[i] = who
-    ds[i] = MOTA.District and MOTA.District:Of(who) or ""
+    local district = MOTA.District and MOTA.District:Of(who)
+    ds[i] = district and district.code or ""
   end
   return MOTA.Book:Write("game.result", { g = kind, name = name, places = clean, ds = ds })
 end

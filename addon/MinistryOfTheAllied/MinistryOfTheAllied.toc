@@ -46,6 +46,7 @@ Judiciary.lua
 Throne.lua
 Outreach.lua
 Games.lua
+Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua

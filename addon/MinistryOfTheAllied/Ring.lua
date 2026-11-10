@@ -217,8 +217,13 @@ local function build()
       local final = t.bouts[7]
       local paid = 0
       for _, e in ipairs(t.entrants) do if t.paid[e.name] then paid = paid + 1 end end
+      local semis = {}
+      for s = 5, 6 do
+        local b = t.bouts[s]
+        if b.a and b.b and b.w then semis[#semis + 1] = b.w == b.a and b.b or b.a end
+      end
       hall[#hall + 1] = { season = t.season, bracket = t.bracket, champion = t.champion, t = t.lastT,
-        runnerUp = final.a == t.champion and final.b or final.a, pot = paid * t.fee }
+        runnerUp = final.a == t.champion and final.b or final.a, semis = semis, pot = paid * t.fee }
     end
   end
   return order[#order], hall
