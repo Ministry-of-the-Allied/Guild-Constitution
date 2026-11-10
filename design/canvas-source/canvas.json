@@ -10,6 +10,14 @@
       "x": 2800,
       "y": 0
     },
+    "Chronicle.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "1b · The Chronicle (Throne Room sub-view, all decrees by month)",
+      "w": 1160,
+      "x": 5360,
+      "y": 0
+    },
     "Districts.dc.html": {
       "h": 820,
       "is_interactive": true,

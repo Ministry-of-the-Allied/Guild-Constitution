@@ -5,7 +5,7 @@
 --   Throne:Power()    the Crown, the government, the opposition, the Justices
 --   Throne:Live()     a section for each thing on now, most urgent first
 --   Throne:Duties()   my own to-do list, for any office I hold
---   Throne:Decrees()  recent public events from the book, newest first
+--   Throne:Decrees()  recent public events from the book, newest first (Chronicle.lua holds the lines)
 
 local _, MOTA = ...
 local Throne = {}
@@ -52,7 +52,7 @@ local function governments()
 end
 
 ---------------------------------------------------------------------------
--- The banner: { eyebrow, plateEyebrow, plateText }
+-- The banner: { eyebrow, plateEyebrow, plateText, page } (page: where the plate opens)
 ---------------------------------------------------------------------------
 
 function Throne:Banner()
@@ -72,6 +72,9 @@ function Throne:Banner()
   end
   local cur = Co:Current()
   local ballot = MOTA.Ballot and MOTA.Ballot:Current()
+  -- The plate opens the Ballot Hall while polls are open or being counted, else the Parties.
+  local stage = ballot and MOTA.Ballot:Stage(ballot)
+  out.page = (stage == "open" or stage == "closed") and PAGES.ballot or PAGES.parties
   if ballot and MOTA.Ballot:Stage(ballot) == "open" then
     out.plateEyebrow, out.plateText = ballot.d.name, "Polls open"
   elseif El:Pending() and cur then
@@ -91,7 +94,31 @@ end
 -- Who holds power
 ---------------------------------------------------------------------------
 
+-- /mota throne preview: a made-up government (the board's own names) for drawing the page, so the Cabinet can be
+-- checked before anyone is elected. It lives only in memory: nothing is written to the book, nothing is sent, and
+-- Power() says preview = true so the page can wear a "Preview" tag. /reload or /mota throne preview off ends it.
+local previewing = false
+function Throne:Preview(on)
+  if on ~= nil then previewing = on and true or false end
+  return previewing
+end
+
+-- Single names, as the guild's characters have, so the circles and widths are what the game will really show.
+local PREVIEW_CABINET = { "Bram", "Dagna", "Pell", "Mira", "Osric" }
+local function previewPower()
+  local Bench = MOTA.Bench
+  local out = { preview = true, crown = { "Aldmere", "Corwen" },
+    pm = { name = "Seraphine", p = "sh", since = GetServerTime() - 40 * DAY },
+    cabinet = {}, opposition = { p = "ex", name = "Garrick" },
+    justices = "The High Judiciary: Osric, Elowen and Pell." }
+  for i = 2, #Bench.POSTS do
+    out.cabinet[#out.cabinet + 1] = { title = Bench.TITLES[Bench.POSTS[i]], name = PREVIEW_CABINET[i - 1] }
+  end
+  return out
+end
+
 function Throne:Power()
+  if previewing then return previewPower() end
   local El, Bench = MOTA.Elect, MOTA.Bench
   local out = { crown = MOTA:CrownMembers() }
   local gov = El:Government()
@@ -118,7 +145,7 @@ function Throne:Power()
 end
 
 ---------------------------------------------------------------------------
--- What's on: { key, title, line, live, button, page }
+-- What's on: { key, title, line, live, button, page, view } (view: the sub-view of that page, if any)
 ---------------------------------------------------------------------------
 
 function Throne:Live()
@@ -143,7 +170,7 @@ function Throne:Live()
   if NC and NC:IsOpen() then
     local m = NC:Motion()
     local voted = NC:MyVote() ~= nil
-    out[#out + 1] = { key = "nc", live = true, title = "A Vote of No Confidence", page = nil,
+    out[#out + 1] = { key = "nc", live = true, title = "A Vote of No Confidence", page = PAGES.ballot,
       line = ("%d of %d votes · %s left"):format(m.n, m.need, self:Left(m.ends - now)) .. (voted and " · you've voted" or (crown and "" or " · /mota noconfidence yes")) }
   end
 
@@ -155,7 +182,7 @@ function Throne:Live()
       local line = Co:Banner(p)
       if stage == "voting" and mine == p and not Co:MyVote(p) and Co:Eligible(me, p) then line = line .. " · you haven't voted" end
       out[#out + 1] = { key = "contest_" .. p, live = stage == "voting", title = (Co:IsEmergency(p) and "Emergency contest · " or "Leadership contest · ") .. NAMES[p],
-        line = line, page = PAGES.parties, button = "Open", ends = ends }
+        line = line, page = PAGES.parties, view = p, button = "Open", ends = ends }
     end
   end
 
@@ -175,7 +202,7 @@ function Throne:Live()
     local opp = El:Opposition()
     local open = #El:Vacant(gov.p) + (opp and #El:Vacant(opp) or 0)
     if open > 0 then
-      out[#out + 1] = { key = "bench", title = "The 48 hours", page = PAGES.parties, button = "Open",
+      out[#out + 1] = { key = "bench", title = "The 48 hours", page = PAGES.parties, view = gov.p, button = "Open",
         line = "The Cabinet and shadow cabinet are being named · " .. self:Left(gov.t + El.NAME_WINDOW - now) .. " left." }
     end
   end
@@ -184,20 +211,20 @@ function Throne:Live()
   local ls = L and MOTA.Lottery:Stage(L)
   if ls == "selling" or ls == "closed" or (ls == "drawn" and now < L.drawn.t + 3 * DAY) or (ls == "cancelled" and MOTA.Lottery:Owed(L) > 0) then
     local mine = MOTA.Lottery:TicketsOf(me, L)
-    out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.games, button = "Open",
+    out[#out + 1] = { key = "lottery", live = ls == "selling", title = L.name, page = PAGES.games, view = "lottery", button = "Open",
       line = MOTA.Lottery:Line(L) .. (ls == "selling" and mine > 0 and (" · you hold " .. mine) or ""), ends = ls == "selling" and L.closes or nil }
   end
 
   local ring = MOTA.Ring and MOTA.Ring:Current()
   if ring then
     if ring.stage == "signup" then
-      out[#out + 1] = { key = "ring", title = "The Ring · " .. tostring(ring.season or "a tournament"), page = PAGES.ring, button = "Open",
+      out[#out + 1] = { key = "ring", title = "The Ring · " .. tostring(ring.season or "a tournament"), page = PAGES.ring, view = "signup", button = "Open",
         line = now < (ring.closes or 0) and ("Sign-ups open · close in " .. self:Left(ring.closes - now)) or "Sign-ups closed · the draw is next" }
     elseif ring.stage == "bouts" and ring.next then
-      out[#out + 1] = { key = "ring", title = "The Ring · next bout", page = PAGES.ring, button = "Open",
+      out[#out + 1] = { key = "ring", title = "The Ring · next bout", page = PAGES.ring, view = "bracket", button = "Open",
         line = MOTA:Short(ring.next.a) .. " v " .. MOTA:Short(ring.next.b) .. ", Old Town" }
     elseif ring.stage == "done" and ring.champion and now - (ring.lastT or 0) < 7 * DAY then
-      out[#out + 1] = { key = "ring", title = "The Ring · champion", page = PAGES.ring, button = "Open",
+      out[#out + 1] = { key = "ring", title = "The Ring · champion", page = PAGES.ring, view = "champions", button = "Open",
         line = MOTA:Short(ring.champion) .. ", Gladiator of Stormwind" }
     end
   end
@@ -210,7 +237,7 @@ function Throne:Live()
 end
 
 ---------------------------------------------------------------------------
--- My duties: { text, page }
+-- My duties: { text, page, view }
 ---------------------------------------------------------------------------
 
 function Throne:Duties()
@@ -218,28 +245,28 @@ function Throne:Duties()
   local me = MOTA.me
   if not me or not MOTA.guild then return out end
   local Co, El, Bench, Party = MOTA.Contest, MOTA.Elect, MOTA.Bench, MOTA.Party
-  local function add(text, page) out[#out + 1] = { text = text, page = page } end
+  local function add(text, page, view) out[#out + 1] = { text = text, page = page, view = view } end
 
   local Lo = MOTA.Lottery
   local L = Lo and Lo:Current()
   if L and MOTA.Games:CanRun(me) then
     if Lo:Stage(L) == "closed" and (MOTA:IsMe(L.by) or GetServerTime() >= L.closes + Lo.LATE) then add("Draw " .. L.name .. " (/mota lottery draw)", nil) end
-    if Lo:Owed(L) > 0 and L.winner then add("Pay " .. MOTA:Short(L.winner) .. " the lottery prize, " .. MOTA:Money(Lo:Owed(L)) .. " (Lottery payout)", PAGES.games) end
-    if Lo:Owed(L) > 0 and L.cancelled then add("Refund the cancelled " .. L.name .. ", " .. MOTA:Money(Lo:Owed(L)) .. " left (Lottery payout)", PAGES.games) end
+    if Lo:Owed(L) > 0 and L.winner then add("Pay " .. MOTA:Short(L.winner) .. " the lottery prize, " .. MOTA:Money(Lo:Owed(L)) .. " (Lottery payout)", PAGES.games, "lottery") end
+    if Lo:Owed(L) > 0 and L.cancelled then add("Refund the cancelled " .. L.name .. ", " .. MOTA:Money(Lo:Owed(L)) .. " left (Lottery payout)", PAGES.games, "lottery") end
   end
 
   if MOTA:IsCrown(me) then
     for _, p in ipairs({ "sh", "ex" }) do
-      if Co:Stage(p) == "counting" and #Co:Candidates(p) > 0 then add("Ratify the " .. NAMES[p] .. " count", PAGES.parties) end
+      if Co:Stage(p) == "counting" and #Co:Candidates(p) > 0 then add("Ratify the " .. NAMES[p] .. " count", PAGES.parties, "ch") end
     end
     local b = MOTA.Ballot and MOTA.Ballot:Current()
     if b and MOTA.Ballot:Stage(b) == "closed" then add("Declare the result of " .. b.d.name, PAGES.ballot) end
     local n = #Party:Requests()
-    if n > 0 then add(n .. (n == 1 and " citizen asks" or " citizens ask") .. " to join a party", PAGES.parties) end
+    if n > 0 then add(n .. (n == 1 and " citizen asks" or " citizens ask") .. " to join a party", PAGES.parties, "ch") end
     if MOTA.Ledger and not MOTA.Ledger:Get().open then add("Open the Treasury books", PAGES.treasury) end
     local cur = Co:Current()
-    if cur and cur.kind ~= "snap" and not cur.openedAt and El:Underway() and Co:Stage("sh") == "none" then add("Open the leadership contests", PAGES.parties) end
-    if not El:Begun() and El:Gates().ok then add("Begin the first General Election", PAGES.parties) end
+    if cur and cur.kind ~= "snap" and not cur.openedAt and El:Underway() and Co:Stage("sh") == "none" then add("Open the leadership contests", PAGES.parties, "ch") end
+    if not El:Begun() and El:Gates().ok then add("Begin the first General Election", PAGES.parties, "ch") end
     local open = b and MOTA.Ballot:Stage(b) ~= "declared"
     if El:Pending() and cur and GetServerTime() >= Co:PollAt() and not open then
       add("Polling day: open the polls for the " .. Co:Kind(), PAGES.ballot)
@@ -249,7 +276,7 @@ function Throne:Duties()
       add(missing .. (missing == 1 and " member doesn't" or " members don't") .. " have the add-on (/mota missing)", nil)
     end
     if MOTA.Judiciary and #MOTA.Judiciary:Justices() < MOTA.Judiciary.SEATS then
-      add((MOTA.Judiciary.SEATS - #MOTA.Judiciary:Justices()) .. " seat(s) on the High Judiciary to fill (/mota justice)", PAGES.statute)
+      add((MOTA.Judiciary.SEATS - #MOTA.Judiciary:Justices()) .. " seat(s) on the High Judiciary to fill (/mota justice)", PAGES.statute, "court")
     end
   end
 
@@ -259,11 +286,11 @@ function Throne:Duties()
     local vacant = El:Vacant(mine)
     if #vacant > 0 then
       local what = (gov and gov.p == mine) and "the Cabinet" or "the shadow cabinet"
-      add("Name " .. what .. ": " .. table.concat(vacant, ", "), PAGES.parties)
+      add("Name " .. what .. ": " .. table.concat(vacant, ", "), PAGES.parties, mine)
     end
   end
   if mine and Co:Stage(mine) == "voting" and not Co:MyVote(mine) and Co:Eligible(me, mine) then
-    add("Vote in your party's leadership contest", PAGES.parties)
+    add("Vote in your party's leadership contest", PAGES.parties, mine)
   end
   local b = MOTA.Ballot and MOTA.Ballot:Current()
   if b and MOTA.Ballot:Stage(b) == "open" and MOTA.Ballot:MyState(b) == "none" and not MOTA:IsCrown(me) then
@@ -280,47 +307,12 @@ end
 -- Recent decrees: { text, t, hex, page }
 ---------------------------------------------------------------------------
 
-local GEM = { crown = "1B3570", floor = "9E1B22", fail = "6E1712", party = "1F4290", ring = "7A5719" }
-
+-- The lines come from the Chronicle (Chronicle.lua), so this feed and the Chronicle say the same thing.
 function Throne:Decrees(limit)
   limit = limit or 4
-  local key = "decrees" .. limit
-  if cache[key] then return cache[key] end
+  local all = MOTA.Chronicle:All("all")
   local out = {}
-  cache[key] = out
-  for _, r in ipairs(MOTA.Book:Latest(300)) do
-    local d = r.d or {}
-    local e
-    if r.k == "ballot.result" and d.w and type(d.cands) == "table" and d.cands[d.w] then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.cands[d.w].n) .. "|r wins " .. tostring(d.name), hex = GEM.crown, page = PAGES.ballot }
-    elseif r.k == "contest.result" and d.w then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.w) .. "|r leads the " .. (NAMES[d.p] or "party"), hex = GEM.party, page = PAGES.parties }
-    elseif r.k == "party.leave" or r.k == "party.remove" then
-      local who = r.k == "party.leave" and r.a or d.v
-      e = { text = "|cff2A1F14" .. MOTA:Short(who) .. "|r crossed the floor", hex = GEM.floor, page = PAGES.parties }
-    elseif r.k == "nc.result" then
-      e = { text = "Vote of No Confidence |cff2A1F14" .. (d.passed and "passed" or "failed") .. "|r", hex = GEM.fail }
-    elseif r.k == "election.date" then
-      e = { text = (d.kind == "snap" and "A |cff2A1F14Snap Election|r is called" or "A |cff2A1F14General Election|r is set for ") .. (d.kind == "snap" and "" or date("%d %b", d.at)), hex = GEM.crown, page = PAGES.parties }
-    elseif r.k == "judiciary.appoint" and d.v then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.v) .. "|r appointed a Justice", hex = GEM.crown, page = PAGES.statute }
-    elseif r.k == "contest.emergency" then
-      e = { text = "An |cff2A1F14emergency contest|r moves polling day back", hex = GEM.fail, page = PAGES.parties }
-    elseif r.k == "honour.award" and MOTA.Honours and MOTA.Honours.ORDER[d.o] then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.v) .. "|r is made " .. MOTA.Honours.ORDER[d.o].title, hex = GEM.crown }
-    elseif r.k == "game.result" and type(d.places) == "table" and d.places[1] then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.places[1]) .. "|r wins " .. tostring(d.name), hex = GEM.ring }
-    elseif r.k == "lottery.open" and type(d.price) == "number" then
-      e = { text = "|cff2A1F14" .. tostring(d.name) .. "|r is open, tickets " .. MOTA:Money(d.price), hex = GEM.ring, page = PAGES.games }
-    elseif r.k == "ring.result" and d.s == 7 and d.w then
-      e = { text = "|cff2A1F14" .. MOTA:Short(d.w) .. "|r is champion of the Ring", hex = GEM.ring, page = PAGES.ring }
-    end
-    if e then
-      e.t = r.t
-      out[#out + 1] = e
-      if #out >= limit then break end
-    end
-  end
+  for i = 1, math.min(limit, #all) do out[i] = all[i] end
   return out
 end
 

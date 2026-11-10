@@ -44,6 +44,7 @@ Elect.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
+Chronicle.lua
 Outreach.lua
 Games.lua
 Cup.lua
@@ -74,5 +75,6 @@ UI\WorldMapSkin.lua
 UI\MapCompat.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
+UI\ChroniclePage.lua
 UI\FullText.lua
 Commands.lua

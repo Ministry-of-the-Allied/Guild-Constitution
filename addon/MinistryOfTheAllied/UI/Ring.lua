@@ -632,6 +632,9 @@ function Page:Select(name)
   self:Refresh()
 end
 
+function Page:View() return view end
+
+
 function Page:Refresh()
   if not root or not root:IsShown() then return end
   local cur = Ring:Current()

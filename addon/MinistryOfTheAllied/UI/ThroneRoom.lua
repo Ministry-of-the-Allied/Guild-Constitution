@@ -31,6 +31,13 @@ local DECREE_ROW_H = 26
 -- the right column's natural height: the four panels and the decrees under them
 local BODY_H = math.max(VIEW_H, LIVE_H + DUTY_H + PLACE_H + 3 * VGAP + 18 + DECREE_ROWS * DECREE_ROW_H + 8)
 local GRID_H = BODY_H
+-- Who holds power, in the board's numbers (the window is 1000 x 680 on the board and in the game, so 1 to 1)
+local PAD_X, PAD_Y, FLOW = 18, 16, 12      -- .plate padding 16 18; the column's gap
+local PW = LEFT_W - 2 * PAD_X              -- inside the plate
+local PORTRAIT_SM = 42                     -- .portrait.sm: a 36px disc, plus its 2.5px ring and edge
+local PM_DISC = 76                         -- .portrait.lg
+local PM_ART = math.floor(67 * PM_DISC / 52 + 0.5)    -- the party portrait art (a 52px disc in a 67px piece), scaled up
+local PM_PLAIN = math.floor(42 * PM_DISC / 36 + 0.5)  -- the skin's portrait (a 36px disc in a 42px piece)
 
 local PARTY = { sh = { name = "Silverhand", hex = "1F4290", portrait = "kitPortraitSh", seal = "hseal_silverhand" },
   ex = { name = "Exchange", hex = "9E1B22", portrait = "kitPortraitEx", seal = "hseal_exchange" } }
@@ -59,13 +66,54 @@ local function seal(parent, name, size)
   return t
 end
 
-local function go(page)
+-- The page object of each tab that has views, to switch to the right one after the tab opens.
+local function pageObject(i)
+  return ({ [3] = MOTA.StatutesPage, [4] = MOTA.PartiesPage, [6] = MOTA.DistrictsPage, [7] = MOTA.RingPage, [8] = MOTA.GamesPage })[i]
+end
+
+local function go(page, view)
   if not page then return end
   UI:SelectPage(page)
+  local obj = view and pageObject(page)
+  if obj and obj.Select then obj:Select(view) end
+end
+
+-- Every box that opens another page: click anywhere on it, a faint glow on hover, and a tooltip
+-- saying where it goes. A box with no destination has no glow and no click (Kit:Hot).
+local VIEW_LABEL = { map = "Map", council = "Council", roll = "Roll", sh = "Silverhand", ex = "Exchange", ch = "Chamber",
+  force = "In force", wait = "Awaiting", court = "Court", charter = "Charter", lottery = "Lottery", hunt = "Treasure hunt",
+  cup = "Cup", honours = "Honours", signup = "Sign-up", bracket = "Bracket", champions = "Champions" }
+
+local function where(page, view)
+  local p = M.pages[page]
+  if not p then return "" end
+  return "Opens " .. p.label .. (view and VIEW_LABEL[view] and (" · " .. VIEW_LABEL[view]) or "")
+end
+
+local hot = {}
+Page.hot = hot -- for the pretend client's checks
+
+local function link(box)
+  local h = Kit:Hot(box, function(self) go(self.page, self.view) end)
+  hot[#hot + 1] = h
+  return h
+end
+
+local function aim(h, page, view, tip)
+  page = page or nil -- a false from "x and page" counts as no page
+  h:SetTarget(page, view, page and (tip or where(page, view)) or "")
+end
+
+-- An empty frame to lay a link over a part of a panel.
+local function zone(parent, x, y, w, h)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(w, h)
+  f:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+  return f
 end
 
 -- .chip, as on the other pages: a coloured lozenge with a gem and a label.
-local function chip(parent)
+local function chip(parent, font)
   local c = CreateFrame("Frame", nil, parent)
   c:SetHeight(22)
   local fill = c:CreateTexture(nil, "BACKGROUND")
@@ -73,7 +121,7 @@ local function chip(parent)
   Kit:Outline(c, "000000", 0.28)
   local gem = Kit:Gem(c, "F3D98A")
   gem:SetPoint("LEFT", c, "LEFT", 8, 0)
-  c.label = Kit:Label(c, "kitTiny", "FFFFFF", 0.14)
+  c.label = Kit:Label(c, font or "kitTiny", "FFFFFF", 0.14) -- .chip is 10px on the Throne Room board (bEyebrow)
   c.label:SetPoint("LEFT", c, "LEFT", 22, 0)
   function c:Set(text, hex)
     Kit:Solid(fill, hex or "5E4B33")
@@ -107,7 +155,6 @@ local function linkRow(parent, y, w)
   b.text:SetPoint("LEFT", b, "LEFT", 15, 0)
   b.text:SetWidth(w - 15)
   b.text:SetMaxLines(1)
-  b:SetScript("OnClick", function(self) go(self.page) end)
   return b
 end
 
@@ -123,6 +170,7 @@ local function buildHead()
   title:SetPoint("TOPLEFT", root, "TOPLEFT", 0, -22)
   title:SetText("The State of the Realm")
   local plate = panel(root, "blue", WIDTH - 236, 0, 236, 64)
+  head.hot = link(plate)
   head.crest = seal(plate, "hseal_crown", 46)
   head.crest:SetPoint("LEFT", plate, "LEFT", 12, 0)
   head.plateEyebrow = Kit:Label(plate, "kitTiny", "C9D6F5", 0.2, "")
@@ -139,73 +187,79 @@ end
 ---------------------------------------------------------------------------
 
 local function buildPower()
+  -- The board's plate (section.plate: padding 16 18, a column with a 12 gap). Everything below is put by
+  -- layoutPower() each time it is filled in, from the board's numbers (measured in Edge, see ADDON_SPEC 19.1).
   local p = panel(body, "plain", 0, 0, LEFT_W, GRID_H)
-  power = { frame = p }
-  Kit:Label(p, "kitSection", "1B3570", 0.22, "Who holds power"):SetPoint("TOPLEFT", p, "TOPLEFT", 18, -16)
+  power = { frame = p, geo = {}, rows = { cab = {} } }
+  power.title = Kit:Label(p, "bSec", "1B3570", 0.22, "Who holds power") -- .h-sec at 13
+  power.previewTag = chip(p, "bEyebrow") -- /mota throne preview: drawn from a made-up government
+  power.previewTag:SetPoint("TOPRIGHT", p, "TOPRIGHT", -PAD_X, -14)
+  power.previewTag:Set("Preview", "9E1B22")
+  power.previewTag:Hide()
 
-  -- The Crown
-  power.k1 = portrait(p, 34)
-  power.k1:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -40)
-  power.k2 = portrait(p, 34)
-  power.k2:SetPoint("TOPLEFT", p, "TOPLEFT", 44, -40)
-  Kit:Label(p, "kitTiny", "7A5719", 0.2, "The Crown"):SetPoint("TOPLEFT", p, "TOPLEFT", 92, -42)
-  power.crown = Kit:Text(p, "kitName")
-  power.crown:SetPoint("TOPLEFT", p, "TOPLEFT", 92, -56)
-  power.crown:SetWidth(LEFT_W - 92 - 60)
-  power.crown:SetMaxLines(1)
-  seal(p, "hseal_crown", 38):SetPoint("TOPRIGHT", p, "TOPRIGHT", -16, -38)
-  Kit:Rule(p, LEFT_W - 36):SetPoint("TOPLEFT", p, "TOPLEFT", 18, -86)
+  -- The Crown: two overlapping 36px portraits (the ring makes the piece 42), the name, the crest at 38
+  power.k1 = portrait(p, PORTRAIT_SM)
+  power.k2 = portrait(p, PORTRAIT_SM)
+  power.crownEyebrow = Kit:Label(p, "bEyebrow", "7A5719", 0.32, "The Crown")
+  power.crown = Kit:Text(p, "tName15")
+  power.crown:SetMaxLines(2)
+  power.crownProbe = Kit:Text(p, "tName15") -- one line of the same font, to count the name's lines against
+  power.crownProbe:SetText("Ag")
+  power.crownProbe:Hide()
+  power.crest = seal(p, "hseal_crown", 38)
+  power.rule = Kit:Rule(p, PW)
+  power.rows.crown = CreateFrame("Frame", nil, p)
 
-  -- The government
+  -- The government, from the Prime Minister down (gov starts at the Prime Minister's row)
   local gov = panel(p, nil, 0, 94, LEFT_W, GRID_H - 94)
   power.gov = gov
   power.pmArt = {}
   for key, party in pairs(PARTY) do
     local t = Kit:Art(gov, party.portrait)
-    t:SetSize(57, 57)
-    t:SetPoint("CENTER", gov, "TOPLEFT", 46, -30)
+    t:SetSize(PM_ART, PM_ART)
+    t:SetPoint("CENTER", gov, "TOPLEFT", PAD_X + 38, -38)
     power.pmArt[key] = t
   end
-  power.pmPlain = portrait(gov, 46)
-  power.pmPlain:SetPoint("CENTER", gov, "TOPLEFT", 46, -30)
-  power.pmInitials = Kit:Text(gov, "initials", "F3D98A", "CENTER")
-  power.pmInitials:SetPoint("CENTER", gov, "TOPLEFT", 46, -30)
-  Kit:Label(gov, "kitTiny", "7A5719", 0.2, "Prime Minister"):SetPoint("TOPLEFT", gov, "TOPLEFT", 84, -6)
-  power.pm = Kit:Text(gov, "kitStage")
-  power.pm:SetPoint("TOPLEFT", gov, "TOPLEFT", 84, -20)
-  power.pm:SetWidth(LEFT_W - 100)
+  power.pmPlain = portrait(gov, PM_PLAIN)
+  power.pmPlain:SetPoint("CENTER", gov, "TOPLEFT", PAD_X + 38, -38)
+  power.pmInitials = Kit:Text(gov, "tInitialsLg", "F3D98A", "CENTER")
+  power.pmInitials:SetPoint("CENTER", gov, "TOPLEFT", PAD_X + 38, -38)
+  power.pmEyebrow = Kit:Label(gov, "bEyebrow", "7A5719", 0.32, "Prime Minister")
+  power.pm = Kit:Text(gov, "tName19")
   power.pm:SetMaxLines(1)
-  power.pmChip = chip(gov)
-  power.pmChip:SetPoint("TOPLEFT", gov, "TOPLEFT", 84, -44)
-  power.since = Kit:Text(gov, "kitItalic", "5E4B33")
-  power.since:SetPoint("LEFT", power.pmChip, "RIGHT", 8, 0)
+  power.pm:SetWidth(PW - 90)
+  power.pmChip = chip(gov, "bEyebrow")
+  power.since = Kit:Text(gov, "kitSmall", "5E4B33") -- .small.muted
+  power.rows.pm = CreateFrame("Frame", nil, gov) -- the rows below are in gov, so they go with it when it hides
 
-  local cab = panel(gov, "sunk", 18, 74, LEFT_W - 36, 4 * 20 + 16) -- five posts, at 17 apart
+  local cab = panel(gov, "sunk", PAD_X, 88, PW, 130) -- .plate.sunk: padding 10 12, five rows 18 high, 5 apart
   power.cab = {}
+  power.cabFrame = cab
   for i = 1, 5 do
-    local label = Kit:Label(cab, "kitTiny", "7A5719", 0.14, "")
-    label:SetPoint("TOPLEFT", cab, "TOPLEFT", 12, -(10 + (i - 1) * 17))
+    local label = Kit:Label(cab, "eyebrow", "7A5719", 0.32, "") -- .eyebrow at 9.5
     local name = Kit:Text(cab, "kitSmall")
-    name:SetPoint("TOPLEFT", cab, "TOPLEFT", 110, -(7 + (i - 1) * 17))
-    name:SetWidth(LEFT_W - 36 - 122)
     name:SetMaxLines(1)
     power.cab[i] = { label = label, name = name }
+    power.rows.cab[i] = CreateFrame("Frame", nil, gov)
   end
 
-  power.justices = Kit:Text(gov, "kitItalic", "5E4B33")
-  power.justices:SetPoint("TOPLEFT", gov, "TOPLEFT", 18, -(74 + 96 + 10))
-  power.justices:SetWidth(LEFT_W - 36)
+  -- Not on the board (Max, 10 Nov): the Justices, small and italic under the Cabinet
+  power.justices = Kit:Text(gov, "bItalic", "5E4B33")
+  power.justices:SetWidth(PW)
+  power.rows.justices = CreateFrame("Frame", nil, gov)
 
-  local opp = panel(gov, nil, 18, GRID_H - 94 - 54, LEFT_W - 36, 40)
-  power.oppPortrait = portrait(opp, 34)
-  power.oppPortrait:SetPoint("LEFT", opp, "LEFT", 0, 0)
-  Kit:Label(opp, "kitTiny", "7A5719", 0.2, "Leader of the Opposition"):SetPoint("TOPLEFT", opp, "TOPLEFT", 46, -2)
-  power.opp = Kit:Text(opp, "kitName")
-  power.opp:SetPoint("TOPLEFT", opp, "TOPLEFT", 46, -16)
-  power.opp:SetWidth(LEFT_W - 36 - 46 - 110)
+  -- The Leader of the Opposition, pinned to the bottom of the plate
+  local opp = panel(gov, nil, PAD_X, GRID_H - 94 - 54, PW, 49)
+  power.oppFrame = opp
+  power.rows.opp = opp
+  power.oppPortrait = portrait(opp, PORTRAIT_SM)
+  power.oppPortrait:SetPoint("CENTER", opp, "TOPLEFT", 18, -24.5)
+  power.oppEyebrow = Kit:Label(opp, "bEyebrow", "7A5719", 0.32, "Leader of the Opposition")
+  power.oppEyebrow2 = Kit:Label(opp, "bEyebrow", "7A5719", 0.32, "Opposition") -- the board's label wraps to two lines
+  power.opp = Kit:Text(opp, "tName15")
   power.opp:SetMaxLines(1)
-  power.oppChip = chip(opp)
-  power.oppChip:SetPoint("RIGHT", opp, "RIGHT", 0, 0)
+  power.oppChip = chip(opp, "bEyebrow")
+  power.oppChip:SetPoint("RIGHT", opp, "TOPRIGHT", 0, -24.5)
 
   -- Before the first election
   recruit = panel(p, nil, 0, 94, LEFT_W, GRID_H - 94)
@@ -223,6 +277,28 @@ local function buildPower()
   recruit.justices = Kit:Text(recruit, "kitItalic", "5E4B33")
   recruit.justices:SetPoint("TOPLEFT", recruit, "TOPLEFT", 18, -170)
   recruit.justices:SetWidth(LEFT_W - 36)
+  Page.power = power -- for the pretend client's checks (power.geo, power.rows)
+end
+
+-- The click targets of Who holds power: laid over the row frames layoutPower sizes (power.rows), so a
+-- change to that layout moves them too. Aimed in refreshPowerLinks. The recruiting lines are text,
+-- so a frame is stretched over each.
+local function buildPowerLinks()
+  local rows = power.rows
+  power.links = { cab = {}, recruit = {} }
+  local L = power.links
+  L.crown = link(rows.crown)
+  L.pm = link(rows.pm)
+  for i = 1, #power.cab do L.cab[i] = link(rows.cab[i]) end
+  L.justices = link(rows.justices)
+  L.opp = link(rows.opp)
+  local function over(text)
+    local f = CreateFrame("Frame", nil, recruit)
+    f:SetAllPoints(text)
+    return link(f)
+  end
+  for i = 1, 3 do L.recruit[i] = over(recruit.lines[i]) end
+  L.recruitJustices = over(recruit.justices)
 end
 
 ---------------------------------------------------------------------------
@@ -232,6 +308,7 @@ end
 local function buildLive()
   local p = panel(body, "blue", RIGHT_X, 0, RIGHT_W, LIVE_H)
   live = { frame = p }
+  live.hot = link(p) -- the whole plate opens what's on; the buttons below sit above it
   Kit:Label(p, "kitSection", "F3D98A", 0.22, "What's on"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -14)
   -- LIVE, with its red dot
   local dot = p:CreateTexture(nil, "OVERLAY")
@@ -255,12 +332,14 @@ local function buildLive()
   live.line:SetPoint("TOPLEFT", p, "TOPLEFT", 72, -62)
   live.line:SetWidth(RIGHT_W - 88)
   live.line:SetMaxLines(2)
-  live.button = Kit:Button(p, 150, 28, "Open", "gold", function() go(live.page) end)
+  live.button = Kit:Button(p, 150, 28, "Open", "gold", function() go(live.page, live.view) end)
+  live.hot:Above(live.button)
   live.button:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 12)
   live.count = Kit:Label(p, "kitTiny", "C9D6F5", 0.14, "")
   live.count:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -16, 20)
   live.more = CreateFrame("Button", nil, p)
   live.more:SetAllPoints(live.count)
+  live.hot:Above(live.more)
   live.more:SetScript("OnClick", function()
     liveIndex = liveIndex + 1
     Page:Refresh()
@@ -276,7 +355,11 @@ local function buildDuties()
   local p = panel(body, "plain", RIGHT_X, y, RIGHT_W, DUTY_H)
   duties = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Your duties"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -12)
-  for i = 1, DUTY_ROWS do duties.rows[i] = linkRow(p, 28 + (i - 1) * 22, RIGHT_W - 32) end
+  for i = 1, DUTY_ROWS do
+    local r = linkRow(p, 28 + (i - 1) * 22, RIGHT_W - 32)
+    r.hot = link(r)
+    duties.rows[i] = r
+  end
   duties.none = Kit:Text(p, "kitItalic", "5E4B33")
   duties.none:SetPoint("TOPLEFT", p, "TOPLEFT", 16, -34)
   duties.none:SetWidth(RIGHT_W - 32)
@@ -292,10 +375,12 @@ local function buildPlace()
   place.district:SetPoint("TOPLEFT", p, "TOPLEFT", 16, -30)
   place.party = chip(p)
   place.party:SetPoint("LEFT", place.district, "RIGHT", 8, 0)
+  place.districtHot, place.partyHot = link(place.district), link(place.party)
   place.meet = Kit:Text(p, "kitSmallest", "2A1F14")
   place.meet:SetPoint("TOPLEFT", p, "TOPLEFT", 16, -56)
   place.meet:SetWidth(RIGHT_W - 32)
   place.meet:SetMaxLines(1)
+  place.meetHot = link(zone(p, 16, 54, RIGHT_W - 32, 16)) -- the council line belongs to the district
 end
 
 local function buildDecrees()
@@ -303,6 +388,14 @@ local function buildDecrees()
   local p = panel(body, nil, RIGHT_X, y, RIGHT_W, BODY_H - y)
   decrees = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Recent decrees"):SetPoint("TOPLEFT", p, "TOPLEFT", 2, 0)
+  -- "See all" opens the Chronicle
+  local seeAll = CreateFrame("Button", nil, p)
+  seeAll:SetSize(70, 16)
+  seeAll:SetPoint("TOPRIGHT", p, "TOPRIGHT", 0, 2)
+  local seeAllText = Kit:Label(seeAll, "kitTiny", "1B3570", 0.2, "See all  ›")
+  seeAllText:SetPoint("RIGHT", seeAll, "RIGHT", -2, 0)
+  seeAll:SetScript("OnClick", function() Page:Open("chronicle") end)
+  decrees.seeAll = seeAll
   local rowH = DECREE_ROW_H
   for i = 1, DECREE_ROWS do
     local r = CreateFrame("Button", nil, p)
@@ -321,7 +414,7 @@ local function buildDecrees()
     dots:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, 0)
     dots:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, 0)
     dots:SetHeight(1)
-    r:SetScript("OnClick", function(self) go(self.page) end)
+    r.hot = link(r)
     decrees.rows[i] = r
   end
   decrees.none = Kit:Text(p, "kitItalic", "5E4B33")
@@ -334,9 +427,167 @@ end
 -- Filling it in
 ---------------------------------------------------------------------------
 
+-- One line of text, the middle of its line lying at the middle of the board's line box (top, height h).
+local function at(obj, parent, x, top, h)
+  obj:ClearAllPoints()
+  obj:SetPoint("LEFT", parent, "TOPLEFT", x, -(top + h / 2))
+end
+
+local function put(frame, parent, x, y, w, h)
+  frame:ClearAllPoints()
+  frame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+  frame:SetSize(w, math.max(h, 1))
+end
+
+-- Who holds power, laid out as the board flows it (measured in Edge at the game's window size):
+-- a column with a 12 gap inside the plate's 16 / 18 padding. Heights are the board's line boxes:
+-- eyebrow 14 (10px) or 13 (9.5px), name 21 (15px) or 26 (19px), .small 18.
+-- Run after the texts are set. power.geo keeps the numbers (plate coordinates) for the sim's checks;
+-- power.rows are plain frames spanning each row, for the click overlays (Kit:Hot) to attach to.
+local function layoutPower(data)
+  local p, gov, g, rows = power.frame, power.gov, power.geo, power.rows
+  at(power.title, p, PAD_X, PAD_Y, 18)
+
+  -- The Crown
+  local kings = data.crown
+  local portraitsW = kings[2] and 64 or 36 -- two 36px portraits overlapping by 8, or one
+  local textX = PAD_X + portraitsW + FLOW
+  power.crown:SetWidth(PW - portraitsW - 2 * FLOW - 38)
+  local one = math.max(1, power.crownProbe:GetStringHeight() or 1)
+  local lines = math.max(1, math.min(2, math.floor((power.crown:GetStringHeight() or one) / one + 0.5)))
+  local rowH = math.max(36, 14 + 21 * lines)
+  local top = PAD_Y + 18 + FLOW
+  local mid = top + rowH / 2
+  power.k1:ClearAllPoints()
+  power.k1:SetPoint("CENTER", p, "TOPLEFT", PAD_X + 18, -mid)
+  power.k2:ClearAllPoints()
+  power.k2:SetPoint("CENTER", p, "TOPLEFT", PAD_X + 46, -mid)
+  local textTop = mid - (14 + 21 * lines) / 2
+  at(power.crownEyebrow, p, textX, textTop, 14)
+  if lines == 1 then
+    at(power.crown, p, textX, textTop + 14, 21)
+  else
+    power.crown:ClearAllPoints()
+    power.crown:SetPoint("TOPLEFT", p, "TOPLEFT", textX, -(textTop + 14))
+  end
+  power.crest:ClearAllPoints()
+  power.crest:SetPoint("CENTER", p, "TOPRIGHT", -(PAD_X + 19), -mid)
+  put(rows.crown, p, PAD_X, top, PW, rowH)
+  local ruleY = top + rowH + FLOW
+  power.rule:ClearAllPoints()
+  power.rule:SetPoint("TOPLEFT", p, "TOPLEFT", PAD_X, -ruleY)
+  local flow = ruleY + 1 + FLOW
+  g.crownY, g.crownH, g.crownLines, g.ruleY, g.flowY = top, rowH, lines, ruleY, flow
+  -- before the first election the recruiting lines take the place of the government (their first label sits 6 in)
+  recruit:ClearAllPoints()
+  recruit:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -(flow - 6))
+  recruit:SetSize(LEFT_W, math.max(1, GRID_H - (flow - 6)))
+  if not data.pm then return end
+
+  -- The Prime Minister: a 76px portrait, the text 14 to its right, the column 70 high (14 + 4 + 26 + 4 + 22), centred
+  local govH = math.max(1, GRID_H - flow)
+  gov:ClearAllPoints()
+  gov:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -flow)
+  gov:SetSize(LEFT_W, govH)
+  local tx = PAD_X + PM_DISC + 14
+  at(power.pmEyebrow, gov, tx, 3, 14)
+  at(power.pm, gov, tx, 21, 26)
+  power.pmChip:ClearAllPoints()
+  power.pmChip:SetPoint("LEFT", gov, "TOPLEFT", tx, -(51 + 11))
+  power.since:ClearAllPoints()
+  if power.pmChip:IsShown() then
+    power.since:SetPoint("LEFT", power.pmChip, "RIGHT", 8, 0)
+  else
+    power.since:SetPoint("LEFT", gov, "TOPLEFT", tx, -(51 + 11))
+  end
+  put(rows.pm, gov, PAD_X, 0, PW, PM_DISC)
+
+  -- The Cabinet: a sunk plate, padding 10 / 12, two columns (the labels as wide as the longest, a 14 gap), rows 18 high, 5 apart
+  local cab = power.cabFrame
+  local n = math.min(#data.cabinet, #power.cab)
+  local cabH = 20 + 18 * n + 5 * math.max(0, n - 1)
+  local cabY = PM_DISC + FLOW
+  put(cab, gov, PAD_X, cabY, PW, cabH)
+  local colW = 0
+  for i = 1, n do colW = math.max(colW, power.cab[i].label:GetWidth() + 9.5 * 0.32) end -- CSS counts the last letter's spacing
+  local nameX = 12 + colW + 14
+  for i, row in ipairs(power.cab) do
+    local rowTop = 10 + (i - 1) * 23
+    at(row.label, cab, 12, rowTop + 5, 13) -- the labels sit on the names' baseline
+    at(row.name, cab, nameX, rowTop, 18)
+    row.name:SetWidth(math.max(20, PW - nameX - 12))
+    local band = rows.cab[i]
+    band:SetShown(i <= n)
+    if i <= n then
+      local from = i == 1 and 0 or rowTop - 2.5
+      local to = i == n and cabH or rowTop + 18 + 2.5
+      put(band, gov, PAD_X, cabY + from, PW, to - from)
+    end
+  end
+  g.cabY, g.cabH, g.colW, g.nameX = flow + cabY, cabH, colW, nameX
+
+  -- The Justices, small and italic under the Cabinet (not on the board; Max, 10 Nov)
+  local jy = cabY + cabH + FLOW
+  power.justices:ClearAllPoints()
+  power.justices:SetPoint("TOPLEFT", gov, "TOPLEFT", PAD_X, -jy)
+  local jh = (data.justices and data.justices ~= "") and math.max(18, power.justices:GetStringHeight() or 18) or 0
+  put(rows.justices, gov, PAD_X, jy, PW, jh)
+  rows.justices:SetShown(jh > 0)
+  g.justicesY, g.justicesH = flow + jy, jh
+
+  -- The Leader of the Opposition, pinned to the bottom of the plate: a 36px portrait, the label (it wraps to two
+  -- lines on the board, so it does here), the name, and the chip at the right
+  local opp = power.oppFrame
+  local chipW = power.oppChip:IsShown() and power.oppChip:GetWidth() or 0
+  local avail = PW - 36 - FLOW - (chipW > 0 and (FLOW + chipW) or 0)
+  local x = 36 + FLOW
+  power.oppEyebrow:SetText("Leader of the Opposition")
+  local split = power.oppEyebrow:GetWidth() + 10 * 0.32 > avail
+  if split then power.oppEyebrow:SetText("Leader of the") end
+  power.oppEyebrow2:SetShown(split)
+  local eyes = split and 2 or 1
+  local oppH = math.max(36, 14 * eyes + 21)
+  local natural = (jh > 0 and (jy + jh) or (cabY + cabH)) + FLOW
+  local oppY = math.max(natural, govH - PAD_Y - oppH)
+  put(opp, gov, PAD_X, oppY, PW, oppH)
+  power.oppPortrait:ClearAllPoints()
+  power.oppPortrait:SetPoint("CENTER", opp, "TOPLEFT", 18, -oppH / 2)
+  local oTop = (oppH - (14 * eyes + 21)) / 2
+  at(power.oppEyebrow, opp, x, oTop, 14)
+  at(power.oppEyebrow2, opp, x, oTop + 14, 14)
+  at(power.opp, opp, x, oTop + 14 * eyes, 21)
+  power.opp:SetWidth(math.max(20, avail))
+  power.oppChip:ClearAllPoints()
+  power.oppChip:SetPoint("RIGHT", opp, "TOPRIGHT", 0, -oppH / 2)
+  g.oppY, g.oppH, g.oppLines = flow + oppY, oppH, eyes
+end
+
+-- Keeps "In office since" inside the plate's inner right edge (PAD_X + PW from the gov column's left).
+-- Needs the chip already set, so it runs after pmChip:Set in refreshPower.
+local function fitSince(full)
+  local start = PAD_X + PM_DISC + 14
+  local shown = power.pmChip:IsShown()
+  local function avail(textStart) return PAD_X + PW - textStart end
+  local function startAt()
+    return shown and (PAD_X + PM_DISC + 14 + (power.pmChip:GetWidth() or 0) + 8) or start
+  end
+  local room = avail(startAt())
+  power.since:SetText(full)
+  if power.since:GetStringWidth() > room then
+    power.since:SetText((full:gsub("^In office since ", "Since ")))
+  end
+  if power.since:GetStringWidth() > room then
+    power.since:SetMaxLines(1)
+    power.since:SetWidth(math.max(20, room))
+  else
+    power.since:SetWidth(room)
+  end
+end
+
 local function refreshPower()
   local T = MOTA.Throne
   local data = T:Power()
+  power.previewTag:SetShown(data.preview == true)
   local kings = data.crown
   power.k1:SetShown(kings[1] ~= nil)
   power.k2:SetShown(kings[2] ~= nil)
@@ -359,7 +610,7 @@ local function refreshPower()
     power.pm:SetText(MOTA:Short(data.pm.name))
     power.pmChip:SetShown(party ~= nil)
     if party then power.pmChip:Set(party.name, party.hex) end
-    power.since:SetText("In office since " .. date("%d %b", data.pm.since))
+    fitSince("In office since " .. date("%d %b", data.pm.since):gsub("^0", ""))
     for i, row in ipairs(power.cab) do
       local c = data.cabinet[i]
       row.label:SetText(c and c.title or "")
@@ -385,6 +636,7 @@ local function refreshPower()
       or "When both are met, the Crown begins the first General Election: polling day 28 days on, with the leadership contests first.")
     recruit.justices:SetText(data.justices or "")
   end
+  layoutPower(data)
 end
 
 local function refreshLive()
@@ -396,6 +648,7 @@ local function refreshLive()
   live.title:SetShown(e ~= nil)
   live.line:SetShown(e ~= nil)
   live.button:SetShown(e ~= nil and e.page ~= nil)
+  aim(live.hot, e and e.page, e and e.view)
   live.dot:SetShown(e ~= nil and e.live == true)
   live.liveLabel:SetShown(e ~= nil and e.live == true)
   for key, s in pairs(live.seals) do s:SetShown(e ~= nil and key == e.key) end
@@ -404,7 +657,7 @@ local function refreshLive()
   if e then
     live.title:SetText(e.title)
     live.line:SetText(e.line or "")
-    live.page = e.page
+    live.page, live.view = e.page, e.view
     live.button:SetLabel(e.button or "Open")
   end
 end
@@ -415,8 +668,8 @@ local function refreshDuties()
   for i, r in ipairs(duties.rows) do
     local d = list[i]
     r:SetShown(d ~= nil)
+    aim(r.hot, d and d.page, d and d.view)
     if d then
-      r.page = d.page
       r.text:SetText(i == DUTY_ROWS and #list > DUTY_ROWS and (d.text .. " |cff5E4B33(+" .. (#list - DUTY_ROWS) .. " more)|r") or d.text)
     end
   end
@@ -433,6 +686,10 @@ local function refreshPlace()
   if me and MOTA:IsCrown(me) then place.party:Set("The Crown", "6E2A8C")
   elseif p then place.party:Set(PARTY[p].name, PARTY[p].hex)
   else place.party:Set("No party", "8A7A5E") end
+  aim(place.districtHot, 6, "map")
+  aim(place.meetHot, 6, "map")
+  -- the party chip opens that party's page; the Crown's chip its chamber; with no party, the first party's page
+  aim(place.partyHot, 4, (me and MOTA:IsCrown(me)) and "ch" or p or "sh")
 end
 
 local function refreshDecrees()
@@ -441,13 +698,34 @@ local function refreshDecrees()
   for i, r in ipairs(decrees.rows) do
     local e = list[i]
     r:SetShown(e ~= nil)
+    aim(r.hot, e and e.page, e and e.view)
     if e then
       Kit:Tint(r.gem, e.hex)
       r.text:SetText(e.text)
       r.ago:SetText(MOTA.Throne:Ago(e.t))
-      r.page = e.page
     end
   end
+end
+
+-- Where each part of Who holds power opens. The Crown's own chamber (Parties) is only open to a
+-- Crown member, so anyone else is sent to the public Charter, the nearest page about the Crown.
+local function refreshPowerLinks()
+  local data = MOTA.Throne:Power()
+  local L, PAGES = power.links, MOTA.Throne.PAGES
+  local me = MOTA.me
+  if me and MOTA:IsCrown(me) then aim(L.crown, PAGES.parties, "ch", "Opens The Parties · Crown chamber")
+  else aim(L.crown, PAGES.statute, "charter", "Opens Statute Book · Charter (the Crown's powers)") end
+  local pm = data.pm
+  aim(L.pm, pm and PAGES.parties, pm and pm.p)
+  for i, h in ipairs(L.cab) do aim(h, pm and data.cabinet[i] and PAGES.parties, pm and pm.p) end
+  local jt = data.justices and data.justices ~= ""
+  aim(L.justices, pm and jt and PAGES.statute, "court")
+  aim(L.recruitJustices, not pm and jt and PAGES.statute, "court")
+  -- the Leader of the Opposition: the other party's page
+  aim(L.opp, pm and data.opposition and PAGES.parties, data.opposition and data.opposition.p)
+  aim(L.recruit[1], not pm and PAGES.parties, nil)
+  aim(L.recruit[2], not pm and PAGES.parties, "sh")
+  aim(L.recruit[3], not pm and PAGES.parties, "ex")
 end
 
 function Page:Refresh()
@@ -456,7 +734,9 @@ function Page:Refresh()
   head.eyebrow:SetText(b.eyebrow:upper())
   head.plateEyebrow:SetText((b.plateEyebrow or ""):upper())
   head.plateText:SetText(b.plateText or "")
+  aim(head.hot, b.page, b.view)
   refreshPower()
+  refreshPowerLinks()
   refreshLive()
   refreshDuties()
   refreshPlace()
@@ -545,19 +825,27 @@ local function build()
   scroll:EnableMouseWheel(true)
   scroll:SetScript("OnMouseWheel", function(_, delta) scrollTo(scroll:GetVerticalScroll() - delta * WHEEL) end)
   buildPower()
+  buildPowerLinks()
   buildLive()
   buildDuties()
   buildPlace()
   buildDecrees()
   buildBar()
   Page.root, Page.scroll, Page.head, Page.live = root, scroll, head, live -- for the pretend client's checks
+  Page.power, Page.recruit, Page.duties, Page.place, Page.decrees = power, recruit, duties, place, decrees
+  Page.seeAll = decrees.seeAll
 end
 
+-- The Throne Room has a second view, the Chronicle (UI/ChroniclePage.lua): Page:Open("chronicle") and
+-- Page:Open("state"). Choosing the tab itself always lands on the State of the Realm.
 function Page:Show(show)
-  if show and not root then build() end
+  if show and not self.opening then self.view = "state" end
+  local chronicle = show and self.view == "chronicle"
+  if self.ShowChronicle then self:ShowChronicle(chronicle) end
+  if show and not chronicle and not root then build() end
   if not root then return end
-  root:SetShown(show)
-  if show then self:Refresh() end
+  root:SetShown(show and not chronicle)
+  if show and not chronicle then self:Refresh() end
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)

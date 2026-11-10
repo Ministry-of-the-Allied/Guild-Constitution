@@ -484,6 +484,21 @@ add("heralds", "[number|all]", "preview the real heralds, on your screen only", 
   MOTA.HeraldPreview:Run(arg ~= "" and arg or nil)
 end)
 
+add("throne", "preview [off]", "draw the Throne Room with a made-up government, to check the Cabinet (nothing is saved)", function(arg)
+  local word, flag = (arg or ""):lower():match("^(%S*)%s*(%S*)$")
+  if word ~= "preview" then return MOTA:Print("/mota throne preview shows a made-up government on the Throne Room; /mota throne preview off ends it.") end
+  local on = flag ~= "off"
+  MOTA.Throne:Preview(on)
+  if on then
+    local window = MOTA.UI:Build()
+    MOTA.UI:SelectPage(1)
+    window:Show()
+  end
+  if MOTA.ThronePage and MOTA.ThronePage.Refresh then MOTA.ThronePage:Refresh() end
+  MOTA:Print(on and "The Throne Room now shows a made-up government, tagged Preview. Nothing is saved or sent. /mota throne preview off ends it."
+    or "The Throne Room shows the real state of the realm again.")
+end)
+
 add("fanfare", "[number]", "list the game's fanfare sounds, or play and choose one", function(arg)
   local list = MOTA.Herald:Fanfares()
   if #list == 0 then return MOTA:Print("This client has none of the fanfare sounds the add-on knows.") end

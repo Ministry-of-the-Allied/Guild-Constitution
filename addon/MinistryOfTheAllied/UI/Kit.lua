@@ -307,6 +307,36 @@ function Kit:Button(parent, width, height, label, style, onClick)
   return b
 end
 
+-- A box that opens another page when clicked anywhere on it: a see-through button
+-- laid over the box, a faint warm glow on hover and a tooltip saying where it goes.
+-- h:SetTarget(page, view, tip) aims it; with no page it is hidden, so the box has no
+-- glow and no click. Buttons that sit on the box and must still be clicked
+-- (their own targets) lift themselves with h:Above(button).
+function Kit:Hot(box, onClick)
+  local h = CreateFrame("Button", nil, box)
+  h:SetAllPoints(box)
+  h:SetFrameLevel(box:GetFrameLevel() + 1)
+  h:EnableMouse(true)
+  local glow = h:CreateTexture(nil, "HIGHLIGHT")
+  glow:SetColorTexture(1, 0.95, 0.7, 0.12) -- plain warm light: reads on every skin
+  glow:SetAllPoints()
+  h:SetScript("OnClick", function(self) if self.page then onClick(self) end end)
+  h:SetScript("OnEnter", function(self)
+    if not self.tip or self.tip == "" then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(self.tip, 1, 0.95, 0.77)
+    GameTooltip:Show()
+  end)
+  h:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  h:SetScript("OnHide", function() GameTooltip:Hide() end)
+  function h:SetTarget(page, view, tip)
+    self.page, self.view, self.tip = page, view, tip or ""
+    self:SetShown(page ~= nil)
+  end
+  function h:Above(button) button:SetFrameLevel(self:GetFrameLevel() + 2) end
+  return h
+end
+
 -- The name of a blue part's drawn copy for the accent in force (or the part itself).
 function Kit:AccentName(name, key)
   local drawn = name .. MOTA:Accent(key or self.force).SUFFIX

@@ -500,6 +500,8 @@ function Page:Select(name)
   self:Refresh()
 end
 
+function Page:View() return view end
+
 local function build()
   root = CreateFrame("Frame", nil, UI.window)
   root:SetSize(WIDTH, HEIGHT)

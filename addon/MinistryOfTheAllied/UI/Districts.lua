@@ -591,6 +591,9 @@ function Page:Select(id)
   self:Refresh()
 end
 
+function Page:View() return view end
+
+
 function Page:Refresh()
   if not root then return end
   for _, t in ipairs(VIEWS) do

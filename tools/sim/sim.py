@@ -2487,6 +2487,35 @@ check("Throne Room: recruiting, before the first election", E(eb, TH + 'return T
 check("Throne Room: the gates show in Who holds power", E(eb, TH + 'local p = T:Power() return p.pm == nil and p.gates.players') == 4)
 check("Throne Room: nothing is on yet", E(eb, TH + 'return #T:Live()') == 0)
 throne_draws(eb, "recruiting")
+# --- Throne Room: every box that relates to another page opens it (Kit:Hot) --------------------
+# Helpers for the click checks below; thr_click runs a hot button's OnClick and reads back the page and its view.
+THR_OPEN = 'M.UI:Build(); M.UI.window:Show(); M.UI:SelectPage(1); local P = M.ThronePage; P:Refresh(); '
+def thr_click(c, expr):
+    return c.lua.eval('(function() local M = MinistryOfTheAllied; ' + THR_OPEN + 'local h = ' + expr +
+        '; if not h or not h:IsShown() then return "none" end; h.scripts.OnClick(h); ' +
+        'local o = ({[3] = M.StatutesPage, [4] = M.PartiesPage, [6] = M.DistrictsPage, [7] = M.RingPage, [8] = M.GamesPage})[M.UI.page]; ' +
+        'return M.UI.page .. "|" .. tostring(o and o.View and o:View() or "") end)()')
+def thr_row(kind, word):  # a duty or decree row whose text has the word
+    return '(function() for _, r in ipairs(P.%s.rows) do if r:IsShown() and r.text.text:find("%s") then return r.hot end end end)()' % (kind, word)
+def thr_audit(c, label):
+    # every clickable has a destination and a tooltip; a box with no destination is hidden (no glow, no click)
+    ok = c.lua.eval('(function() local M = MinistryOfTheAllied; ' + THR_OPEN + 'local n, bad, info = 0, 0, "" ' +
+        'for _, h in ipairs(P.hot) do n = n + 1 if h:IsShown() ~= (rawget(h, "page") ~= nil) or (rawget(h, "page") ~= nil and (type(rawget(h, "tip")) ~= "string" or rawget(h, "tip") == "" or not rawget(h, "tip"):find("^Opens "))) then bad = bad + 1 info = info .. _ .. ":" .. tostring(rawget(h, "page")) .. "/" .. tostring(rawget(h, "tip")) .. "/" .. tostring(h:IsShown()) .. " " end end ' +
+        'return n > 10 and bad == 0 or (n .. " hots, " .. bad .. " bad " .. info) end)()')
+    if ok is not True: print("     audit:", ok)
+    check("Throne Room links: every clickable has a page and a tooltip, the rest are hidden, " + label, ok is True)
+thr_audit(eb, "recruiting")
+check("Throne Room links: the banner plate opens the Parties while recruiting", thr_click(eb, 'P.head.hot').startswith("4|"))
+check("Throne Room links: the Silverhand count opens its page", thr_click(eb, 'P.power.links.recruit[2]') == "4|sh")
+check("Throne Room links: the Exchange count opens its page", thr_click(eb, 'P.power.links.recruit[3]') == "4|ex")
+check("Throne Room links: the players count opens the Parties", thr_click(eb, 'P.power.links.recruit[1]').startswith("4|"))
+check("Throne Room links: the Crown row is the Charter for a citizen", thr_click(eb, 'P.power.links.crown') == "3|charter")
+check("Throne Room links: the Crown row is the Crown's chamber for the Crown", thr_click(ek, 'P.power.links.crown') == "4|ch")
+check("Throne Room links: Your place opens the Districts map", thr_click(eb, 'P.place.districtHot') == "6|map")
+check("Throne Room links: no party, the party chip opens Silverhand's page", thr_click(eb, 'P.place.partyHot') == "4|sh")
+check("Throne Room links: the Crown's chip opens the Crown's chamber", thr_click(ek, 'P.place.partyHot') == "4|ch")
+check("Throne Room links: Chronicle-style tooltip says where it goes", eb.lua.eval('(function() local h = MinistryOfTheAllied.ThronePage.place.districtHot h.scripts.OnEnter(h) local t = GameTooltip.text h.scripts.OnLeave(h) return t end)()') == "Opens Districts · Map")
+
 E(ek, 'El.GATE_PLAYERS = 4; El.GATE_PARTY = 1 return 1')  # a small guild, for the test
 for c, key in ((eb, "sh"), (em, "ex")):
     E(c, 'M.Book:Write("party.join", { p = "%s" }) return 1' % key)
@@ -2524,6 +2553,37 @@ check("Election: the Leader of the Opposition, the shadow cabinet", em.said(r"Na
 check("Throne Room: the First Government, day 1", E(eb, TH + 'return T:Banner().eyebrow').startswith("The First Government · Day 1 of"))
 check("Throne Room: the Prime Minister and five Cabinet posts", E(ekk, TH + 'local p = T:Power() return p.pm.name == "Bram" and #p.cabinet == 5 and p.cabinet[1].title == "Treasury"') is True)
 check("Throne Room: the Leader of the Opposition", E(ekk, TH + 'local p = T:Power() return p.opposition.name == "Mira" and p.opposition.p == "ex"') is True)
+# Who holds power, drawn from a real government and laid out as the board flows it (ThroneRoom board, measured
+# in Edge: Crown row 46, rule 114, Prime Minister 127, Cabinet plate 215 and 130 high, rows 23 apart, the Opposition pinned
+# to the bottom). The board's fifth post is "Justice"; the add-on's is Games (Duncan, 8 Nov): the Crown appoints the Justices.
+PW_OPEN = THR_OPEN + 'local pw = P.power; local g = pw.geo; '
+check("Throne Room: the Cabinet shows Treasury, War, Trade, Recruitment and Games, with the Justices line apart",
+      E(ekk, TH + 'local p = T:Power() local t = {} for i, c in ipairs(p.cabinet) do t[i] = c.title end return table.concat(t, ",") .. "|" .. tostring(type(p.justices))')
+      == "Treasury,War,Trade,Recruitment,Games|string")
+check("Throne Room: the Crown row, the Prime Minister and the Opposition are drawn from the real government",
+      E(ekk, PW_OPEN + 'return tostring(pw.gov:IsShown()) .. tostring(pw.k1:IsShown()) .. tostring(pw.rows.crown:IsShown()) .. tostring(pw.rows.pm:IsShown()) .. tostring(pw.rows.opp:IsShown()) .. tostring(pw.pm.text) .. tostring(pw.opp.text) .. tostring(pw.cab[5].label.letters[1] and pw.cab[5].label.letters[1].text) .. tostring(pw.cab[1].name.text)') == "truetruetruetruetrueBramMiraG|cff8A7A5EVacant|r")  # no Cabinet named yet
+check("Throne Room: Who holds power flows as the board does (Crown row, rule, Prime Minister, Cabinet plate)",
+      E(ekk, PW_OPEN + 'return g.crownY == 46 and g.crownH == 36 and g.ruleY == 94 and g.flowY == 107 and g.cabH == 130 and g.cabY == g.flowY + 88') is True)
+check("Throne Room: the Cabinet's name column is as wide as its longest label plus 14, and the rows are 23 apart",
+      E(ekk, PW_OPEN + 'local w = 0 for i = 1, 5 do w = math.max(w, pw.cab[i].label:GetWidth()) end local ok = math.abs(g.colW - (w + 9.5 * 0.32)) < 0.01 and math.abs(g.nameX - (12 + g.colW + 14)) < 0.01 for i = 1, 5 do ok = ok and pw.cab[i].name.points[1][4] == g.nameX and pw.cab[i].name.points[1][5] == -(10 + (i - 1) * 23 + 9) end return ok') is True)
+check("Throne Room: the Opposition is pinned to the bottom, its label on two lines as the board's wraps",
+      E(ekk, PW_OPEN + 'return g.oppLines == 2 and g.oppH == 49 and g.oppY + g.oppH + 16 == pw.frame.h and g.oppY >= g.justicesY + g.justicesH') is True)
+check("Throne Room: the row frames for the click overlays span each row (five Cabinet bands that add up to the plate)",
+      E(ekk, PW_OPEN + 'local s, ok = 0, #pw.rows.cab == 5 for i = 1, 5 do ok = ok and pw.rows.cab[i]:IsShown() s = s + pw.rows.cab[i].h end return ok and s == g.cabH and pw.rows.crown.h == g.crownH and pw.rows.pm.h == 76 and pw.rows.justices.h >= 18 and pw.rows.opp.h == g.oppH') is True)
+check("Throne Room: a Crown name that wraps to two lines pushes everything on by the board's 20",
+      E(ekk, PW_OPEN + 'pw.crown.GetStringHeight = function() return 32 end P:Refresh() local ok = g.crownH == 56 and g.ruleY == 114 and g.flowY == 127 and g.cabY == 215 and g.cabH == 130 pw.crown.GetStringHeight = nil P:Refresh() return ok and g.crownH == 36') is True)
+# /mota throne preview: a made-up government for drawing, never written
+books = E(ek, 'return M.Book:Count()')
+heard = E(em, 'return M.Book:Count()')
+ek.slash("throne preview")
+check("Throne preview: /mota throne preview shows a made-up government, tagged Preview",
+      E(ek, PW_OPEN + 'return M.Throne:Power().preview == true and pw.previewTag:IsShown() and pw.gov:IsShown() and pw.pm.text == "Seraphine" and #M.Throne:Power().cabinet == 5') is True)
+throne_draws(ek, "a preview")
+run(6)
+check("Throne preview: nothing is written or sent", E(ek, 'return M.Book:Count()') == books and E(em, 'return M.Book:Count()') == heard)
+ek.slash("throne preview off")
+check("Throne preview: off, the real government and no tag",
+      E(ek, PW_OPEN + 'return M.Throne:Power().preview == nil and not pw.previewTag:IsShown() and pw.pm.text == "Bram"') is True)
 check("Throne Room: the 48 hours show in What's on", E(ekk, TH + 'for _, e in ipairs(T:Live()) do if e.key == "bench" then return true end end return false') is True)
 check("Throne Room: the Prime Minister's duty to name the Cabinet", E(eb, TH + 'for _, d in ipairs(T:Duties()) do if d.text:find("^Name the Cabinet") then return true end end return false') is True)
 check("Throne Room: the result is among the decrees", E(ekk, TH + 'for _, d in ipairs(T:Decrees(5)) do if d.text:find("wins") then return true end end return false') is True)
@@ -2685,6 +2745,11 @@ check("Ballot: Tobin is told his account has voted", "on this account" in (E(tob
 check("Ballot: and his state shows as sent", E(tobin, 'return M.Ballot:MyState(M.Ballot:Current())') == "sent")
 check("Ballot: a second ballot from an alt is refused by the King", E(ek, 'return M.Ballot:Receive("Tobin", M.Ballot:Current().id, 2, "x")') == "dup")
 check("Ballot: only one is counted", E(ek, 'local t = M.Ballot:Tally(M.Ballot:Current().id) return t.counts[1] .. "," .. t.counts[2]') == "1,0")
+# Throne Room links, with a poll open
+check("Throne Room links: with the polls open the banner plate opens the Ballot Hall", thr_click(eb, 'P.head.hot').startswith("2|"))
+check("Throne Room links: and What's on opens the Ballot Hall", thr_click(eb, 'P.live.hot').startswith("2|"))
+thr_audit(eb, "a poll open")
+
 check("No confidence: a King's alt doesn't vote", E(ek, 'return M:IsCrownAccount("Max")') is True and E(em, 'return M:IsCrownAccount("Tobin")') is False)
 logout(tobin)
 
@@ -2739,6 +2804,57 @@ eb.slash("games")
 check("Games: /mota games lists the log", eb.said(r"Round the Lake \(Race\) . 1st Bram, 2nd Mira, 3rd Kael"))
 check("Throne Room: honours and results are among the decrees", E(eb, TH + 'for _, d in ipairs(T:Decrees(6)) do if d.text:find("Knight of the Crown") then return true end end return false') is True)
 throne_draws(ek, "five Cabinet posts")
+# Throne Room links, with a government and some decrees
+thr_audit(eb, "governing")
+thr_audit(ek, "the Crown")
+thr_pm = E(eb, TH + 'return T:Power().pm.p')
+thr_opp = E(eb, TH + 'return T:Power().opposition.p')
+check("Throne Room links: the Prime Minister opens that party's page", thr_click(eb, 'P.power.links.pm') == "4|" + thr_pm)
+check("Throne Room links: a Cabinet row opens that party's page", thr_click(eb, 'P.power.links.cab[1]') == "4|" + thr_pm)
+check("Throne Room links: the Opposition opens the other party's page", thr_click(eb, 'P.power.links.opp') == "4|" + thr_opp and thr_pm != thr_opp)
+check("Throne Room links: the Justices line opens the Court", thr_click(eb, 'P.power.links.justices') == "3|court")
+check("Throne Room links: Your place opens the Districts map", thr_click(eb, 'P.place.meetHot') == "6|map")
+check("Throne Room links: a party member's chip opens their party", thr_click(eb, 'P.place.partyHot') == "4|" + E(eb, 'return M.Party:Of(M.me)'))
+check("Throne Room links: the honours decree opens the Honours", thr_click(eb, thr_row("decrees", "Knight of the Crown")) == "8|honours")
+check("Throne Room links: the Crown's duties open the Crown's chamber or the page they name", E(ek, TH + 'local n = 0 for _, d in ipairs(T:Duties()) do if d.text:find("^Open the leadership") or d.text:find("^Ratify") or d.text:find("to join a party$") then n = n + 1 if d.page ~= 4 or d.view ~= "ch" then return false end end if d.text:find("High Judiciary") and (d.page ~= 3 or d.view ~= "court") then return false end end return true') is True)
+check("Throne Room links: decrees carry the right pages",
+      E(eb, TH + 'local want = { ["appointed a Justice"] = "3|court", ["Vote of No Confidence"] = "2|", ["is made"] = "8|honours" } local seen = 0 ' +
+        'for _, d in ipairs(T:Decrees(200)) do for k, v in pairs(want) do if d.text:find(k) then seen = seen + 1 if tostring(d.page) .. "|" .. (d.view or "") ~= v then return false end end end end return seen >= 2') is True)
+check("Throne Room links: a game result opens the Games Hall", E(eb, TH + 'for _, d in ipairs(T:Decrees(200)) do if d.text:find(" wins ") and not d.text:find("Election") and d.page == 8 then return d.view end end return "none"') in ("lottery", "hunt", "cup", "none"))
+
+
+print("== 14b. the Chronicle")
+CH = 'local C, T = MinistryOfTheAllied.Chronicle, MinistryOfTheAllied.Throne '
+check("Chronicle: the Throne Room's decrees are the Chronicle's newest lines", E(ek, CH + 'local a, b = T:Decrees(6), C:All("all") if #a == 0 then return false end for i = 1, #a do if a[i].text ~= b[i].text or a[i].t ~= b[i].t then return false end end return true') is True)
+check("Chronicle: months run newest first, and each month's lines too", E(ek, CH + 'local n = 0 local last for _, g in ipairs(C:Months("all")) do if last and g.key >= last then return false end last = g.key local lt for _, e in ipairs(g.lines) do n = n + 1 if lt and e.t > lt then return false end lt = e.t if date("%Y-%m", e.t) ~= g.key then return false end end end return n == C:Count("all") and n > 0') is True)
+check("Chronicle: the filters split the lines between them", E(ek, CH + 'local n = 0 for _, f in ipairs(C.FILTERS) do if f.key ~= "all" then n = n + C:Count(f.key) end end return n == C:Count("all")') is True)
+check("Chronicle: the Honours filter keeps only honours, and the knighthood is there", E(ek, CH + 'local found for _, e in ipairs(C:All("honours")) do if e.group ~= "honours" then return false end if e.text:find("Knight of the Crown") then found = true end end return found') is True)
+check("Chronicle: a result sits under Elections", E(ek, CH + 'for _, e in ipairs(C:All("elections")) do if e.text:find("wins") then return true end end return false') is True)
+check("Chronicle: laws and rulings have no record kinds, so a law record is not a line", E(ek, CH + 'return C:Line({ k = "statute.pass", t = 1, d = {} }) == nil and C:Line({ k = "court.ruling", t = 1, d = {} }) == nil') is True)
+# More than 300 records of history: the feed's Book:Latest(300) would stop short, the Chronicle doesn't.
+E(ek, CH + 'local list = {} M.guild.records["Zed-Realm"] = list for i = 1, 350 do list[i] = { t = GetServerTime() - 2 * 86400 - i * 86400 * 2, k = "ring.result", d = { s = 7, w = "Bram" } } end M:Fire("RECORD_ADDED", { a = "Zed-Realm", n = 0, t = 0, k = "chronicle.test", d = {} }) return 1')
+check("Chronicle: it keeps more than 300 records of history", E(ek, CH + 'return C:Count("all") > 350 and C:Count("ring") == 350') is True)
+check("Chronicle: that history spans many months, still newest first", E(ek, CH + 'local m = C:Months("all") local last for _, g in ipairs(m) do if last and g.key >= last then return false end last = g.key end return #m > 20') is True)
+check("Chronicle: the feed still shows the same four newest lines", E(ek, CH + 'local a, b = T:Decrees(4), C:All("all") return #a == 4 and a[1].text == b[1].text and a[4].text == b[4].text') is True)
+E(ek, CH + 'M.guild.records["Zed-Realm"] = nil M:Fire("RECORD_ADDED", { a = "Zed-Realm", n = 0, t = 0, k = "chronicle.test", d = {} }) return 1')
+check("Chronicle: gone again, the count falls back", E(ek, CH + 'return C:Count("ring") < 5') is True)
+
+def chronicle_draws(c, label):
+    errs = len(errors)
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.ThronePage:Open("chronicle")')
+    for skin in ("crown", "silverhand", "exchange", "ministry"):
+        c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
+        c.lua.execute('local P = MinistryOfTheAllied.ThronePage; for _, f in ipairs(MinistryOfTheAllied.Chronicle.FILTERS) do P:Filter(f.key) end P:Filter("all")')
+    drawn = c.lua.eval("(function() local P = MinistryOfTheAllied.ThronePage return P.chronicle and P.chronicle.shown and not P.root.shown and P.chronicleHead.plateText.text ~= '' and P.chronicleMain.title.text ~= '' end)()")
+    check("Chronicle: the page draws in all four skins, " + label, len(errors) == errs and drawn is True)
+chronicle_draws(ek, "with the guild's history")
+PG = 'local P, UI = MinistryOfTheAllied.ThronePage, MinistryOfTheAllied.UI '
+check("Chronicle: the first row is the newest line, dated", E(ek, PG + 'local r = P.chronicleMain.rows[1] return r.shown and r.date.text ~= "" and r.text.text == MinistryOfTheAllied.Chronicle:All("all")[1].text') is True)
+check("Chronicle: a row opens its page", E(ek, PG + 'for _, r in ipairs(P.chronicleMain.rows) do if r.shown and r.page then r.scripts.OnClick(r) return UI.page == r.page end end return false') is True)
+check("Chronicle: the Throne tab lands on the State of the Realm", E(ek, PG + 'UI:SelectPage(1) return P.view == "state" and P.root.shown and not P.chronicle.shown') is True)
+check("Chronicle: See all opens it", E(ek, PG + 'P.seeAll.scripts.OnClick(P.seeAll) return P.view == "chronicle" and P.chronicle.shown and not P.root.shown') is True)
+check("Chronicle: the Throne Room button goes back", E(ek, PG + 'local b = P.chronicle.back b.scripts.OnClick(b) return P.view == "state" and P.root.shown and not P.chronicle.shown') is True)
+E(ek, 'MinistryOfTheAllied.UI.window:Hide() return 1')
 check("Tooltip: an honoured name shows its letters", E(ek, 'local seal = MinistryOfTheAlliedMinimapButton; seal.scripts.OnEnter(seal); seal.scripts.OnLeave(seal) for _, s in ipairs(M.OnlineTip.state.sections) do for _, n in ipairs(s.names) do if n:find("^Bram |cffC9A24AKC") then return true end end end return false') is True)
 
 print("== 15g. the Royal Lottery")

@@ -87,6 +87,10 @@ local STYLES = {
   bItalic = { "garamondItalic", 14 },       -- .small.italic
   bItalic13 = { "garamondItalic", 13.5 },
   bPortrait = { "decoBold", 13, true },     -- .portrait.sm initials
+  -- The Throne Room's Who holds power (ThroneRoom board)
+  tName15 = { "cinzel", 15 },               -- .h-name at 15
+  tName19 = { "cinzel", 19 },               -- .h-name at 19
+  tInitialsLg = { "decoBold", 28, true },   -- .portrait.lg initials
   -- The who's-online tooltip (OnlineTooltip board)
   tipCount = { "decoBold", 26, true },      -- the number online
   tipHead = { "cinzel", 10, true },         -- an office's heading, and "online"
