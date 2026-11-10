@@ -763,7 +763,7 @@ Results, laws, rulings, the Law Registry and Ring champions can be turned into r
 
 The Ring is the guild's formal PvP tournament system: a monthly 1v1 duelling tournament, for fun and for raising gold. It is managed by the Crown or the delegated Minister of War, with entry fees, a bracket structure, and a Hall of Champions. Entry fees flow into the guild ledger.
 
-*First build 2026-11-06, to test in game: `Ring.lua`, `UI/Ring.lua`. One bracket, at most 8 entrants (first come, first served), byes when fewer. For now the Crown ticks entrants paid by hand (the ledger is not built),  without catch-up (7.3) a member offline when a Ring record is sent does not get it.*
+*First build 2026-11-06, to test in game: `Ring.lua`, `UI/Ring.lua`. One bracket, at most 8 entrants (first come, first served), byes when fewer. Fees are now picked up from the ledger (11.5), and a member offline when a Ring record is sent gets it by catch-up (7.3).*
 
 **Who decides (2026-11-06):** whoever holds the `Minister of War` guild rank, and the Crown, can open a tournament, set its entry fee, bracket and sign-up days, make the draw, record results and mark entries paid. Until someone holds the rank, the form shows greyed out for everyone, including the Crown. Once open, the terms can't be changed.
 
@@ -775,6 +775,7 @@ The Ring is the guild's formal PvP tournament system: a monthly 1v1 duelling tou
 - **Entry fee** — set per tournament; paid into the guild bank, where the automatic ledger records it as income (11.5)
 - **Guild cut** — defined by law or Crown decree (default 10%); the champion gets the prize pool minus the cut
 - **Venue** — Old Town, home of the Old Quarter, the warriors' and PvP district
+- **District Cup** — a finished tournament scores for the Cup (`Cup.lua`, decided 2026-11-10): the champion 10 points, the runner-up 6, and both losing semi-finalists 3, each for the district they lived in when the tournament ended
 
 ### 11.2 State
 
@@ -814,7 +815,7 @@ ring = {
 
 **Champions sub-tab**
 - Hall of Champions — historical list of tournament winners with season and date
-- "Gladiator of Stormwind" title shown next to current champion name (an honour, 10.4, for the month)
+- "Gladiator of Stormwind" title shown next to current champion name (an honour, 10.4), until the next tournament crowns another. *Built 2026-11-10 (`Honours.lua`):* the title shows after the name in the online tooltip, ahead of any Cup title. Every champion also keeps a permanent **Ring Champion** medal, and the losing finalist a **Ring Finalist** medal (none when The Final is won on a bye). Semi-finalists earn Cup points only (11.1). The medals show on the Games Hall's Honours page and the Roll of Honour.
 
 ### 11.4 Crown Controls
 
@@ -825,7 +826,13 @@ Crown (or delegated Minister of War) can:
 - Declare the Final champion
 - See who has paid: a participant is marked paid once their entry fee deposit appears in the ledger (11.5)
 
-**Duel results:** the game prints "X has defeated Y in a duel" to everyone nearby. The organiser's addon reads it and moves the winner on; the organiser can also click the winner by hand.
+**Duel results:** the game prints "X has defeated Y in a duel" (or "Y has fled from X") to everyone nearby. A bout's result can be recorded in three ways:
+
+- **The organiser's add-on reads the message** and moves the winner on, when the organiser is close enough to see it.
+- **The fighters confirm it themselves** (`ring.duel`, decided 2026-11-10). After a duel between two members whose bout is due, each fighter's add-on asks: "Bram beat Kael. Was that your Ring bout (Quarter-final)?", with *Yes, record it* or *No, a friendly*. When both say yes and name the same winner, that's the bout's result on every copy, with no organiser nearby or online. Only the two fighters' answers count, and each fighter's first answer stands. If they disagree, nothing is settled: both fighters and the organiser are told in chat, and the organiser records the result by hand.
+- **The organiser clicks the winner by hand.** The first result recorded for a bout stands, whichever way it came.
+
+Only duels in an active tournament between members drawn against each other, with the bout still to fight, ask anything. Other duels inside the guild, rematches after a result, and any duel with no tournament running aren't recorded (decided 2026-11-10). *To test in game:* that Forever's duel message matches the game's standard wording, and that names with spaces ("Kíng Atwood") come through the message whole.
 
 ### 11.5 Treasury Integration
 
@@ -1158,6 +1165,7 @@ Tried in game so far: handshake, secret ballot, bank prompt, ledger, joining and
 - [ ] **Catch-up:** one player offline while the other writes a record and makes a deposit; it arrives at login with no herald. Fresh install catches up. Two copies reach the same ledger.
 - [ ] **Leadership contest:** date, opening, standing with a platform, `/mota contest advance`, voting (also with no King online), both Kings' tallies, ratifying, a tie and run-off, a second tie with `/mota contest declare`, results on the public page. Long platforms fit.
 - [ ] **The Ring:** fee in parts, unpaid left out of the draw, withdraw and `/mota refunds`, draw, results, prize in the ledger, a ninth payer. A citizen-rank character at the bank: can they read the money log?
+- [ ] **Ring duels:** a free tournament with two fighters running the add-on, the organiser far away. After their duel both are asked "Was that your Ring bout?"; two yeses settle the bout and the bracket moves on, on every copy. A friendly duel asks nothing. Check the game's duel message is read (the standard wording), and a name with a space ("Kíng Atwood").
 - [ ] **Skins:** every page in all four skins (Max's accent colours and Kit button colours together).
 - [ ] **Heralds:** long names and titles fit.
 - [ ] **Front bench (0.6.5):** the leader names a Deputy and the five shadow posts in the Chamber; the public page shows them; the leader leaves and the Deputy takes the lead with a herald.
