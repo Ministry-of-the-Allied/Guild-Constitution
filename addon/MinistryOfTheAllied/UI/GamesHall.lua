@@ -980,7 +980,7 @@ end
 -- Hide and Seek: the play area, the players, the organiser's form
 ---------------------------------------------------------------------------
 
-local AREA = 170            -- the play area's square, in pixels
+local AREA = 140            -- the play area's square, in pixels
 local AREA_DOTS = 40
 
 local function hideSetting()
@@ -1127,7 +1127,7 @@ local function buildHide()
   local set = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
   local form = panel(set, "plain", 0, 0, CLUE_W, TOP_H)
   Kit:Label(form, "kitSection", BLUE, 0.22, "Open a game"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -14)
-  local fw = CLUE_W - AREA - 50
+  local fw = CLUE_W - 32
   form.name = field(form, "Name", 16, 36, fw, "")
   form.name:SetScript("OnTextChanged", function(e) Hi:Draft().name = e:GetText() end)
   Kit:Label(form, "kitTiny", "7A5719", 0.2, "The play area"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
@@ -1169,13 +1169,11 @@ local function buildHide()
   end
   form.nm = toggle("Hide names", "nm", 16)
   form.nmap = toggle("No map", "nmap", 16 + (fw + 8) / 2)
-  form.area = buildArea(form, CLUE_W - AREA - 18, 44)
   v.form = form
 
   local side = panel(set, "plain", MAIN_W - SIDE_W, 0, SIDE_W, TOP_H)
-  Kit:Label(side, "kitSection", BLUE, 0.22, "Before you open"):SetPoint("TOPLEFT", side, "TOPLEFT", 14, -12)
-  side.text = line(side, "kitSmallest", nil, 14, 32, SIDE_W - 28)
-  side.text:SetMaxLines(10)
+  Kit:Label(side, "kitSection", BLUE, 0.22, "The play area"):SetPoint("TOPLEFT", side, "TOPLEFT", 14, -12)
+  side.area = buildArea(side, (SIDE_W - AREA) / 2, 32)
   side.open = Kit:Button(side, SIDE_W - 28, 26, "Open the game", "blue", function()
     report(Hi:Open(form.name:GetText()))
   end)
@@ -1185,10 +1183,11 @@ local function buildHide()
   local note = panel(set, "sunk", 0, TOP_H + 12, MAIN_W, HEIGHT - BODY_Y - TOP_H - 12)
   Kit:Label(note, "kitSection", BLUE, 0.22, "How it plays"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
   local how = line(note, "kitSmall", nil, 14, 30, MAIN_W - 28)
-  how:SetMaxLines(4)
+  how:SetMaxLines(8)
   how:SetText("Players join, then you start it. Everyone hides; then the seeker sets off. A seeker who stands within "
     .. Hi.FIND .. " yards of a hider for " .. Hi.DWELL .. " seconds finds them, and they seek too. 10 seconds outside the play area and you're out. "
-    .. "Everyone found: the best seeker wins. Time up: everyone still hidden shares first.")
+    .. "Everyone found: the best seeker wins. Time up: everyone still hidden shares first."
+    .. "\n\nHide names turns friendly names and nameplates off for players until the game ends. No map keeps the world map shut for them; the play area shows on this page.")
   v.set = set
   return v
 end
@@ -1208,14 +1207,14 @@ local function refreshHide(v)
     f.ss:SetText("Seeking " .. Hi.Clock(d.ss))
     f.nm:SetLabel(f.nm.base .. ": " .. (d.nm and "on" or "off"))
     f.nmap:SetLabel(f.nmap.base .. ": " .. (d.nmap and "on" or "off"))
+    local area = v.side.area
     if d.cx then
-      placeYou(f.area, { inst = d.inst, cx = d.cx, cy = d.cy, rad = d.rad })
+      placeYou(area, { inst = d.inst, cx = d.cx, cy = d.cy, rad = d.rad })
+      if not area.you:IsShown() then area.note:SetText("Middle set in " .. tostring(d.z)) end
     else
-      f.area.you:Hide()
-      f.area.note:SetText("No play area yet")
+      area.you:Hide()
+      area.note:SetText("Set the middle first")
     end
-    v.side.text:SetText((d.cx and ("The middle is in |cff2A1F14" .. d.z .. "|r.") or "Set the middle first: stand there, or pick it on the map.")
-      .. "\n\nHide names turns friendly names and nameplates off for players until the end. No map keeps the world map shut; the play area shows on this page.")
     v.side.open:SetEnabled(d.cx ~= nil)
     v.side.open:SetAlpha(d.cx and 1 or 0.45)
     return
