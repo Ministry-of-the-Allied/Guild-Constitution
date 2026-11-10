@@ -3118,6 +3118,27 @@ errs = len(errors)
 cup_max.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("cup")')
 check("Cup page: shows without errors", len(errors) == errs)
 check("Cup page: Season 2, with past champions", CQ('return M.GamesPage:View()') == "cup")
+print("== Short names: a record written before the full name is known")
+# A first login: a record written before the full name is known is held, then
+# sent under the full name, so Sinnclair has it in seconds, not at the next summary.
+atwood = Client("Kíng Atwood", short="Kíng", tag="CAMWOWEU5Realm1PvE")
+clients[:] = [sinn, atwood]
+early = None
+for _ in range(80):
+    run(0.25)
+    if atwood.lua.eval("MinistryOfTheAllied.guild ~= nil and next(MinistryOfTheAllied.roster) ~= nil and not MinistryOfTheAllied.meLearned"):
+        # This copy lost its saved data, so carry on from the numbers the guild holds.
+        atwood.lua.execute("MinistryOfTheAllied.guild.tops[\"Kíng\"] = 10")
+        early = atwood.lua.eval('MinistryOfTheAllied.Book:Write("test.note", { text = "early" }) ~= nil')
+        break
+check("Short names: a record can be written before the full name is known", early is True)
+ign0, start = sinn.lua.eval("MinistryOfTheAllied.stats.ignored"), clock[0]
+has = '(function() for _, r in pairs(MinistryOfTheAllied.guild.records["Kíng Atwood"] or {}) do if r.d.text == "early" then return true end end return false end)()'
+while clock[0] - start < 400 and not sinn.lua.eval(has):
+    run(0.25)
+print(f"  -> Sinnclair had the early record after {clock[0] - start:.1f} s")
+check("Short names: the early record reaches Sinnclair within 10 s", clock[0] - start < 10)
+check("Short names: nothing was refused on the way", sinn.lua.eval("MinistryOfTheAllied.stats.ignored") == ign0)
 
 print()
 print("Lua errors:", len(errors))

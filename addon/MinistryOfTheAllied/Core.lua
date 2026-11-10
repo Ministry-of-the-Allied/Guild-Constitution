@@ -134,7 +134,7 @@ function MOTA:LearnMe(name)
   name = self:Bare(name)
   if not name then return end
   self.meLearned = true
-  if name == self.me then return end
+  if name == self.me then return self.Book:SendHeld() end
   self:Debug("own name:", name, "(was", tostring(self.me) .. ")")
   self.me = name
   if self.db then
@@ -143,6 +143,7 @@ function MOTA:LearnMe(name)
   end
   if self.guild then self:MoveMyBook(self.guild) end
   self:Fire("ME_LEARNED", name)
+  self.Book:SendHeld()
 end
 
 -- True if a name is this character's own, with or without a realm tag.
