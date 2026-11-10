@@ -3481,6 +3481,53 @@ run(1)
 hmax.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
 check("Games Hall: Hide and Seek draws in every stage, for players and the organiser", len(errors) == errs)
 
+print("== Hide and Seek: a play area drawn on the map")
+HE(hmax, 'return Hi:Close() or 1')
+run(1)
+check("Hide: a drawn shape needs three corners", "at least 3" in (HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elwynn Forest", 1429) Hi:AddCorner(0, 1100, 1000) local _, e = Hi:Open("Shape") return e') or ""))
+check("Hide: every corner in the same part of the world", "same part" in (HE(hmax, 'local _, e = Hi:AddCorner(1, 1100, 1100) return e') or ""))
+HE(hmax, 'Hi:AddCorner(0, 1100, 1100) Hi:AddCorner(0, 1000, 1100) Hi:AddCorner(0, 1050, 1200) return 1')
+check("Hide: a corner can be taken back", HE(hmax, 'Hi:UndoCorner() return #Hi:Draft().pts') == 4)
+check("Hide: the shape's middle and reach are worked out", HE(hmax, 'local d = Hi:Draft() return d.cx .. "," .. d.cy .. "," .. d.rad') == "1050,1050,71")
+check("Hide: the radius buttons leave a drawn shape alone", HE(hmax, 'Hi:SetRadius(400) return Hi:Draft().rad') == 71)
+check("Hide: a shape opens a game", HE(hmax, 'return Hi:Open("Square Hide") ~= nil') is True)
+run(1)
+check("Hide: every copy has the corners and the map", HE(hmira, 'local G = Hi:Current() return #G.pts .. "|" .. G.m') == "4|1429")
+check("Hide: inside the square is inside", HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1050, 1050)') is True)
+check("Hide: inside the circle round it but outside the square is outside", HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1090, 1010)') is True and HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1110, 1060)') is False)
+check("Hide: yards to the edge, inside and outside", HE(hmira, 'local G = Hi:Current() return math.floor(Hi:ToEdge(G, 0, 1050, 1010) + 0.5) .. "|" .. math.floor(Hi:ToEdge(G, 0, 1050, 980) + 0.5)') == "10|-20")
+check("Hide: the circle's corners are made up for drawing", HE(hmira, 'return #Hi:Shape({ cx = 0, cy = 0, rad = 50 })') == 48)
+for c in (hbram, hmira, hkael): HE(c, 'return Hi:Join()')
+at(hbram, 1050, 1050); at(hmira, 1040, 1040); at(hkael, 1020, 1080)
+run(1)
+HE(hmax, 'return Hi:Start("Bram")')
+run(2)
+at(hmira, 1050, 990)  # outside the square's bottom edge
+run(12)
+check("Hide: leaving a drawn shape puts you out too", HE(hmax, 'return Hi:Role("Mira")') == "out")
+
+# The page, with the zone's map art behind the play area.
+for c in (hmax, hmira):
+    c.lua.execute('''
+      TILES_SET = 0
+      function CreateVector2D(a, b) return { GetXY = function() return a, b end } end
+      C_Map = C_Map or {}
+      C_Map.GetMapPosFromWorldPos = function(inst, v, m) local wy, wx = v:GetXY() return m, CreateVector2D((2000 - wx) / 4000, (2000 - wy) / 4000) end
+      C_Map.GetMapArtLayers = function() return { { layerWidth = 1002, layerHeight = 668, tileWidth = 256, tileHeight = 256 } } end
+      C_Map.GetMapArtLayerTextures = function() local t = {} for i = 1, 12 do t[i] = 100 + i end return t end
+    ''')
+errs = len(errors)
+hmira.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("hide"); MinistryOfTheAllied.GamesPage:Refresh()')
+check("Games Hall: the play area draws with the zone's map behind it", len(errors) == errs)
+check("Games Hall: the map's tiles under the area are laid", HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().tiles) do if t:IsShown() then n = n + 1 end end return n') > 0)
+check("Games Hall: the edge is drawn as dots", HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().dots) do if t:IsShown() then n = n + 1 end end return n') > 20)
+HE(hmax, 'return Hi:Close()')
+run(1)
+errs = len(errors)
+hmax.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("hide")')
+HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elwynn Forest", 1429) Hi:AddCorner(0, 1100, 1000) Hi:AddCorner(0, 1050, 1100) M.GamesPage:Refresh() return 1')
+check("Games Hall: the organiser's form draws a shape being set up", len(errors) == errs and HE(hmax, 'return M.GamesPage._hideArea(true):IsShown()') is True)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

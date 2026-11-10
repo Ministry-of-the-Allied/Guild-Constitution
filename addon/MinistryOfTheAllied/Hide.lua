@@ -17,7 +17,10 @@
 -- are saved first); "No map" closes the world map while the game runs.
 --
 --   hide.open   the Crown or the Minister of Games
---               { name, z, inst, cx, cy, rad, hs, ss, nm, nmap, fr, dw }
+--               { name, z, inst, cx, cy, rad, hs, ss, nm, nmap, fr, dw, pts?, m? }
+--               pts: a shape drawn on the world map, { { x, y }, ... } (3 to 16
+--               corners); without it the play area is the circle rad round
+--               cx, cy. m: the zone map it was set on, for the page's map.
 --   hide.join   a player       { id }
 --   hide.leave  a player       { id }       before the start
 --   hide.start  the organiser  { id, sk }   the first seeker
@@ -47,6 +50,7 @@ Hide.TICK = 0.25
 Hide.RADII = { 50, 100, 150, 250, 400 }
 Hide.DEFAULTS = { hs = 120, ss = 900, rad = 100 }
 Hide.MIN_PLAYERS = 2
+Hide.MIN_PTS, Hide.MAX_PTS = 3, 16
 
 -- Add-ons that tell the guild where its members stand, so hiders would show
 -- on a map: players with one loaded can't join until they turn it off.
@@ -66,10 +70,19 @@ local function now() return GetServerTime() end
 -- Records
 ---------------------------------------------------------------------------
 
+local function validPts(p)
+  if p == nil then return true end
+  if type(p) ~= "table" or #p < Hide.MIN_PTS or #p > Hide.MAX_PTS then return false end
+  for _, q in ipairs(p) do
+    if type(q) ~= "table" or not num(q.x) or not num(q.y) then return false end
+  end
+  return true
+end
+
 local R = MOTA.Book.rules
 R["hide.open"] = function(a, rec)
   local d = rec and rec.d or {}
-  return canRun(a) and str(d.name, 40) and str(d.z, 60) and num(d.inst) and num(d.cx) and num(d.cy)
+  return canRun(a) and validPts(d.pts) and (d.m == nil or num(d.m)) and str(d.name, 40) and str(d.z, 60) and num(d.inst) and num(d.cx) and num(d.cy)
     and num(d.rad) and d.rad >= 20 and d.rad <= 1000 and num(d.hs) and d.hs >= 10 and d.hs <= 1800
     and num(d.ss) and d.ss >= 60 and d.ss <= 7200 or false
 end
@@ -101,7 +114,7 @@ local function build()
     local G = byId[d.id]
     if r.k == "hide.open" then
       G = { id = r.a .. "#" .. r.n, by = r.a, t = r.t, name = d.name, z = d.z, inst = d.inst, cx = d.cx, cy = d.cy,
-        rad = d.rad, hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false,
+        rad = d.rad, pts = d.pts, m = d.m, hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false,
         fr = num(d.fr) and d.fr or Hide.FIND, dw = num(d.dw) and d.dw or Hide.DWELL,
         players = {}, joined = {}, seekers = {}, finds = {}, reached = {}, found = {}, foundBy = {}, out = {}, flags = {} }
       byId[G.id] = G
@@ -247,6 +260,58 @@ function Hide:Places(G)
 end
 
 ---------------------------------------------------------------------------
+-- The play area: a circle or a drawn shape
+---------------------------------------------------------------------------
+
+-- The edge as corners: the drawn shape, or the circle as 48 of them.
+function Hide:Shape(A)
+  if A.pts then return A.pts end
+  local out = {}
+  for i = 1, 48 do
+    local ang = (i - 1) / 48 * 2 * math.pi
+    out[i] = { x = A.cx + A.rad * math.cos(ang), y = A.cy + A.rad * math.sin(ang) }
+  end
+  return out
+end
+
+local function inPolygon(p, x, y)
+  local inside, j = false, #p
+  for i = 1, #p do
+    local a, b = p[i], p[j]
+    if (a.y > y) ~= (b.y > y) and x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x then inside = not inside end
+    j = i
+  end
+  return inside
+end
+
+local function toSegment(x, y, a, b)
+  local dx, dy = b.x - a.x, b.y - a.y
+  local len = dx * dx + dy * dy
+  local t = len > 0 and math.max(0, math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len)) or 0
+  local px, py = a.x + t * dx, a.y + t * dy
+  return math.sqrt((x - px) ^ 2 + (y - py) ^ 2)
+end
+
+-- Whether a spot is inside the play area.
+function Hide:Inside(A, inst, x, y)
+  if inst ~= A.inst then return false end
+  if A.pts then return inPolygon(A.pts, x, y) end
+  return math.sqrt((x - A.cx) ^ 2 + (y - A.cy) ^ 2) <= A.rad
+end
+
+-- Yards to the edge (negative outside), or nil in another world.
+function Hide:ToEdge(A, inst, x, y)
+  if inst ~= A.inst then return nil end
+  if not A.pts then return A.rad - math.sqrt((x - A.cx) ^ 2 + (y - A.cy) ^ 2) end
+  local best = math.huge
+  local p = A.pts
+  for i = 1, #p do
+    best = math.min(best, toSegment(x, y, p[i], p[i % #p + 1]))
+  end
+  return inPolygon(p, x, y) and best or -best
+end
+
+---------------------------------------------------------------------------
 -- The organiser
 ---------------------------------------------------------------------------
 
@@ -268,11 +333,51 @@ function Hide:SetCentre(inst, x, y, zone)
   local d = self:Draft()
   d.inst, d.cx, d.cy = inst, math.floor(x * 10 + 0.5) / 10, math.floor(y * 10 + 0.5) / 10
   d.z = (zone and zone ~= "") and zone or "Somewhere"
+  d.pts = nil
+  d.m = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player") or nil
   MOTA:Fire("HIDE_CHANGED")
   return true
 end
 
+-- Drawing a shape: corners added one at a time (UI/HideMap.lua clicks them on the map).
+function Hide:AddCorner(inst, x, y, zone, mapID)
+  local d = self:Draft()
+  if d.pts and #d.pts > 0 and d.inst ~= inst then return nil, "Every corner must be in the same part of the world." end
+  if not d.pts then d.pts = {} end
+  if #d.pts >= self.MAX_PTS then return nil, "A shape has at most " .. self.MAX_PTS .. " corners." end
+  if #d.pts == 0 then
+    d.inst, d.z, d.m = inst, (zone and zone ~= "") and zone or "Somewhere", mapID
+  end
+  d.pts[#d.pts + 1] = { x = math.floor(x * 10 + 0.5) / 10, y = math.floor(y * 10 + 0.5) / 10 }
+  self:FitShape()
+  MOTA:Fire("HIDE_CHANGED")
+  return #d.pts
+end
+
+function Hide:UndoCorner()
+  local d = self:Draft()
+  if not d.pts or #d.pts == 0 then return nil, "No corners to take back." end
+  table.remove(d.pts)
+  if #d.pts == 0 then d.pts, d.cx = nil, nil end
+  self:FitShape()
+  MOTA:Fire("HIDE_CHANGED")
+  return true
+end
+
+-- A shape's middle and reach (for the page's map and the size limit).
+function Hide:FitShape()
+  local d = self:Draft()
+  if not d.pts or #d.pts == 0 then return end
+  local sx, sy = 0, 0
+  for _, q in ipairs(d.pts) do sx, sy = sx + q.x, sy + q.y end
+  d.cx, d.cy = math.floor(sx / #d.pts * 10 + 0.5) / 10, math.floor(sy / #d.pts * 10 + 0.5) / 10
+  local far = 0
+  for _, q in ipairs(d.pts) do far = math.max(far, math.sqrt((q.x - d.cx) ^ 2 + (q.y - d.cy) ^ 2)) end
+  d.rad = math.max(20, math.ceil(far))
+end
+
 function Hide:SetRadius(r)
+  if self:Draft().pts then return end -- a drawn shape keeps its own size
   self:Draft().rad = math.max(20, math.min(1000, r))
   MOTA:Fire("HIDE_CHANGED")
 end
@@ -281,12 +386,15 @@ function Hide:Open(name)
   if not canRun(MOTA.me) then return nil, "Only the Crown and the Minister of Games run Hide and Seek." end
   if self:Live() then return nil, "A game is already on." end
   local d = self:Draft()
-  if not d.cx then return nil, "Set the play area first: stand in its middle, or pick it on the map." end
+  if not d.cx then return nil, "Set the play area first: stand in its middle, or draw it on the map." end
+  if d.pts and #d.pts < self.MIN_PTS then return nil, "A drawn play area needs at least " .. self.MIN_PTS .. " corners." end
+  if d.rad > 1000 then return nil, "That play area is too big: keep it within 1000 yards of its middle." end
   name = strtrim(name or d.name or "")
   if name == "" then name = "Hide and Seek" end
   if #name > 40 then return nil, "Keep the name to 40 letters." end
   local rec, err = MOTA.Book:Write("hide.open", { name = name, z = d.z, inst = d.inst, cx = d.cx, cy = d.cy, rad = d.rad,
-    hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false, fr = self.FIND, dw = self.DWELL })
+    hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false, fr = self.FIND, dw = self.DWELL,
+    pts = d.pts, m = d.m })
   if rec then MOTA.db.hideDraft = nil end
   return rec, err
 end
@@ -482,8 +590,7 @@ function Hide:Tick(dt)
   if not x then return end
 
   -- The edge of the play area.
-  local d = self:FromCentre(G, inst, x, y)
-  if not d or d > G.rad then
+  if not self:Inside(G, inst, x, y) then
     local before = self.outside
     self.outside = self.outside + dt
     local left = math.ceil(self.OUT_GRACE - self.outside)
