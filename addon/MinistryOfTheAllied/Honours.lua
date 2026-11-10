@@ -23,7 +23,12 @@ Honours.ORDERS = {
 Honours.MEDALS = {
   { key = "laurel", title = "Victor's Laurel", text = "won a guild game" },
   { key = "path", title = "Pathfinder's Medal", text = "first to finish a treasure hunt" },
+  { key = "ring", title = "Ring Champion", text = "won The Ring" },
+  { key = "finalist", title = "Ring Finalist", text = "fought The Final of The Ring" },
 }
+-- The current Ring champion's title, until the next tournament crowns another
+-- (ADDON_SPEC.md 11.3; decided with Duncan, 2026-11-10).
+Honours.GLADIATOR = "Gladiator of Stormwind"
 local ORDER, MEDAL, RANK = {}, {}, {}
 for i, o in ipairs(Honours.ORDERS) do ORDER[o.key], RANK[o.key] = o, i end
 for i, m in ipairs(Honours.MEDALS) do MEDAL[m.key], RANK[m.key] = m, #Honours.ORDERS + i end
@@ -69,6 +74,11 @@ local function build()
       give(d.places[1], MEDAL_FOR[d.g] or "laurel", r.t)
     end
   end
+  -- The Ring's finished tournaments: the champion and the losing finalist.
+  for _, h in ipairs(MOTA.Ring and MOTA.Ring:Hall() or {}) do
+    if str(h.champion, 40) then give(h.champion, "ring", h.t or 0) end
+    if str(h.runnerUp, 40) then give(h.runnerUp, "finalist", h.t or 0) end
+  end
   return byName
 end
 
@@ -112,8 +122,24 @@ function Honours:Of(name)
   return out
 end
 
--- The newest Cup title a player holds ("Season 2 Champion"), or nil.
+-- The current Ring champion: the champion of the latest finished tournament.
+function Honours:Gladiator()
+  local latest
+  for _, h in ipairs(MOTA.Ring and MOTA.Ring:Hall() or {}) do
+    if not latest or (h.t or 0) >= (latest.t or 0) then latest = h end
+  end
+  return latest and latest.champion
+end
+
+-- The title shown after a name: "Gladiator of Stormwind" for the current Ring
+-- champion, else the newest Cup title ("Season 2 Champion"), or nil.
 function Honours:Title(name)
+  local glad = self:Gladiator()
+  if glad then
+    for _, n in ipairs(MOTA.Account and MOTA.Account:Alts(name) or { name }) do
+      if n == glad then return self.GLADIATOR end
+    end
+  end
   local best
   for _, c in ipairs(MOTA.Cup and MOTA.Cup:TitlesOf(name) or {}) do
     if not best or c.season > best.season or (c.season == best.season and c.key == "cup") then best = c end
@@ -219,6 +245,10 @@ MOTA:Listen("GUILD_READY", function() cache = nil end)
 MOTA:Listen("CAUGHT_UP", function() cache = nil end)
 MOTA:Listen("ACCOUNT_CHANGED", function() cache = nil end)
 MOTA:Listen("CUP_CHANGED", function(self) self:Fire("HONOURS_CHANGED") end)
+MOTA:Listen("RING_CHANGED", function(self)
+  cache = nil
+  self:Fire("HONOURS_CHANGED")
+end)
 MOTA:Listen("RECORD_ADDED", function(self, rec)
   if rec.k == "game.result" then cache = nil; return end
   if rec.k ~= "honour.award" and rec.k ~= "honour.revoke" then return end

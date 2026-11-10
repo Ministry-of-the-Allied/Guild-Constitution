@@ -461,21 +461,25 @@ local function buildHonours()
     v.orders[o.key] = r
   end
 
-  local medals = panel(v, "plain", COL_W + 14, 0, COL_W, 172)
+  local MEDAL_STEP = 62
+  local medalsH = 32 + #H.MEDALS * MEDAL_STEP + 4
+  local medals = panel(v, "plain", COL_W + 14, 0, COL_W, medalsH)
   Kit:Label(medals, "kitSection", BLUE, 0.22, "The medals"):SetPoint("TOPLEFT", medals, "TOPLEFT", 14, -12)
   v.medals = {}
   for i, m in ipairs(H.MEDALS) do
     local short = m.title:gsub("[^%u]", ""):sub(1, 2)
-    local r = honourRow(medals, 32 + (i - 1) * 66, "kitMedalS", short, COL_W)
+    local r = honourRow(medals, 32 + (i - 1) * MEDAL_STEP, "kitMedalS", short, COL_W)
     r.title:SetText(m.title)
     r.text:SetText(m.text)
     v.medals[m.key] = r
   end
 
-  local lately = panel(v, "sunk", COL_W + 14, 184, COL_W, HEIGHT - BODY_Y - 184)
+  local latelyY = medalsH + 12
+  local latelyH = HEIGHT - BODY_Y - latelyY
+  local lately = panel(v, "sunk", COL_W + 14, latelyY, COL_W, latelyH)
   Kit:Label(lately, "kitSection", BLUE, 0.22, "Lately honoured"):SetPoint("TOPLEFT", lately, "TOPLEFT", 14, -10)
   lately.rows = {}
-  for i = 1, 5 do
+  for i = 1, math.max(1, math.min(5, math.floor((latelyH - 30) / 38))) do
     local t = line(lately, "kitSmallest", nil, 14, 30 + (i - 1) * 38, COL_W - 28)
     t:SetMaxLines(2)
     lately.rows[i] = t
@@ -484,9 +488,9 @@ local function buildHonours()
   return v
 end
 
--- The newest honours: orders conferred, and medals won in the games.
+-- The newest honours: orders conferred, medals won in the games, and The Ring.
 local function latelyHonoured(limit)
-  local out = {}
+  local found = {}
   local H = MOTA.Honours
   for _, r in ipairs(MOTA.Book:Latest(400)) do
     local d = r.d or {}
@@ -497,9 +501,19 @@ local function latelyHonoured(limit)
       text = "|cff2A1F14" .. MOTA:Short(d.places[1]) .. "|r, " .. (H.MEDAL[d.g == "hunt" and "path" or "laurel"].title) .. " · " .. tostring(d.name)
     end
     if text then
-      out[#out + 1] = "|cff5E4B33" .. date("%d %b", r.t) .. " ·|r " .. text
-      if #out >= limit then break end
+      found[#found + 1] = { t = r.t, text = text }
+      if #found >= limit then break end
     end
+  end
+  for _, h in ipairs(MOTA.Ring and MOTA.Ring:Hall() or {}) do
+    if h.champion then
+      found[#found + 1] = { t = h.t or 0, text = "|cff2A1F14" .. MOTA:Short(h.champion) .. "|r, " .. H.MEDAL.ring.title .. " · " .. tostring(h.season) }
+    end
+  end
+  table.sort(found, function(a, b) return a.t > b.t end)
+  local out = {}
+  for i = 1, math.min(limit, #found) do
+    out[i] = "|cff5E4B33" .. date("%d %b", found[i].t) .. " ·|r " .. found[i].text
   end
   return out
 end
