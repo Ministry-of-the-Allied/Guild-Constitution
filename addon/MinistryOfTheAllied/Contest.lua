@@ -490,7 +490,7 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
       text = "Party members may now stand for leader.", button = { label = "Open", style = "blue", page = 4 } })
   elseif rec.k == "contest.stand" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "Leadership contest", title = self:Short(rec.a) .. " stands",
-      text = "A candidate for leader of " .. (self.Party.NAMES[d.p] or "a party") .. ".", button = { label = "Read it", style = "quiet", page = 4 } })
+      text = "A candidate for leader of " .. (self.Party.NAMES[d.p] or "a party") .. ".", button = { label = "Read it", style = "gold", page = 4 } })
   elseif rec.k == "contest.runoff" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "A tie", title = "A run-off is called",
       text = self:Short(d.a) .. " and " .. self:Short(d.b) .. " face 48 hours more voting.", button = { label = "Open", style = "blue", page = 4 } })
@@ -501,7 +501,7 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
       button = { label = "Open", style = "blue", page = 4 } })
   elseif rec.k == "contest.result" then
     herald({ seal = SEALS[d.p] or "official", eyebrow = "Inaugurated by the Crown", title = self:Short(d.w) .. " leads",
-      text = "Leader of " .. (self.Party.NAMES[d.p] or "a party") .. ". The votes are published.", button = { label = "Read it", style = "quiet", page = 4 } })
+      text = "Leader of " .. (self.Party.NAMES[d.p] or "a party") .. ". The votes are published.", button = { label = "Read it", style = "gold", page = 4 } })
   end
 end)
 

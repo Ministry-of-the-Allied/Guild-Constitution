@@ -511,11 +511,11 @@ check("Settings: /mota settings opens the page in the window, the gear lit, no t
       Q(ui_client, 'return M.UI.window:IsShown() and M.UI.settingsOpen and M.UI.knobSettings.lit.shown and M.UI.settingsSub.shown') is True
       and Q(ui_client, 'for _, t in ipairs(M.UI.tabs) do if t.look == "on" then return false end end return true') is True)
 check("A citizen sees no Window skin group", not bram_panel.groups[3].shown and bram_panel.groups[2].shown)
-skin_btn = bram_panel.controls[10]
+skin_btn = bram_panel.controls[11]   # (the herald size has three choices since 10 Nov)
 skin_btn.scripts.OnClick(skin_btn)
 check("...and clicking it anyway changes nothing", ns.db.settings.windowSkin == "party" and ns.skin.KEY == "SILVERHAND")
 # the World map skin row (D5f): everyone's, Party at first; Plain takes the dress off at once
-map_btns = [bram_panel.controls[6], bram_panel.controls[7], bram_panel.controls[8]]
+map_btns = [bram_panel.controls[7], bram_panel.controls[8], bram_panel.controls[9]]
 check("A citizen sees the World map skin row, Party chosen", map_btns[0].on.shown and map_btns[1].off.shown and map_btns[2].off.shown
       and ns.db.settings.mapSkin == "party")
 ui_client.lua.execute('MAP_SKIN_HEARD = 0; MinistryOfTheAllied:Listen("MAP_SKIN_CHANGED", function() MAP_SKIN_HEARD = MAP_SKIN_HEARD + 1 end)')
@@ -525,10 +525,10 @@ check("...Plain chosen, the map is told", ns.db.settings.mapSkin == "plain" and 
 map_btns[0].scripts.OnClick(map_btns[0])
 check("...and Party again", ns.db.settings.mapSkin == "party" and map_btns[0].on.shown)
 max_panel = open_settings(max3)
-party_btn = max_panel.controls[9]
+party_btn = max_panel.controls[10]
 check("The Crown sees the Window skin group, Party chosen", party_btn.on.shown and not party_btn.off.shown
-      and max_panel.controls[10].off.shown and max_panel.groups[3].shown)
-ministry_btn = max_panel.controls[10]
+      and max_panel.controls[11].off.shown and max_panel.groups[3].shown)
+ministry_btn = max_panel.controls[11]
 ministry_btn.scripts.OnClick(ministry_btn)
 check("...and can use it", crown_ns.db.settings.windowSkin == "ministry" and crown_ns.skin.KEY == "UNREGISTERED")
 crown_ns.db.settings.windowSkin = "party"
@@ -569,6 +569,18 @@ run(8)
 again.slash("")
 check("Reopens on the last page", again.lua.globals().MinistryOfTheAllied.UI.heading.text == "The Gladiator's Ring")
 
+
+def herald_button(f, key):
+    """The herald shows its button in this style with this label, as "quiet:Dismiss" (one button
+    per style since the banner, 9 Nov; its label is spaced out, a font string a letter)."""
+    style, label = key.split(":")
+    b = f.buttons[style]
+    if b is None or not b.shown:
+        return False
+    letters = b.label.letters
+    return "".join(letters[i].text for i in range(1, len(letters) + 1) if letters[i].shown) == label.upper()
+
+
 print("== 11. herald pop-ups and settings (Milestone 3)")
 hc = Client("Bram")
 clients.append(hc)
@@ -583,11 +595,23 @@ check("Royal size by default", abs(hf.scale - 0.8) < 1e-6)
 check("A fanfare played", HL.LAST_SOUND == 888)
 run(11)
 check("After ten seconds the next sample shows", hf.title.text == "The Guild Bank Levy is law")
+check("...with the gold Read it button of Max's banner", herald_button(hf, "gold:Read it") and not hf.buttons.blue.shown)
+check("...on the banner in the window's skin", hf.slices[1].texture.endswith("herald_ministry.tga") and hf.seal.texture.endswith("herald_ministry.tga"))
 hns.Herald.Press(hns.Herald)
 check("Its button opens the Statute Book", HL.MinistryOfTheAlliedFrame.shown and hns.UI.heading.text == "The Statute Book")
 check("Then the third sample", hf.title.text == "Elowen Marsh defects!")
 hns.Herald.Press(hns.Herald)
 check("Dismiss empties the queue", not hf.shown and hns.Herald.Waiting(hns.Herald) == 0)
+B = hns.Media.herald
+long_text = ("Tickets 1g each, bought at the guild bank (choose Lottery as the reason). "
+             "The draw is after 12 Nov. The winner takes 70% of the pot.")
+hns.Herald.Announce(hns.Herald, hc.lua.table_from({"seal": "treasury", "eyebrow": "The Royal Lottery", "title": "Spring Draw is open",
+                                                  "text": long_text, "button": hc.lua.table_from({"label": "Dismiss", "style": "quiet"})}), True)
+shown_lines = [hf.lines[i].text for i in range(1, len(hf.lines) + 1) if hf.lines[i].shown]
+check("A long text wraps by words, a line each", len(shown_lines) == 3 and " ".join(shown_lines) == long_text)
+check("...and the banner grows a line for it", abs(hf.h - (B.h + B.text.line)) < 1e-6)
+hns.Herald.Press(hns.Herald)
+run(1)
 top_before = hc.lua.eval("MinistryOfTheAllied.guild.tops[MinistryOfTheAllied.me] or 0")
 hc.wire.clear()
 hc.slash("heralds all")
@@ -612,7 +636,7 @@ hns.Herald.Press(hns.Herald)
 hc.slash("settings")
 check("/mota settings opens the Settings page in the window", hns.UI.settingsOpen is True and hns.UI.window.shown)
 controls = hns.SettingsPage.controls
-herald_switch, glow_switch = controls[1], controls[5]
+herald_switch, glow_switch = controls[1], controls[6]
 herald_switch.scripts.OnClick(herald_switch)
 check("The herald switch turns heralds off", hns.db.settings.herald == False and herald_switch.off.shown)
 check("A non-sample herald is then skipped", hns.Herald.Announce(hns.Herald, HL.MinistryOfTheAllied.Herald.samples[1]) == False)
@@ -622,14 +646,98 @@ glow_switch.scripts.OnClick(glow_switch)
 check("The District glow switch turns the glow off and tells the map",
       hns.db.settings.glow == False and glow_switch.off.shown and HL.GLOW_HEARD == 1)
 glow_switch.scripts.OnClick(glow_switch)
-cards_switch = controls[11]
+cards_switch = controls[12]
 cards_switch.scripts.OnClick(cards_switch)
 check("A switch for a later feature doesn't change", hns.db.settings.cards == False)
 modest = controls[3]
 modest.scripts.OnClick(modest)
-check("Modest is chosen", hns.db.settings.heraldSize == "small" and modest.on.shown and not controls[4].on.shown)
+check("Modest is chosen", hns.db.settings.heraldSize == "small" and modest.on.shown and not controls[5].on.shown)
 hc.slash("herald 3")
 check("A Modest herald is smaller", abs(hf.scale - 0.56) < 1e-6)
+hns.Herald.Press(hns.Herald)
+# Stately, halfway between Modest and Royal (Max, 10 Nov)
+stately = controls[4]
+stately.scripts.OnClick(stately)
+check("Stately is chosen", hns.db.settings.heraldSize == "medium" and stately.on.shown and modest.off.shown and controls[5].off.shown)
+hc.slash("herald 3")
+check("A Stately herald is halfway between Modest and Royal", abs(hf.scale - 0.68) < 1e-6)
+hns.Herald.Press(hns.Herald)
+# Where heralds appear (Max, 10 Nov): Preview, the round lock, drag, Save
+hc.slash("herald 1")
+preview_btn = hns.SettingsPage.GROUPS[1].rows[4].button
+preview_btn.scripts.OnClick(preview_btn)
+check("Settings' Preview shows a herald that stays, with the round lock and Save",
+      hf.shown and hf.title.text == "Where heralds appear" and hf.lock.shown and herald_button(hf, "blue:Save")
+      and "skin_" in hf.lock.art.texture)
+check("...the herald that was up waits its turn behind it", hns.Herald.Waiting(hns.Herald) == 2)
+check("...locked at first", hns.Herald.IsUnlocked(hns.Herald) is False)
+hf.lock.scripts.OnClick(hf.lock)
+check("The round lock opens it", hns.Herald.IsUnlocked(hns.Herald) is True)
+hc.lua.execute("MinistryOfTheAlliedHerald.cx, MinistryOfTheAlliedHerald.cy = 300, 200")   # dragged there
+hns.Herald.Press(hns.Herald)
+pos = hns.db.settings.heraldPos
+check("Save keeps where it stands (its top middle, from the screen's top middle)",
+      pos is not None and abs(pos.x - (300 * 0.68 - 1365 / 2)) < 1e-6
+      and abs(pos.y - ((200 + hns.Media.herald.h / 2) * 0.68 - 768)) < 1e-6)
+check("...the lock shuts and the waiting herald comes back, standing there",
+      hns.Herald.IsUnlocked(hns.Herald) is False and hf.shown and hf.title.text == "The polls are open!" and not hf.lock.shown
+      and hc.lua.execute('local p, _, rp, x, y = MinistryOfTheAlliedHerald:GetPoint(1) '
+                      'return p == "TOP" and rp == "TOP" and math.abs(x - (300 * 0.68 - 1365 / 2) / 0.68) < 1e-6') is True)
+hns.Herald.Press(hns.Herald)
+hns.Herald.ResetPosition(hns.Herald)
+check("...and back to the top of the screen when reset", hns.db.settings.heraldPos is None)
+# Position presets (Max, 10 Nov): a cross of five buttons just above the middle of the screen
+def herald_point():
+    return tuple(hc.lua.execute('local p, _, rp, x, y = MinistryOfTheAlliedHerald:GetPoint(1) return p, rp, x, y'))
+def button_at(name):
+    return tuple(hc.lua.execute(f'local b = MinistryOfTheAlliedHeraldPresets.buttons.{name} '
+                                'local p, _, rp, x, y = b:GetPoint(1) return x, y'))
+preview_btn.scripts.OnClick(preview_btn)
+cross = HL.MinistryOfTheAlliedHeraldPresets
+names = ("top", "left", "center", "right", "bottom")
+check("The preview shows five preset buttons, just above the middle of the screen",
+      cross is not None and cross.shown and all(cross.buttons[n] is not None for n in names)
+      and hc.lua.execute('local p, _, rp, x, y = MinistryOfTheAlliedHeraldPresets:GetPoint(1) '
+                         'return p == "CENTER" and rp == "CENTER" and x == 0 and y > 0') is True)
+at = {n: button_at(n) for n in names}
+check("...each where it sends the herald", at["left"][0] < at["center"][0] < at["right"][0]
+      and at["top"][1] > at["center"][1] > at["bottom"][1] and at["top"][0] == at["center"][0] == at["bottom"][0])
+s68 = hf.scale
+cross.buttons.left.scripts.OnClick(cross.buttons.left)
+p, rp, x, y = herald_point()
+check("Left sends the preview to the left edge", p == "LEFT" and rp == "LEFT" and abs(x * s68 - 58) < 1e-6)
+hns.Herald.Press(hns.Herald)
+check("Save keeps the preset by name, and the buttons go with the preview",
+      hns.db.settings.heraldPos.preset == "left" and not cross.shown)
+hc.slash("herald 1")
+check("The next herald stands at the left edge", herald_point()[0] == "LEFT")
+hns.Herald.Press(hns.Herald)
+preview_btn.scripts.OnClick(preview_btn)
+cross.buttons.bottom.scripts.OnClick(cross.buttons.bottom)
+p, rp, x, y = herald_point()
+check("Bottom: the banner's foot the same gap from the screen's foot", p == "BOTTOM" and abs(y * s68 - 58) < 1e-6 and x == 0)
+cross.buttons.top.scripts.OnClick(cross.buttons.top)
+p, rp, x, y = herald_point()
+crown = -hns.Media.pieces["herald_ministry:frame"].y
+check("Top: the crown the same gap from the screen's top", p == "TOP" and abs(-y * s68 - (58 + crown * s68)) < 1e-6)
+hf.lock.scripts.OnClick(hf.lock)
+hf.scripts.OnDragStart(hf)
+hf.scripts.OnDragStop(hf)
+hns.Herald.Press(hns.Herald)
+check("Dragged after a preset, Save keeps its own place instead",
+      hns.db.settings.heraldPos.preset is None and hns.db.settings.heraldPos.x is not None)
+hns.Herald.ResetPosition(hns.Herald)
+# A long title steps down in its own font until it fits its line (Max, 10 Nov: heralds 13, 18, 26)
+# (the pretend game measures 6 a letter in any font, so the title here is long enough to need it there)
+long_title = "Elowenwyn of Goldshire is appointed a Justice of the High Judiciary at last"
+hns.Herald.Announce(hns.Herald, hc.lua.table_from({"seal": "crown", "eyebrow": "By the Crown", "title": long_title,
+                                                  "text": "A seat on the High Judiciary.",
+                                                  "button": hc.lua.table_from({"label": "Dismiss", "style": "quiet"})}), True)
+check("A long title keeps the title's font, stepped down to fit its line",
+      hf.title.text == long_title and hf.titleSize < 21 and hf.title.font.path.endswith("MinistryDecorative-Bold.ttf"))
+hns.Herald.Press(hns.Herald)
+hc.slash("heralds 13")
+check("A title that fits keeps its full size", hf.titleSize == 21 or len(hf.title.text) * 6 > 386)
 hns.Herald.Press(hns.Herald)
 hc.slash("fanfare")
 hc.slash("fanfare 2")
@@ -654,9 +762,10 @@ V = vns.Voice
 played = lambda: len(list(VL.VOICE_PLAYED.values()))
 last = lambda: VL.VOICE_PLAYED[played()]
 vh = lambda: VL.MinistryOfTheAlliedHerald
+
 run(8)
 check("The introduction starts by itself on first login", played() == 1 and last().endswith("voice_01.ogg"))
-check("Its scroll has no Stop button", vh().shown and vh().title.text == "Introduction" and not vh().closeX.shown and vh().buttons["quiet:Dismiss"].shown)
+check("Its scroll has no Stop button", vh().shown and vh().title.text == "Introduction" and not vh().closeX.shown and herald_button(vh(), "quiet:Dismiss"))
 check("No fanfare over the narration", VL.LAST_SOUND != 888)
 vc.slash("voice stop")
 check("The introduction can't be stopped", VL.VOICE_STOPPED == 0 and V.Locked(V))
@@ -685,9 +794,9 @@ run(30)
 check("...and stays while the clip plays", vh().shown)
 vns.Herald.Press(vns.Herald)
 check("Stop stops the sound", VL.VOICE_STOPPED == 1 and V.Playing(V) is None)
-check("...and offers Restart", vh().shown and vh().buttons["blue:Restart"].shown)
+check("...and offers Restart", vh().shown and herald_button(vh(), "blue:Restart"))
 vns.Herald.Press(vns.Herald)
-check("Restart plays from the beginning", played() == 3 and last().endswith("voice_02.ogg") and vh().buttons["quiet:Stop"].shown)
+check("Restart plays from the beginning", played() == 3 and last().endswith("voice_02.ogg") and herald_button(vh(), "quiet:Stop"))
 vh().closeX.scripts.OnClick(vh().closeX)
 check("The X closes the scroll, the voice plays on", not vh().shown and V.Playing(V) is not None)
 V.Stop(V)
@@ -695,12 +804,12 @@ vns.ConstitutionPage.Press(vns.ConstitutionPage, 5)
 check("The page replays any clip", last().endswith("voice_05.ogg"))
 vns.ConstitutionPage.Press(vns.ConstitutionPage, 5)
 check("...and stops it", V.Playing(V) is None)
-check("...with a Restart on its scroll", vh().shown and vh().buttons["blue:Restart"].shown)
+check("...with a Restart on its scroll", vh().shown and herald_button(vh(), "blue:Restart"))
 vh().closeX.scripts.OnClick(vh().closeX)
 n, stopped = played(), VL.VOICE_STOPPED
 for clip in (4, 6, 7, 8):
     vns.ConstitutionPage.Press(vns.ConstitutionPage, clip)
-check("Play shows a scroll with Stop", vh().shown and vh().closeX.shown and vh().buttons["quiet:Stop"].shown)
+check("Play shows a scroll with Stop", vh().shown and vh().closeX.shown and herald_button(vh(), "quiet:Stop"))
 check("Quick presses leave one scroll, showing the last clip", vh().title.text == "Punitive Measures" and vns.Herald.Waiting(vns.Herald) == 1)
 check("...and one sound: each new clip stops the last", played() == n + 4 and VL.VOICE_STOPPED == stopped + 3)
 run(60)
@@ -743,7 +852,7 @@ run(2)
 check("A playing clip isn't called cut off", V.Playing(V) is not None)
 VL.SOUND_ALIVE = False
 run(2)
-check("A clip the game drops offers Restart", V.Playing(V) is None and vh().shown and vh().buttons["blue:Restart"].shown)
+check("A clip the game drops offers Restart", V.Playing(V) is None and vh().shown and herald_button(vh(), "blue:Restart"))
 clients.remove(vc)
 
 print("== 12b. the Parties page")
@@ -873,6 +982,31 @@ crownP.lua.execute('LOG = { { "deposit", "Bram", 30000 }, { "deposit", "Mira-Rea
 check("Ledger: the log finds entries with no line", P(crownP, 'local u = M.Ledger:Unmatched() return #u == 2 and u[1].name == "Mira" and u[2].kind == "repair"') is True)
 P(crownP, 'M.Bank:AskFor(M.Ledger:Unmatched()[1])')
 check("Ledger: the Crown is asked for the reason", P(crownP, 'return M.BankPrompt:IsShown()') is True)
+# The prompt wears the herald's banner (10 Nov 2026), in each skin.
+BP = crownP.lua.globals().MinistryOfTheAlliedBankPrompt
+BPH = crownP.lua.globals().MinistryOfTheAllied.Media.herald
+def bp_wears(skin):
+    tga = f"herald_{skin}.tga"
+    return (all(BP.slices[i].texture.endswith(tga) for i in range(1, 6)) and BP.seal.texture.endswith(tga)
+            and BP.confirm.art.texture.endswith(tga))
+def bp_seal(name):
+    p = crownP.lua.eval(f'MinistryOfTheAllied.Media.pieces["herald_" .. MinistryOfTheAllied.skin.FILE .. ":seal_{name}"]')
+    return abs(BP.seal.coords[1] - p.l) < 1e-9 and abs(BP.seal.coords[3] - p.t) < 1e-9
+check("Bank prompt: on the herald's banner, with the Treasury seal", bp_wears(crownP.lua.eval("MinistryOfTheAllied.skin.FILE")) and abs(BP.h - BPH.h) < 1e-6 and bp_seal("treasury"))
+check("Bank prompt: the chooser on the banner's text column, up to the button",
+      abs(BP.chooser.points[1][4] - BPH.text.x) < 1e-6
+      and abs(BP.chooser.w - (BPH.buttons.blue.x - BPH.text.gap - BPH.text.x)) < 1e-6)
+check("Bank prompt: Confirm is the blue button, greyed until a reason is chosen",
+      BP.confirm.enabled is False and abs(BP.confirm.alpha - 0.45) < 1e-6
+      and "".join(BP.confirm.label.letters[i].text for i in range(1, 8)) == "CONFIRM")
+BP.chooser.scripts.OnClick(BP.chooser)
+check("Bank prompt: the open list grows the banner to hold it", BP.list.shown and BP.h > BPH.h + 100)
+for skin in ("silverhand", "exchange", "crown", "ministry"):
+    crownP.slash("skin " + skin)
+    check(f"Bank prompt: wears the {skin} banner in the {skin} skin", bp_wears(skin))
+BP.rows[6].scripts.OnClick(BP.rows[6])
+check("Bank prompt: Silverhand funds take the party's seal; the list closes; Confirm is ready",
+      not BP.list.shown and abs(BP.h - BPH.h) < 1e-6 and BP.confirm.enabled is True and BP.confirm.alpha == 1 and bp_seal("silverhand"))
 P(crownP, 'M.BankPrompt:Answer("donation")')
 run(1)
 check("Ledger: the entry is filled for its depositor", P(cit, 'local l = M.Ledger:Page(1, 5)[1] return l.who == "Mira" and l.entered == "Max"') is True)

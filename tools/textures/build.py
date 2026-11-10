@@ -8,6 +8,8 @@ canvas's own stylesheet (design/canvas-source/ministry.css):
   tools/textures/extras.html   the herald pop-up and the settings page (Extras board)
   tools/textures/ballot.html   the Ballot Hall's ribbons, seals, buttons and papers (Ballot Hall board)
 
+and cuts the herald pop-up's banner out of Max's reference picture (tools/textures/herald.py),
+
 then crops each piece, packs them into textures and writes:
 
   addon/MinistryOfTheAllied/Media/*.tga   the textures the game loads
@@ -15,7 +17,7 @@ then crops each piece, packs them into textures and writes:
 
 The live design canvas is the source of truth: refresh design/canvas-source/
 from it first, then run   python tools/textures/build.py
-Needs Microsoft Edge and Python 3 with Pillow. Add --preview to also save
+Needs Microsoft Edge and Python 3 with Pillow and numpy. Add --preview to also save
 pictures of the assembled window and herald (in the system temp folder).
 """
 import concurrent.futures
@@ -32,6 +34,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 import districts  # the Districts page's map, outlines and pins (Batch D3)
+import herald     # the herald pop-up's banner, from Max's reference picture (9 Nov)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -173,8 +176,7 @@ ACCENT_PIECES = (
     + ["b_" + n for n in ("rb-ballot-on", "rb-ballot-on-dot", "rb-results-on", "rb-crown-on", "btn-seal", "btn-open",
                           "btn-close", "btn-runoff", "btn-last", "btn-add", "pill-general-on", "pill-snap-on",
                           "pill-runoff-on")]
-    + [f"hbtn_{style}_{{}}" for style in ("blue", "quiet")]  # filled in per herald label below
-    + ["segModestOn", "segRoyalOn", "segPartyOn", "segMinistryOn"]
+    + ["segModestOn", "segStatelyOn", "segRoyalOn", "segPartyOn", "segMinistryOn"]
     # the world map skin's lit choice and the lit switches follow the accent too (Max, 9 Nov)
     + ["segMapPartyOn", "segMapMinistryOn", "segMapPlainOn", "swOn"]
 )
@@ -207,9 +209,6 @@ def accent_css(a):
     return css
 
 
-# Herald buttons drawn ready-made: the label and the style ("blue" is .btn, "quiet" is .btn.quiet).
-HERALD_BUTTONS = ["Vote now", "Read it", "Open", "Dismiss", "Stop", "Restart"]
-
 # Slots: places where the add-on draws live text or buttons, by root.
 SLOTS = {
     "win": [f"tab{i}" for i in range(1, 9)] + [
@@ -219,7 +218,7 @@ SLOTS = {
         "rim", "leather", "corner-tr", "corner-bl", "corner-br"],
     "kit": ["kit"],
     "herald": ["herald", "hseal", "htext", "heyebrow", "htitle", "hbody", "hbutton"],
-    "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-royal",
+    "settings": ["settings", "sparch", "sseal", "seyebrow", "stitle", "seg", "seg-modest", "seg-stately", "seg-royal",
                  "segskin", "seg-party", "seg-ministry", "segmap", "seg-mparty", "seg-mministry", "seg-mplain",
                  "sreload", "sreload-glow"]
     + [f"row{i}" for i in range(1, 8)] + [f"slabel{i}" for i in range(1, 8)]
@@ -244,8 +243,22 @@ SLOTS = {
 # Hall's held block, whose strip is tilted (game text can't tilt).
 BAKED_TEXT = re.compile(r"(^|:)title$|^label\d+$|^small\d+$|^b_held")
 
+# Measuring waits until the page has settled: every picture loaded (the load event), every font
+# face loaded, and the page laid out again with them. The measuring used to run as soon as the
+# page was read, and now and then (Edge busy, four at once) it read the boxes in the stand-in font
+# with no pictures yet, so a label's box came out up to 17 px off and changed from build to build
+# (9 Nov). fill() puts this on every layout page; the layouts' own scripts and TEXT_JS call it.
+SETTLE_JS = r"""<script>
+window.motaSettled = function (measure) {
+  const go = () => Promise.allSettled(Array.from(document.fonts, f => f.load()))
+    .then(() => { void document.body.offsetHeight; return document.fonts.ready; })
+    .then(() => measure());
+  if (document.readyState === 'complete') go(); else window.addEventListener('load', go);
+};
+</script>"""
+
 # Finds every visible text run on the page; build.py keeps the ones inside the piece being drawn.
-TEXT_JS = r"""<script>(function () {
+TEXT_JS = r"""<script>motaSettled(function () {
   const runs = [];
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let n;
@@ -276,7 +289,7 @@ TEXT_JS = r"""<script>(function () {
   pre.style.display = 'none';
   pre.textContent = JSON.stringify(runs);
   document.body.appendChild(pre);
-})();</script>"""
+});</script>"""
 
 # Makes the piece's own text invisible for the picture (its runs are wrapped in a clear span).
 HIDE_JS = r"""<script>(function (show, hide) {
@@ -395,7 +408,8 @@ def board_styles(board):
 
 def fill(template, subs):
     text = (HERE / template).read_text(encoding="utf-8")
-    return re.sub(r"\{\{(\w+)\}\}", lambda m: subs[m.group(1)], text)
+    text = re.sub(r"\{\{(\w+)\}\}", lambda m: subs[m.group(1)], text)
+    return text.replace("</head>", SETTLE_JS + "\n</head>", 1)  # the layout's own script measures with it
 
 
 def window_html(pages, css, piece_css="", page=0, hover_tab=None, skin="UNREGISTERED"):
@@ -442,6 +456,7 @@ def extras_html(css, piece_css="", seal="official", button="Vote now", style="bl
         "button": html.escape(button, quote=False),
         "button_class": "btn sm" if style == "blue" else "btn quiet sm",
         "modest_class": "on" if seg == "small" else "",
+        "stately_class": "on" if seg == "medium" else "",
         "royal_class": "on" if seg == "full" else "",
     })
 
@@ -581,15 +596,15 @@ def pieces_to_draw(pages):
         s("tabHover", only(["#tab2"]), hover_tab=2)
         s("knobSettings", only(["#knob-settings", "#knob-settings *"]))
         s("knobClose", only(["#knob-close", "#knob-close *"]))
+        # the herald preview's round lock, locked and open (Max, 10 Nov): a knob like the gear
+        s("knobLock", only(["#knob-lock", "#knob-lock *"]))
+        s("knobUnlock", only(["#knob-unlock", "#knob-unlock *"]))
         s("crest", only(["#crest"]), scale=CREST_SCALE)
 
-    # The herald pop-up (Milestone 3)
-    herald("heraldBg", only(["#herald"]), scale=1.15)  # shown at 0.8 (Royal): 1.15x stays sharp
+    # The old herald scroll's seals, kept for the pages. The herald and the bank's
+    # "What was it for?" prompt wear Max's banner now (herald.py), so the scroll itself is gone.
     for s in SEALS:
         herald(f"hseal_{s}", only(["#hseal"]), seal=s)
-    for label in HERALD_BUTTONS:
-        for style in ("blue", "quiet"):
-            herald(f"hbtn_{style}_{slug(label)}", only(["#hbutton"]), button=label, style=style)
 
     # The settings page (Milestone 3)
     settings("settingsPage", only(["#settings", "#sparch", "#sseal", "#seyebrow", "#stitle"]), scale=1.3)
@@ -599,6 +614,8 @@ def pieces_to_draw(pages):
     settings("segBox", only(["#seg"]))
     settings("segModestOn", only(["#seg-modest"]), seg="small")
     settings("segModestOff", only(["#seg-modest"]), seg="full")
+    settings("segStatelyOn", only(["#seg-stately"]), seg="medium")   # Stately, between (Max, 10 Nov)
+    settings("segStatelyOff", only(["#seg-stately"]), seg="full")
     settings("segRoyalOn", only(["#seg-royal"]), seg="full")
     settings("segRoyalOff", only(["#seg-royal"]), seg="small")
     # The window skin switch (Milestone 5)
@@ -639,14 +656,8 @@ def pieces_to_draw(pages):
             w(name, only([f"#{el}", f"#{el} *"]))
 
     # The blue parts again in each accent (the Crown's plum, the Exchange's crimson), named "<piece>~cr".
-    bases = []
-    for n in ACCENT_PIECES:
-        if "{}" in n:
-            bases += [n.format(slug(label)) for label in HERALD_BUTTONS]
-        else:
-            bases.append(n)
     for suffix, a in ACCENTS.items():
-        for base in bases:
+        for base in ACCENT_PIECES:
             d[base + suffix] = dict(d[base], tex="accent", css=d[base]["css"] + "\n" + accent_css(a))
     # Silverhand's silver: the divider (silver, its jewel the party blue) and the lit switch's rim
     # and knob (Max, 9 Nov), named "<piece>~sv"; the pages ask for them when the metal is silver.
@@ -698,7 +709,8 @@ class Edge:
                              capture_output=True, timeout=180, text=True, encoding="utf-8")
         m = re.search(r'<pre id="rects-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
         if not m:
-            raise RuntimeError("Edge didn't report the layout (run this from PowerShell, not Git Bash)")
+            raise RuntimeError(f"Edge didn't report the layout of {name} (run this from PowerShell, not Git Bash; "
+                               "or the page didn't settle within --virtual-time-budget: see SETTLE_JS)")
         return json.loads(html.unescape(m.group(1)))
 
     def texts(self, name, text, size=None):
@@ -709,7 +721,7 @@ class Edge:
                              capture_output=True, timeout=180, text=True, encoding="utf-8")
         m = re.search(r'<pre id="texts-json"[^>]*>(.*?)</pre>', out.stdout, re.S)
         if not m:
-            raise RuntimeError(f"Edge didn't report the text on {name}")
+            raise RuntimeError(f"Edge didn't report the text on {name} (did the page settle? see SETTLE_JS)")
         return json.loads(html.unescape(m.group(1)))
 
 
@@ -1013,6 +1025,12 @@ def main():
     dz_tex, dz_pieces, dz_media = districts.build(pack, pow2)
     textures.update(dz_tex)
     pieces.update(dz_pieces)
+
+    # The herald's banner (Max, 9 Nov): one texture per skin, frame, seals and buttons.
+    print("Drawing the herald banner...")
+    hd_tex, hd_pieces, hd_media = herald.build(edge)
+    textures.update(hd_tex)
+    pieces.update(hd_pieces)
     for old in ("chrome", "crest"):  # the window before skins: one picture, now in layers
         (MEDIA / f"{old}.tga").unlink(missing_ok=True)
 
@@ -1029,7 +1047,10 @@ def main():
         "window": {"w": WIN_W, "h": WIN_H},
         "textures": {name: f"{name}.tga" for name in textures},
         "shadow": {"inset": 96, "corner": 112, "size": 256},
-        "heraldButtons": HERALD_BUTTONS,
+        # The herald's banner (herald.py): its frame's size, the two bands that stretch for longer text,
+        # where the words go (each line's middle) and each button's body, in canvas units from the frame's
+        # top-left. Its pieces are "herald_<file>:frame", ":seal_<name>" and ":btn_<style>" (root "banner").
+        "herald": hd_media,
         "pieces": pieces,
         # Text laid over a piece as game text (UI/LiveText.lua): s words, x y w h its box from the piece's
         # top-left, f font, z size, t letter-spacing in em, c a colour, j justify, n lines, sx sy sc sa shadow.
@@ -1063,7 +1084,8 @@ def main():
     lua = ("-- Generated by tools/textures/build.py from the design canvas. Don't edit by hand:\n"
            "-- change the design or the layouts, then run the script again.\n"
            "-- Positions are in canvas units from the top-left corner of the piece's root\n"
-           "-- (win: the window, herald: the herald pop-up, settings: the settings page, ballot: the Ballot Hall layout;\n"
+           "-- (win: the window, herald: the old herald scroll, banner: the herald banner's frame, settings: the settings page,\n"
+           "-- ballot: the Ballot Hall layout;\n"
            "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
            "local _, MOTA = ...\n\nMOTA.Media = " + lua_value(media) + "\n")
     # through a temporary file: a direct write sometimes fails "Invalid argument" on this machine
@@ -1159,12 +1181,12 @@ def preview_window(pieces, textures, slots, media, key, out):
 
 
 def preview_extras(pieces, textures, out):
-    img = Image.new("RGBA", (900, 760), (17, 19, 27, 255))
-    H = lambda name, **kw: put(img, pieces, textures, name, 80, 40, **kw)
-    H("heraldBg")
-    H("hseal_official")
-    H("hbtn_blue_VoteNow")
-    S = lambda name, **kw: put(img, pieces, textures, name, 200, 220, **kw)
+    img = Image.new("RGBA", (900, 860), (17, 19, 27, 255))
+    H = lambda name, **kw: put(img, pieces, textures, name, 80, 45, **kw)
+    H("herald_ministry:frame")
+    H("herald_ministry:seal_official")
+    H("herald_ministry:btn_blue")
+    S = lambda name, **kw: put(img, pieces, textures, name, 200, 320, **kw)
     S("settingsPage")
     for i in range(1, 5):
         S("rowLine", dy=(i - 1) * 58)

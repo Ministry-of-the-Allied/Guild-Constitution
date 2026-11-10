@@ -14,6 +14,10 @@
 <meta charset="utf-8">
 <style>
 {{css}}
+/* The herald preview's lock (Max, 10 Nov): round, with the gear knob's rim, wax and hairline. */
+#knob-lock,#knob-unlock{width:36px;height:36px;clip-path:circle(18px at 18px 18px)}
+#knob-lock::before,#knob-unlock::before{clip-path:circle(15.6px at 18px 18px)}
+#knob-lock::after,#knob-unlock::after{clip-path:path(evenodd,'M18 4.4A13.6 13.6 0 1 1 17.999 4.4ZM18 5A13 13 0 1 1 17.999 5Z')}
 </style>
 </head>
 <body>
@@ -27,6 +31,9 @@
   </div>
   <div class="head-btns">
     <button class="knob" id="knob-settings" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.34 4.79L10.44 2.12H13.56L13.66 4.79A7.4 7.4 0 0 1 15.92 5.72L17.88 3.91L20.09 6.12L18.28 8.08A7.4 7.4 0 0 1 19.21 10.34L21.88 10.44V13.56L19.21 13.66A7.4 7.4 0 0 1 18.28 15.92L20.09 17.88L17.88 20.09L15.92 18.28A7.4 7.4 0 0 1 13.66 19.21L13.56 21.88H10.44L10.34 19.21A7.4 7.4 0 0 1 8.08 18.28L6.12 20.09L3.91 17.88L5.72 15.92A7.4 7.4 0 0 1 4.79 13.66L2.12 13.56V10.44L4.79 10.34A7.4 7.4 0 0 1 5.72 8.08L3.91 6.12L6.12 3.91L8.08 5.72A7.4 7.4 0 0 1 10.34 4.79ZM15 12A3 3 0 1 0 9 12A3 3 0 1 0 15 12Z"></path></svg></button>
+    <!-- The herald preview's lock (Max, 10 Nov): a knob like the gear, drawn here only to take its picture; out of the row -->
+    <button class="knob" id="knob-lock" type="button" style="position: absolute; left: 0; top: 70px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 11V8a4 4 0 0 1 8 0v3"></path><rect x="5.5" y="11" width="13" height="9.5" rx="1.8" fill="currentColor"></rect></svg></button>
+    <button class="knob" id="knob-unlock" type="button" style="position: absolute; left: 50px; top: 70px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 11V8a4 4 0 0 1 7.7-1.6"></path><rect x="5.5" y="11" width="13" height="9.5" rx="1.8" fill="currentColor"></rect></svg></button>
     <button class="knob red" id="knob-close" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button>
   </div>
 

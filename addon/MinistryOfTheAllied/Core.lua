@@ -218,7 +218,8 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       fanfareSound = nil,  -- which one (/mota fanfare); nil means the first the game has
       glow = true,         -- district glow (comes with the Districts page)
       cards = false,       -- citizen cards (come later)
-      heraldSize = "full", -- "full" (Royal) or "small" (Modest)
+      heraldSize = "full", -- "full" (Royal), "medium" (Stately) or "small" (Modest)
+      heraldPos = nil,     -- where heralds stand, if moved (UI/Herald.lua: Settings > Heralds > Preview)
       windowSkin = "party", -- "party" (your party's or the Crown's) or "ministry" (UI/Skin.lua)
       mapSkin = "party",    -- the world map's dress (UI/WorldMapSkin.lua): "party" (as the window),
                             -- "ministry" or "plain". On from the start; a choice is kept until changed by hand.

@@ -31,9 +31,15 @@ local GROUPS = {
   { title = "Heralds", rows = {
     { key = "herald", label = "Herald pop-ups", small = "Announce votes, laws and defections live", sw = SW },
     { key = "fanfare", label = "Fanfare", small = "Play the game's own trumpet with each herald", sw = SW },
+    -- Stately sits halfway between Modest and Royal (Max, 10 Nov); a change shows on a herald that's up.
     { key = "heraldSize", label = "Herald size", small = "How grand the pop-ups appear",
       seg = { box = "segBox", slot = "seg",
-              { "small", "seg-modest", "segModest" }, { "full", "seg-royal", "segRoyal" } } },
+              { "small", "seg-modest", "segModest" }, { "medium", "seg-stately", "segStately" },
+              { "full", "seg-royal", "segRoyal" } },
+      changed = function() MOTA.Herald:Resize() end },
+    -- Where heralds appear (Max, 10 Nov): a preview with a round lock on its corner and Save for its button.
+    { key = "heraldPos", label = "Herald position", small = "Preview a herald, open its lock, drag it, then Save",
+      act = { label = "Preview", onClick = function() MOTA.Herald:Preview() end } },
   } },
   { title = "The map", rows = {
     { key = "glow", label = "District glow", small = "Light your district on the world map", sw = SW,
@@ -198,6 +204,18 @@ local function buildChoice(parent, row, x, y)
   return box.w
 end
 
+-- A button in a row (the herald's Preview), its box's top-left at x, y in parent.
+local ACT = { w = 110, h = 30 }
+local function buildAction(parent, row, x, y)
+  local b = MOTA.Kit:Button(parent, ACT.w, ACT.h, row.act.label, "blue", function()
+    play("IG_MAINMENU_OPTION_CHECKBOX_ON")
+    row.act.onClick()
+  end)
+  b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+  row.button = b
+  return ACT.w
+end
+
 -- One row: its label and small line on the left, its control on the right, dots along its foot.
 local function buildRow(parent, row, y, last)
   local label = MOTA:Tracked(parent, "setLabel", "2A1F14", 0.08)
@@ -214,9 +232,15 @@ local function buildRow(parent, row, y, last)
     small:SetAlpha(0.6)
   end
   if row.note then notes[#notes + 1] = { row = row, fs = small } end
-  local slot = M.slots[row.sw and SW.slot or row.seg.slot]
+  local slot = row.act and ACT or M.slots[row.sw and SW.slot or row.seg.slot]
   local cx, cy = LIST_W - slot.w, y + (ROW_H - slot.h) / 2
-  if row.sw then buildSwitch(parent, row, cx, cy) else buildChoice(parent, row, cx, cy) end
+  if row.sw then
+    buildSwitch(parent, row, cx, cy)
+  elseif row.seg then
+    buildChoice(parent, row, cx, cy)
+  else
+    buildAction(parent, row, cx, cy)
+  end
   small:SetWidth(cx - 16)
   small:SetWordWrap(false)
   if not last then dots(parent, y + ROW_H - 1, LIST_W) end
@@ -411,7 +435,7 @@ function Page:Show(show)
   if show then self:Refresh() end
 end
 
-Page.controls, Page.groups = controls, groups
+Page.controls, Page.groups, Page.GROUPS = controls, groups, GROUPS
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
 -- The guild rank arrives after login: show or leave out the Crown's group.
 MOTA:Listen("GUILD_READY", function() if root and root:IsShown() then Page:Layout() end end)
