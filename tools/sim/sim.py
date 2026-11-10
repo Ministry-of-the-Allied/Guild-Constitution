@@ -3067,6 +3067,58 @@ seal_ok = Q(c, """local b = MinistryOfTheAlliedMinimapButton
 check("Minimap seal: a button bag's crop shows the seal itself, not the whole picture", seal_ok is True)
 check("Silverhand: the silver switch and divider are drawn", Q(c, 'return M.Media.pieces["swOn~sv"] ~= nil and M.Media.pieces["divider~sv"] ~= nil') is True)
 
+print("== The District Cup")
+# A fresh guild seen from the Crown's copy: districts, games, a Ring, an election.
+cup_max = Client("Max")
+clients[:] = [cup_max]
+run(15)
+CUP = "local M = MinistryOfTheAllied; local W = function(k, d) return M.Book:Write(k, d) end "
+def CQ(code): return cup_max.lua.eval("(function() " + CUP + code + " end)()")
+for who, d in (("Bram", "OLD"), ("Kael", "OLD"), ("Mira", "ARC"), ("Oswin", "ARC"), ("Wren", "IRON"), ("Elowen", "CATH"), ("Tobin", "HARB")):
+    CQ('W("citizen.district", { who = "%s", d = "%s" }) return 1' % (who, d))
+run(1)
+CQ('M.Games:Record("hunt", "Hunt One", { "Bram", "Mira", "Kael" }) return 1')
+CQ('M.Games:Record("lottery", "Draw One", { "Mira", "Wren", "Kael" }) return 1')
+CQ('M.Games:Record("race", "Round the Lake", { "Max", "Mira", "Tobin" }) return 1')
+run(1)
+check("Cup: a result saves each place's district as its code", CQ('local r = M.Games:Log()[1] return r.ds[2]') == "ARC")
+ring = CQ('return M.Book:Write("ring.create", { season = "Cup Ring", bracket = "Open", fee = 0, closes = 1 }).n')
+rid = "Max#%d" % ring
+for s, x, y in ((1, "Bram", "Mira"), (2, "Kael", "Tobin"), (3, "Wren", "Oswin"), (4, "Elowen", "Kíng Atwood")):
+    CQ('W("ring.bout", { id = "%s", s = %d, x = "%s", y = "%s" }) return 1' % (rid, s, x, y))
+for s, w in ((1, "Bram"), (2, "Kael"), (3, "Wren"), (4, "Elowen"), (5, "Bram"), (6, "Wren"), (7, "Bram")):
+    CQ('W("ring.result", { id = "%s", s = %d, w = "%s" }) return 1' % (rid, s, w))
+run(1)
+check("Cup: the Ring's champion is Bram", CQ('return M.Ring:Hall()[1].champion') == "Bram")
+def board():
+    return CQ('local out = {} for _, b in ipairs(M.Cup:Current().board) do out[#out + 1] = b.code .. "=" .. b.pts end return table.concat(out, " ")')
+print("  board:", board())
+check("Cup: points for 1st-3rd, none for the lottery or the Crown, the Ring counted", board() == "OLD=26 ARC=12 IRON=6 CATH=3 HARB=3")
+check("Cup: Bram tops the scorers with 20", CQ('local s = M.Cup:Current().scorers[1] return s.name .. "=" .. s.pts') == "Bram=20")
+check("Cup: no titles while the season is on", CQ('return #M.Cup:TitlesOf("Bram")') == 0)
+CQ('W("citizen.district", { who = "Kael", d = "ARC" }) return 1')
+CQ('M.Games:Record("quiz", "Quiz Night", { "Kael" }) return 1')
+run(1)
+check("Cup: a move keeps old points with the old district", board() == "OLD=26 ARC=22 IRON=6 CATH=3 HARB=3")
+CQ('W("ballot.result", { b = "Max#1", name = "General Election", kind = "general", cands = { { n = "Bram", p = "sh" }, { n = "Mira", p = "ex" } }, votes = { 3, 2 }, total = 5, w = 1 }) return 1')
+run(2)
+CQ('M.Games:Record("race", "Second Season Race", { "Mira" }) return 1')
+run(1)
+check("Cup: a declared election ends the season and the points start again", CQ('local s = M.Cup:Current() return s.n .. "|" .. s.board[1].code .. "=" .. s.board[1].pts') == "2|ARC=10")
+check("Cup: Season 1 went to the Old Quarter", CQ('local s = M.Cup:Seasons()[1] return s.done and s.champions.OLD and not s.champions.ARC') is True)
+titles = lambda who: CQ('local t = {} for _, h in ipairs(M.Cup:TitlesOf("%s")) do t[#t + 1] = h.title end return table.concat(t, ", ")' % who)
+check("Cup: Bram is Season 1 Champion and Top Scorer", titles("Bram") == "Season 1 Champion, Season 1 Top Scorer")
+check("Cup: Kael scored for the Old Quarter, so is a champion too", titles("Kael") == "Season 1 Champion")
+check("Cup: Mira's district lost, so she has no title", titles("Mira") == "")
+check("Cup: a citizen of the winning district who didn't score has no title", titles("Oswin") == "" and CQ('return #M.Cup:TitlesOf("Kíng Atwood")') == 0)
+check("Honours: the title shows in the tooltip line", CQ('return M.Honours:Title("Bram")') == "Season 1 Champion")
+check("Honours: Cup titles join a player's honours", CQ('for _, h in ipairs(M.Honours:Of("Kael")) do if h.title == "Season 1 Champion" then return true end end return false') is True)
+check("Honours: the Roll of Honour lists Cup champions without a medal", CQ('for _, e in ipairs(M.Honours:Roll()) do if e.name == "Kael" then return true end end return false') is True)
+errs = len(errors)
+cup_max.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("cup")')
+check("Cup page: shows without errors", len(errors) == errs)
+check("Cup page: Season 2, with past champions", CQ('return M.GamesPage:View()') == "cup")
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

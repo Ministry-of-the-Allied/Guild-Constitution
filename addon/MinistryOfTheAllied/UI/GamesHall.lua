@@ -1,7 +1,7 @@
 -- Ministry of the Allied: the Games Hall tab, following the Games Hall board
 -- (design/canvas-source/GamesHall.dc.html; Duncan, 2026-11-08).
 -- The Royal Lottery (Lottery.lua), the Roll of Honour (Honours.lua), and the
--- treasure hunt and District Cup to come. Everything blue follows the window
+-- treasure hunt and the District Cup (Cup.lua). Everything blue follows the window
 -- skin (Kit's accent), as on the other pages.
 
 local _, MOTA = ...
@@ -844,20 +844,127 @@ local function refreshHunt(v)
 end
 
 ---------------------------------------------------------------------------
--- The Cup: to come
+-- The Cup: the districts' board this season, the top scorers, past champions
 ---------------------------------------------------------------------------
 
-local function buildSoon(title, text)
+local CUP_ROWS, SCORER_ROWS, PAST_ROWS = 5, 8, 4
+
+local function buildCup()
   local v = panel(root, nil, MAIN_X, BODY_Y, MAIN_W, HEIGHT - BODY_Y)
-  local p = panel(v, "sunk", 40, 70, MAIN_W - 80, 150)
-  Kit:Label(p, "kitTiny", "7A5719", 0.24, "Coming soon"):SetPoint("TOP", p, "TOP", 0, -22)
-  local t = Kit:Text(p, "kitAwaiting", BLUE, "CENTER")
-  t:SetPoint("TOP", p, "TOP", 0, -42)
-  t:SetText(title)
-  local s = line(p, "kitItalic", "5E4B33", 30, 84, MAIN_W - 140, "CENTER")
-  s:SetText(text)
+
+  local board = panel(v, "plain", 0, 0, COL_W, HEIGHT - BODY_Y)
+  board.head = Kit:Label(board, "kitSection", BLUE, 0.22, "The District Cup")
+  board.head:SetPoint("TOPLEFT", board, "TOPLEFT", 14, -12)
+  board.season = line(board, "kitNameSmall", nil, 14, 30, COL_W - 28)
+  board.note = line(board, "kitItalic", "5E4B33", 14, 48, COL_W - 28)
+  board.note:SetMaxLines(2)
+  board.rows = {}
+  for i = 1, CUP_ROWS do
+    local r = panel(board, nil, 10, 84 + (i - 1) * 46, COL_W - 20, 40)
+    r.bar = r:CreateTexture(nil, "BACKGROUND")
+    r.bar:SetPoint("TOPLEFT", r, "TOPLEFT", 0, 0)
+    r.bar:SetHeight(40)
+    r.bar:SetColorTexture(1, 1, 1, 1)
+    r.place = line(r, "kitNameSmall", nil, 8, 11, 24)
+    r.name = line(r, "kitNameSmall", nil, 34, 4, COL_W - 120)
+    r.name:SetMaxLines(1)
+    r.sub = line(r, "kitSmallest", "5E4B33", 34, 22, COL_W - 120)
+    r.sub:SetMaxLines(1)
+    r.pts = line(r, "kitNameSmall", nil, COL_W - 90, 11, 64, "RIGHT")
+    board.rows[i] = r
+  end
+  board.points = line(board, "kitSmallest", "5E4B33", 14, HEIGHT - BODY_Y - 40, COL_W - 28)
+  board.points:SetMaxLines(2)
+  board.points:SetText("1st 10 · 2nd 6 · 3rd 3, in every game but the lottery, and in The Ring (both losing semi-finalists 3).")
+  v.board = board
+
+  local scorers = panel(v, "plain", COL_W + 14, 0, COL_W, 34 + SCORER_ROWS * 22 + 12)
+  Kit:Label(scorers, "kitSection", BLUE, 0.22, "Top scorers"):SetPoint("TOPLEFT", scorers, "TOPLEFT", 14, -12)
+  scorers.rows = {}
+  for i = 1, SCORER_ROWS do
+    scorers.rows[i] = line(scorers, "kitSmallest", nil, 14, 34 + (i - 1) * 22, COL_W - 28)
+    scorers.rows[i]:SetMaxLines(1)
+  end
+  v.scorers = scorers
+
+  local y = 34 + SCORER_ROWS * 22 + 24
+  local past = panel(v, "sunk", COL_W + 14, y, COL_W, HEIGHT - BODY_Y - y)
+  Kit:Label(past, "kitSection", BLUE, 0.22, "Past champions"):SetPoint("TOPLEFT", past, "TOPLEFT", 14, -10)
+  past.rows = {}
+  for i = 1, PAST_ROWS do
+    past.rows[i] = line(past, "kitSmallest", nil, 14, 30 + (i - 1) * 34, COL_W - 28)
+    past.rows[i]:SetMaxLines(2)
+  end
+  v.past = past
   return v
 end
+
+local function districtName(code)
+  local d = MOTA.District and MOTA.District.byCode[code]
+  return d and d.name or code
+end
+
+local function refreshCup(v)
+  local Cup = MOTA.Cup
+  local s = Cup:Current()
+  v.board.season:SetText("Season " .. s.n)
+  local gov = MOTA.Elect and MOTA.Elect:Government()
+  local nextAt = MOTA.Elect and MOTA.Elect:Pending() and gov and gov.ends
+  v.board.note:SetText("The season ends when the next election is declared" .. (nextAt and (", due " .. date("%d %b", nextAt)) or "") .. ". The district with the most points wins the Cup.")
+  local top = math.max(1, s.board[1].pts)
+  local mine = MOTA.District and MOTA.District:Of(MOTA.me)
+  for i, r in ipairs(v.board.rows) do
+    local b = s.board[i]
+    if b then
+      local d = MOTA.District.byCode[b.code]
+      local cr, cg, cb = MOTA:RGB(d and d.color or "8E2B22")
+      r.bar:SetVertexColor(cr, cg, cb, 0.16)
+      r.bar:SetWidth(math.max(4, (COL_W - 20) * b.pts / top))
+      r.place:SetText(b.pts > 0 and (i .. ".") or "")
+      r.name:SetText(b.name .. ((mine and mine.code == b.code) and " |cff5E4B33(yours)|r" or ""))
+      local n = 0
+      for _, m in ipairs(s.scorers) do if (m.by[b.code] or 0) > 0 then n = n + 1 end end
+      r.sub:SetText(n == 0 and "No points yet" or (n .. (n == 1 and " scorer" or " scorers")))
+      r.pts:SetText(b.pts .. " pts")
+      r:Show()
+    else
+      r:Hide()
+    end
+  end
+  for i, t in ipairs(v.scorers.rows) do
+    local m = s.scorers[i]
+    if m then
+      local where = {}
+      for code in pairs(m.by) do where[#where + 1] = MOTA.District.byCode[code].short end
+      table.sort(where)
+      t:SetText(i .. ". |cff2A1F14" .. MOTA:Short(m.name) .. "|r · " .. m.pts .. " pts" .. (#where > 0 and (" |cff5E4B33· " .. table.concat(where, ", ") .. "|r") or ""))
+    else
+      t:SetText(i == 1 and "|cff5E4B33Nobody has scored this season yet.|r" or "")
+    end
+  end
+  local seasons, row = Cup:Seasons(), 0
+  for n = #seasons, 1, -1 do
+    local p = seasons[n]
+    if p.done and row < #v.past.rows then
+      row = row + 1
+      local champs = {}
+      for code in pairs(p.champions) do champs[#champs + 1] = districtName(code) end
+      table.sort(champs)
+      local tops = {}
+      for _, name in ipairs(p.top) do tops[#tops + 1] = MOTA:Short(name) end
+      v.past.rows[row]:SetText("|cff2A1F14Season " .. p.n .. "|r · " .. (#champs > 0 and table.concat(champs, " and ") or "no points scored")
+        .. (#tops > 0 and ("\n|cff5E4B33Top scorer: " .. table.concat(tops, ", ") .. " (" .. (p.scorers[1] and p.scorers[1].pts or 0) .. " pts)|r") or ""))
+    end
+  end
+  for i = row + 1, #v.past.rows do
+    v.past.rows[i]:SetText(i == 1 and "|cff5E4B33The first season is still being played.|r" or "")
+  end
+end
+
+---------------------------------------------------------------------------
+-- Coming soon
+---------------------------------------------------------------------------
+
 
 ---------------------------------------------------------------------------
 -- The page
@@ -883,6 +990,7 @@ function Page:Refresh()
   for name, t in pairs(tabs) do t:SetOn(name == view) end
   if view == "lottery" then refreshLottery(views.lottery)
   elseif view == "honours" then refreshHonours(views.honours)
+  elseif view == "cup" then refreshCup(views.cup)
   elseif view == "hunt" then refreshHunt(views.hunt) end
 end
 
@@ -895,7 +1003,7 @@ local function build()
   views = {
     lottery = buildLottery(),
     hunt = buildHunt(),
-    cup = buildSoon("The District Cup", "Every game won earns points for your district. The champion district is crowned at each General Election."),
+    cup = buildCup(),
     honours = buildHonours(),
   }
   tabs = {}
@@ -916,7 +1024,7 @@ function Page:Show(show)
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
-for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED", "HUNT_CHANGED" }) do
+for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED", "HUNT_CHANGED", "CUP_CHANGED", "RING_CHANGED" }) do
   MOTA:Listen(signal, function() Page:Refresh() end)
 end
 MOTA:On("ZONE_CHANGED_NEW_AREA", function() if view == "hunt" then Page:Refresh() end end)

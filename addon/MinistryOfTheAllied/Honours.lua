@@ -98,8 +98,27 @@ function Honours:Of(name)
     h.title, h.letters, h.text, h.medal = def.title, def.letters, def.text, MEDAL[key] ~= nil
     out[#out + 1] = h
   end
-  table.sort(out, function(a, b) return RANK[a.key] < RANK[b.key] end)
+  -- The District Cup's titles (Cup.lua), newest season first, after the medals.
+  for _, c in ipairs(MOTA.Cup and MOTA.Cup:TitlesOf(name) or {}) do
+    out[#out + 1] = { key = c.key .. ":" .. c.season, cup = true, season = c.season, title = c.title, t = c.t or 0, n = 1,
+      text = c.key == "cup" and "scored for the district that won the Cup" or "the most points in the Cup season", medal = true }
+  end
+  table.sort(out, function(a, b)
+    local ra, rb = RANK[a.key] or 99, RANK[b.key] or 99
+    if ra ~= rb then return ra < rb end
+    if a.cup and b.cup and a.season ~= b.season then return a.season > b.season end
+    return a.key < b.key
+  end)
   return out
+end
+
+-- The newest Cup title a player holds ("Season 2 Champion"), or nil.
+function Honours:Title(name)
+  local best
+  for _, c in ipairs(MOTA.Cup and MOTA.Cup:TitlesOf(name) or {}) do
+    if not best or c.season > best.season or (c.season == best.season and c.key == "cup") then best = c end
+  end
+  return best and best.title
 end
 
 -- The letters after a name: "KC, SQ", or nil.
@@ -120,8 +139,15 @@ end
 
 -- Everyone honoured, one entry per player (by their first character), highest first.
 function Honours:Roll()
-  local seen, out = {}, {}
-  for name in pairs(get()) do
+  local seen, out, names = {}, {}, {}
+  for name in pairs(get()) do names[#names + 1] = name end
+  -- Cup titles need no medal: anyone who scored in a finished season.
+  for _, s in ipairs(MOTA.Cup and MOTA.Cup:Seasons() or {}) do
+    if s.done then
+      for _, m in ipairs(s.scorers) do names[#names + 1] = m.name end
+    end
+  end
+  for _, name in ipairs(names) do
     local main = MOTA.Account:Alts(name)[1]
     if not seen[main] then
       seen[main] = true
@@ -130,8 +156,8 @@ function Honours:Roll()
     end
   end
   table.sort(out, function(a, b)
-    local ra, rb = RANK[a.list[1].key], RANK[b.list[1].key]
-    if ra ~= rb then return ra < rb end
+    local ra, rb = RANK[a.list[1].key] or 99, RANK[b.list[1].key] or 99
+    if ra ~= rb then return (ra or 99) < (rb or 99) end
     if #a.list ~= #b.list then return #a.list > #b.list end
     return a.name < b.name
   end)
@@ -192,6 +218,7 @@ end
 MOTA:Listen("GUILD_READY", function() cache = nil end)
 MOTA:Listen("CAUGHT_UP", function() cache = nil end)
 MOTA:Listen("ACCOUNT_CHANGED", function() cache = nil end)
+MOTA:Listen("CUP_CHANGED", function(self) self:Fire("HONOURS_CHANGED") end)
 MOTA:Listen("RECORD_ADDED", function(self, rec)
   if rec.k == "game.result" then cache = nil; return end
   if rec.k ~= "honour.award" and rec.k ~= "honour.revoke" then return end
