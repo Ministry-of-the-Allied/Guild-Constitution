@@ -182,12 +182,12 @@ function Page:PaintChart()
 end
 
 -- A label and its value; the next row goes under the value (which may take two lines).
-local VALUE_X = 64
+local VALUE_X = 72
 local function infoRow(plate, anchor, label, first)
   local l = Kit:Label(plate, "kitTiny", "7A5719", 0.2, label)
-  l:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", first and 0 or -VALUE_X, -6)
+  l:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", first and 0 or -VALUE_X, -12)
   local v = Kit:Text(plate, "kitSmall", "2A1F14")
-  v:SetPoint("TOPLEFT", l, "TOPLEFT", VALUE_X, 2)
+  v:SetPoint("TOPLEFT", l, "TOPLEFT", VALUE_X, 3.5)
   v:SetWidth(ASIDE_W - 32 - VALUE_X)
   v:SetMaxLines(2)
   return v
@@ -228,23 +228,24 @@ local function buildAside(v)
   Kit:Plate(plate)
   info = { plate = plate }
   info.place = Kit:Label(plate, "kitTiny", "7A5719", 0.22)
-  info.place:SetPoint("TOPLEFT", plate, "TOPLEFT", 16, -14)
+  info.place:SetPoint("TOPLEFT", plate, "TOPLEFT", 16, -22)
   info.name = Kit:Text(plate, "kitChamber", "1B3570")
-  info.name:SetPoint("TOPLEFT", plate, "TOPLEFT", 16, -30)
+  info.name:SetPoint("TOPLEFT", plate, "TOPLEFT", 16, -40)
   info.name:SetWidth(ASIDE_W - 32)
-  info.name:SetMaxLines(1)
+  info.name:SetMaxLines(2) -- whole words wrap; the box is two lines tall on every card
+  info.name:SetHeight(46)
   info.character = Kit:Text(plate, "kitItalic", "5E4B33")
-  info.character:SetPoint("TOPLEFT", info.name, "BOTTOMLEFT", 0, -4)
+  info.character:SetPoint("TOPLEFT", info.name, "BOTTOMLEFT", 0, -3)
   info.character:SetWidth(ASIDE_W - 32)
+  info.character:SetHeight(34) -- two lines, so the rule and rows sit the same on every card
   local rule = Kit:Rule(plate, ASIDE_W - 32)
-  rule:SetPoint("TOPLEFT", info.character, "BOTTOMLEFT", 0, -7)
+  rule:SetPoint("TOPLEFT", info.character, "BOTTOMLEFT", 0, -5)
   local anchor = CreateFrame("Frame", nil, plate)
   anchor:SetSize(1, 1)
-  anchor:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -1)
+  anchor:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, 0)
   info.meet = infoRow(plate, anchor, "Meets", true)
   info.rep = infoRow(plate, info.meet, "Rep.")
   info.count = infoRow(plate, info.rep, "Citizens")
-  info.lean = infoRow(plate, info.count, "Leans")
   info.waypoint = Kit:Button(plate, ASIDE_W - 32, 28, "Set waypoint", "blue", function()
     if picked then Page:Waypoint(picked) end
   end)
@@ -308,7 +309,6 @@ local function refreshMap()
   info.rep:SetText(rep and MOTA:Short(rep) or "Vacant")
   local n = D():Size(picked)
   info.count:SetText(n .. (n == 1 and " citizen" or " citizens"))
-  info.lean:SetText(d.lean)
   Page:PaintChart()
 end
 

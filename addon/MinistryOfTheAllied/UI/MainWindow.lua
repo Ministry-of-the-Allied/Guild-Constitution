@@ -750,6 +750,14 @@ MOTA:Listen("DISTRICT_CHANGED", function() UI:FootRight() end)
 MOTA:On("ZONE_CHANGED", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 MOTA:On("ZONE_CHANGED_NEW_AREA", function() if UI.window and UI.window:IsShown() then UI:Refresh() end end)
 
+-- The key binding (Esc > Options > Key Bindings > AddOns > Ministry of the
+-- Allied). The names are read by Bindings.xml in the add-on's folder.
+BINDING_HEADER_MINISTRYOFTHEALLIED = "Ministry of the Allied"
+BINDING_NAME_MOTA_TOGGLE = "Open or close the Ministry window"
+function MinistryOfTheAllied_ToggleWindow()
+  UI:Toggle()
+end
+
 -- The game's add-on menu by the minimap (where the client has one).
 function MinistryOfTheAllied_OnAddonCompartmentClick()
   UI:Toggle()

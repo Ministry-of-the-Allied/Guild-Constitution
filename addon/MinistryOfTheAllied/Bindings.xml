@@ -1,0 +1,5 @@
+<Bindings>
+  <Binding name="MOTA_TOGGLE" header="MINISTRYOFTHEALLIED">
+    MinistryOfTheAllied_ToggleWindow()
+  </Binding>
+</Bindings>
