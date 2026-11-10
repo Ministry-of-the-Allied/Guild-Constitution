@@ -20,6 +20,11 @@
 -- are in, and anyone else who paid and has no place is owed a refund.
 --   ring.bout     organiser   { id, s, x, y }   one per quarter-final (y empty is a bye)
 --   ring.result   organiser   { id, s, w }      the first result for a bout stands
+--   ring.duel     a fighter   { id, s, w }      "I fought bout s and w won" (Duncan, 2026-11-10).
+--                 When both fighters name the same winner, it's the bout's result,
+--                 with no organiser needed. Each is asked after a duel between
+--                 them while their bout is due; a fighter's first answer stands.
+--                 If they disagree, the organiser decides with ring.result.
 --
 -- Bouts are numbered 1-4 quarter-finals, 5-6 semi-finals, 7 The Final.
 
@@ -54,6 +59,12 @@ rules["ring.bout"] = organiser
 rules["ring.result"] = organiser
 rules["ring.enter"] = function() return true end
 rules["ring.withdraw"] = function() return true end
+-- Only a fighter's own word counts; that's checked against the bout as the
+-- tournament is worked out, so a word from anyone else is simply ignored.
+rules["ring.duel"] = function(a, rec)
+  local d = rec and rec.d or {}
+  return type(d.id) == "string" and type(d.s) == "number" and d.s >= 1 and d.s <= 7 and type(d.w) == "string"
+end
 
 ---------------------------------------------------------------------------
 -- Working out the tournament from the records
@@ -107,7 +118,7 @@ local function build()
     if r.k == "ring.create" then
       local d = r.d or {}
       local t = { id = r.a .. "#" .. r.n, season = d.season, bracket = d.bracket, fee = d.fee or 0, closes = d.closes,
-        entrants = {}, draw = {}, results = {}, drawn = false, paid = {}, fees = {}, paidAt = {}, lastT = r.t }
+        entrants = {}, draw = {}, results = {}, claims = {}, disputed = {}, drawn = false, paid = {}, fees = {}, paidAt = {}, lastT = r.t }
       byId[t.id] = t
       order[#order + 1] = t
     end
@@ -160,6 +171,23 @@ local function build()
         settleBouts(t)
         local b = t.bouts[d.s]
         if b and b.a and b.b and (d.w == b.a or d.w == b.b) then t.results[d.s] = d.w end
+      elseif r.k == "ring.duel" and d.s and not t.results[d.s] then
+        settleBouts(t)
+        local b = t.bouts[d.s]
+        if b and b.a and b.b and not b.w and (r.a == b.a or r.a == b.b) and (d.w == b.a or d.w == b.b) then
+          local said = t.claims[d.s] or {}
+          t.claims[d.s] = said
+          if not said[r.a] then said[r.a] = d.w end
+          local other = r.a == b.a and b.b or b.a
+          if said[other] then
+            if said[other] == said[r.a] then
+              t.results[d.s] = d.w
+              t.disputed[d.s] = nil
+            else
+              t.disputed[d.s] = true
+            end
+          end
+        end
       end
       t.lastT = math.max(t.lastT, r.t)
     end
@@ -459,4 +487,102 @@ function Ring:ReadDuel(message)
   return false
 end
 
-MOTA:On("CHAT_MSG_SYSTEM", function(_, _, message) Ring:ReadDuel(message) end)
+---------------------------------------------------------------------------
+-- The fighters' own word: after a duel between two fighters whose bout is
+-- due, each is asked whether it was their Ring bout. Both saying yes settles
+-- it on every copy, even with no organiser nearby.
+---------------------------------------------------------------------------
+
+local ROUND = { "Quarter-final", "Quarter-final", "Quarter-final", "Quarter-final", "Semi-final", "Semi-final", "The Final" }
+Ring.ROUND = ROUND
+
+-- The duel result in a system message: winner, loser (as the game wrote them), or nil.
+local function duelNames(message)
+  for _, m in ipairs(duelMessages()) do
+    local winner, loser = message:match(m.p)
+    if winner then
+      if m.swapped then winner, loser = loser, winner end
+      return winner, loser
+    end
+  end
+end
+
+-- My bout that's due against this opponent: the bout, or nil.
+function Ring:MyBoutWith(opponent)
+  local cur = self:Current()
+  if not cur or cur.stage ~= "bouts" or not MOTA.me then return nil end
+  local me, them = MOTA:Bare(MOTA.me), MOTA:Bare(opponent)
+  for s = 1, 7 do
+    local b = cur.bouts[s]
+    if b.a and b.b and not b.w then
+      local a, c = MOTA:Bare(b.a), MOTA:Bare(b.b)
+      if (a == me and c == them) or (c == me and a == them) then return b, cur end
+    end
+  end
+end
+
+-- Records my word on a bout: w won.
+function Ring:Claim(slot, winner)
+  local cur = self:Current()
+  if not cur then return false end
+  local b = cur.bouts[slot]
+  if not b or not b.a or not b.b or b.w then return false end
+  if MOTA.me ~= b.a and MOTA.me ~= b.b then return false end
+  if winner ~= b.a and winner ~= b.b then return false end
+  local said = cur.claims[slot]
+  if said and said[MOTA.me] then return false end
+  return write("ring.duel", { id = cur.id, s = slot, w = winner }) ~= nil
+end
+
+-- A duel I fought: asks whether it was my Ring bout. Returns true if it asked.
+function Ring:AskAboutDuel(message)
+  local winner, loser = duelNames(message)
+  if not winner then return false end
+  local me = MOTA.me and MOTA:Bare(MOTA.me)
+  local opponent
+  if MOTA:Bare(winner) == me then opponent = loser elseif MOTA:Bare(loser) == me then opponent = winner end
+  if not opponent then return false end
+  local b, cur = self:MyBoutWith(opponent)
+  if not b then return false end
+  local said = cur.claims[b.slot]
+  if said and said[MOTA.me] then return false end
+  local w = MOTA:Bare(winner) == MOTA:Bare(b.a) and b.a or b.b
+  self.asking = { id = cur.id, slot = b.slot, w = w }
+  StaticPopup_Show("MOTA_RING_DUEL", MOTA:Short(w) .. " beat " .. MOTA:Short(w == b.a and b.b or b.a)
+    .. ". Was that your Ring bout (" .. ROUND[b.slot] .. ")? If you both say yes, it's the result.")
+  return true
+end
+
+StaticPopupDialogs["MOTA_RING_DUEL"] = {
+  text = "The Ring\n\n%s",
+  button1 = "Yes, record it",
+  button2 = "No, a friendly",
+  OnAccept = function()
+    local q = Ring.asking
+    Ring.asking = nil
+    local cur = Ring:Current()
+    if q and cur and cur.id == q.id then Ring:Claim(q.slot, q.w) end
+  end,
+  OnCancel = function() Ring.asking = nil end,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+}
+
+-- Disagreement: tell the fighters the organiser will decide.
+MOTA:Listen("RECORD_ADDED", function(_, rec)
+  if rec.k ~= "ring.duel" or MOTA.Book.replaying then return end
+  local cur = Ring:Current()
+  local d = rec.d or {}
+  if cur and cur.id == d.id and cur.disputed[d.s] then
+    local b = cur.bouts[d.s]
+    if b and (MOTA.me == b.a or MOTA.me == b.b or Ring:CanOrganise()) then
+      MOTA:Print("The Ring:", MOTA:Short(b.a), "and", MOTA:Short(b.b), "disagree on who won their bout. The organiser will record the result.")
+    end
+  end
+end)
+
+MOTA:On("CHAT_MSG_SYSTEM", function(_, _, message)
+  if Ring:ReadDuel(message) then return end
+  Ring:AskAboutDuel(message)
+end)
