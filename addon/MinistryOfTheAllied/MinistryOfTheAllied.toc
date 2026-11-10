@@ -51,6 +51,7 @@ Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua
+Hide.lua
 UI\Skin.lua
 UI\LiveText.lua
 UI\MainWindow.lua
@@ -65,6 +66,7 @@ UI\Statutes.lua
 UI\Constitution.lua
 UI\Ring.lua
 UI\GamesHall.lua
+UI\HideMap.lua
 UI\HuntGlow.lua
 UI\BankPrompt.lua
 UI\Parties.lua
