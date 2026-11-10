@@ -809,7 +809,7 @@ ring = {
 
 **Champions sub-tab**
 - Hall of Champions — historical list of tournament winners with season and date
-- "Gladiator of Stormwind" title shown next to current champion name (an honour, 10.4, for the month)
+- "Gladiator of Stormwind" title shown next to current champion name (an honour, 10.4), until the next tournament crowns another. *Built 2026-11-10 (`Honours.lua`):* the title shows after the name in the online tooltip, ahead of any Cup title. Every champion also keeps a permanent **Ring Champion** medal, and the losing finalist a **Ring Finalist** medal (none when The Final is won on a bye). Semi-finalists earn Cup points only (11.1). The medals show on the Games Hall's Honours page and the Roll of Honour.
 
 ### 11.4 Crown Controls
 
