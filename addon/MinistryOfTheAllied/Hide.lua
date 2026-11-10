@@ -21,6 +21,9 @@
 --               pts: a shape drawn on the world map, { { x, y }, ... } (3 to 16
 --               corners); without it the play area is the circle rad round
 --               cx, cy. m: the zone map it was set on, for the page's map.
+--               ov: the organiser's explored map pieces over the area (the
+--               zone map's fog of war), so players who haven't explored it
+--               still see the map: { { x, y, w, h, nw, nh, f = { file, ... } } }.
 --   hide.join   a player       { id }
 --   hide.leave  a player       { id }       before the start
 --   hide.start  the organiser  { id, sk }   the first seeker
@@ -51,6 +54,7 @@ Hide.RADII = { 50, 100, 150, 250, 400 }
 Hide.DEFAULTS = { hs = 120, ss = 900, rad = 100 }
 Hide.MIN_PLAYERS = 2
 Hide.MIN_PTS, Hide.MAX_PTS = 3, 16
+Hide.MAX_OV = 12
 
 -- Add-ons that tell the guild where its members stand, so hiders would show
 -- on a map: players with one loaded can't join until they turn it off.
@@ -82,7 +86,7 @@ end
 local R = MOTA.Book.rules
 R["hide.open"] = function(a, rec)
   local d = rec and rec.d or {}
-  return canRun(a) and validPts(d.pts) and (d.m == nil or num(d.m)) and str(d.name, 40) and str(d.z, 60) and num(d.inst) and num(d.cx) and num(d.cy)
+  return canRun(a) and validPts(d.pts) and (d.m == nil or num(d.m)) and (d.ov == nil or (type(d.ov) == "table" and #d.ov <= Hide.MAX_OV)) and str(d.name, 40) and str(d.z, 60) and num(d.inst) and num(d.cx) and num(d.cy)
     and num(d.rad) and d.rad >= 20 and d.rad <= 1000 and num(d.hs) and d.hs >= 10 and d.hs <= 1800
     and num(d.ss) and d.ss >= 60 and d.ss <= 7200 or false
 end
@@ -114,7 +118,7 @@ local function build()
     local G = byId[d.id]
     if r.k == "hide.open" then
       G = { id = r.a .. "#" .. r.n, by = r.a, t = r.t, name = d.name, z = d.z, inst = d.inst, cx = d.cx, cy = d.cy,
-        rad = d.rad, pts = d.pts, m = d.m, hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false,
+        rad = d.rad, pts = d.pts, m = d.m, ov = type(d.ov) == "table" and d.ov or nil, hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false,
         fr = num(d.fr) and d.fr or Hide.FIND, dw = num(d.dw) and d.dw or Hide.DWELL,
         players = {}, joined = {}, seekers = {}, finds = {}, reached = {}, found = {}, foundBy = {}, out = {}, flags = {} }
       byId[G.id] = G
@@ -311,6 +315,38 @@ function Hide:ToEdge(A, inst, x, y)
   return inPolygon(p, x, y) and best or -best
 end
 
+-- The explored map pieces (the fog of war lifted) that cover the play area,
+-- as this player's map has them: { { x, y, w, h, nw, nh, f } } in the zone
+-- map's pixels, or nil.
+function Hide:Explored(A, own)
+  local HMp = MOTA.HideMap
+  local get = C_MapExplorationInfo and C_MapExplorationInfo.GetExploredMapTextures
+  local L = A.m and C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayers(A.m)
+  L = L and L[1]
+  if not (get and L and HMp) then return nil end
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, q in ipairs(self:Shape(A)) do
+    local px, py = HMp.ToMap(A.inst, q.x, q.y, A.m)
+    if not px then return nil end
+    px, py = px * L.layerWidth, py * L.layerHeight
+    x0, y0, x1, y1 = math.min(x0, px), math.min(y0, py), math.max(x1, px), math.max(y1, py)
+  end
+  local pad = math.max(x1 - x0, y1 - y0) * 0.2
+  x0, y0, x1, y1 = x0 - pad, y0 - pad, x1 + pad, y1 + pad
+  local ok, list = pcall(get, A.m)
+  if not ok or type(list) ~= "table" then return nil end
+  local out = {}
+  for _, e in ipairs(list) do
+    if type(e) == "table" and type(e.fileDataIDs) == "table" and e.offsetX and e.textureWidth
+      and e.offsetX < x1 and e.offsetX + e.textureWidth > x0 and e.offsetY < y1 and e.offsetY + e.textureHeight > y0
+      and #out < self.MAX_OV then
+      out[#out + 1] = { x = e.offsetX, y = e.offsetY, w = e.textureWidth, h = e.textureHeight,
+        nw = e.numTexturesWide, nh = e.numTexturesTall, f = e.fileDataIDs }
+    end
+  end
+  return #out > 0 and out or nil
+end
+
 ---------------------------------------------------------------------------
 -- The organiser
 ---------------------------------------------------------------------------
@@ -394,7 +430,7 @@ function Hide:Open(name)
   if #name > 40 then return nil, "Keep the name to 40 letters." end
   local rec, err = MOTA.Book:Write("hide.open", { name = name, z = d.z, inst = d.inst, cx = d.cx, cy = d.cy, rad = d.rad,
     hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false, fr = self.FIND, dw = self.DWELL,
-    pts = d.pts, m = d.m })
+    pts = d.pts, m = d.m, ov = self:Explored(d) })
   if rec then MOTA.db.hideDraft = nil end
   return rec, err
 end

@@ -3528,6 +3528,16 @@ hmax.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:
 HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elwynn Forest", 1429) Hi:AddCorner(0, 1100, 1000) Hi:AddCorner(0, 1050, 1100) M.GamesPage:Refresh() return 1')
 check("Games Hall: the organiser's form draws a shape being set up", len(errors) == errs and HE(hmax, 'return M.GamesPage._hideArea(true):IsShown()') is True)
 
+print("== Hide and Seek: unexplored map")
+hmax.lua.execute('C_MapExplorationInfo = { GetExploredMapTextures = function() return { { offsetX = 150, offsetY = 100, textureWidth = 300, textureHeight = 200, numTexturesWide = 2, numTexturesTall = 1, fileDataIDs = { 901, 902 } }, { offsetX = 0, offsetY = 0, textureWidth = 100, textureHeight = 100, numTexturesWide = 1, numTexturesTall = 1, fileDataIDs = { 903 } } } end }')
+check("Hide: the organiser's explored pieces over the area go in the game", HE(hmax, 'Hi:Open("Fog Hide") local G = Hi:Current() return G.ov and #G.ov == 1 and G.ov[1].f[2] == 902') is True)
+run(1)
+errs = len(errors)
+hmira.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+check("Hide: a player who hasn't explored it sees the organiser's pieces", len(errors) == errs and HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().over) do if t:IsShown() then n = n + 1 end end return n') == 2)
+HE(hmax, 'return Hi:Close()')
+run(1)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

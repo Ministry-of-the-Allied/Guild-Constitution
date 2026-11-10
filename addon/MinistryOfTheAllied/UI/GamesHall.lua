@@ -997,7 +997,7 @@ local function buildArea(parent, x, y)
   if a.SetClipsChildren then a:SetClipsChildren(true) end
   a.art = CreateFrame("Frame", nil, a)
   a.art:SetAllPoints()
-  a.tiles, a.dots = {}, {}
+  a.tiles, a.dots, a.over = {}, {}, {}
   a.you = a:CreateTexture(nil, "OVERLAY", nil, 7)
   a.you:SetSize(8, 8)
   a.you:SetColorTexture(MOTA:RGB("1B3570"))
@@ -1080,6 +1080,53 @@ local function drawArea(a, A)
           t:Show()
         end
       end
+    end
+    -- The explored pieces over the base map: the organiser's (in the game's
+    -- record) and this player's own, drawn as the world map draws them.
+    for _, t in ipairs(a.over) do t:Hide() end
+    if L then
+      local n, seen = 0, {}
+      local function lay(list)
+        for _, e in ipairs(list or {}) do
+          local key = type(e.f) == "table" and tostring(e.f[1]) .. ":" .. tostring(e.x) .. ":" .. tostring(e.y)
+          if key and not seen[key] and e.nw and e.nh then
+            seen[key] = true
+            for j = 1, e.nh do
+              local ph, fh = 256, 256
+              if j == e.nh then
+                ph = e.h % 256
+                if ph == 0 then ph = 256 end
+                fh = 16
+                while fh < ph do fh = fh * 2 end
+              end
+              for i = 1, e.nw do
+                local pw, fw = 256, 256
+                if i == e.nw then
+                  pw = e.w % 256
+                  if pw == 0 then pw = 256 end
+                  fw = 16
+                  while fw < pw do fw = fw * 2 end
+                end
+                local file = e.f[(j - 1) * e.nw + i]
+                if file then
+                  n = n + 1
+                  local t = a.over[n] or a.art:CreateTexture(nil, "BACKGROUND", nil, 2)
+                  a.over[n] = t
+                  t:SetTexture(file)
+                  t:SetTexCoord(0, pw / fw, 0, ph / fh)
+                  t:SetSize(pw * k, ph * k)
+                  t:ClearAllPoints()
+                  t:SetPoint("TOPLEFT", a, "CENTER", (e.x + 256 * (i - 1) - ox) * k, -(e.y + 256 * (j - 1) - oy) * k)
+                  t:SetAlpha(0.9)
+                  t:Show()
+                end
+              end
+            end
+          end
+        end
+      end
+      lay(A.ov)
+      lay(MOTA.Hide:Explored(A))
     end
     -- The edge.
     for _, t in ipairs(a.dots) do t:Hide() end
