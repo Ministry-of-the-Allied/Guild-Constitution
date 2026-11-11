@@ -1279,14 +1279,21 @@ local function buildHide()
   form.name = field(form, "Name", 16, 36, fw, "")
   form.name:SetScript("OnTextChanged", function(e) Hi:Draft().name = e:GetText() end)
   Kit:Label(form, "kitTiny", "7A5719", 0.2, "The play area"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
-  form.here = Kit:Button(form, half, 24, "Circle where I stand", "blue", function() report(Hi:SetCentre()) end)
+  local third = (fw - 16) / 3
+  form.here = Kit:Button(form, third, 24, "Where I stand", "blue", function() report(Hi:SetCentre()) end)
   form.here:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -104)
-  form.draw = Kit:Button(form, half, 24, "Draw on map", "quiet", function()
+  form.circle = Kit:Button(form, third, 24, "Circle on map", "quiet", function()
+    local HMp = MOTA.HideMap
+    if not HMp then return end
+    if HMp.circling then report(HMp:StopCircle()) else report(HMp:Circle()) end
+  end)
+  form.circle:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + third + 8, -104)
+  form.draw = Kit:Button(form, third, 24, "Shape on map", "quiet", function()
     local HMp = MOTA.HideMap
     if not HMp then return end
     if HMp.drawing then report(HMp:Finish()) else report(HMp:Draw()) end
   end)
-  form.draw:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + half + 8, -104)
+  form.draw:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + 2 * (third + 8), -104)
   local function stepper(y, get, put, steps)
     local l = Kit:Text(form, "kitSmall")
     l:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -y)
@@ -1358,8 +1365,10 @@ local function refreshHide(v)
     local d = Hi:Draft()
     local f = v.form
     local drawing = MOTA.HideMap and MOTA.HideMap.drawing
+    local circling = MOTA.HideMap and MOTA.HideMap.circling
     if not f.name:HasFocus() then f.name:SetText(d.name or "") end
-    f.draw:SetLabel(drawing and "Finish drawing" or "Draw on map")
+    f.draw:SetLabel(drawing and "Finish" or "Shape on map")
+    f.circle:SetLabel(circling and "Cancel" or "Circle on map")
     local shaped = d.pts ~= nil or drawing
     f.radius:SetText(shaped and ("Drawn shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · edge " .. d.rad .. " yards out"))
     f.radius.minus:SetShown(not shaped)
@@ -1370,7 +1379,7 @@ local function refreshHide(v)
     f.nm:SetLabel(f.nm.base .. ": " .. (d.nm and "on" or "off"))
     f.nmap:SetLabel(f.nmap.base .. ": " .. (d.nmap and "on" or "off"))
     local area = v.note.area
-    local ready = d.cx ~= nil and (not d.pts or #d.pts >= Hi.MIN_PTS) and not drawing
+    local ready = d.cx ~= nil and (not d.pts or #d.pts >= Hi.MIN_PTS) and not drawing and not circling
     if d.cx then
       area:Show()
       drawArea(area, d)
@@ -1378,9 +1387,10 @@ local function refreshHide(v)
       area.areaKey = nil
       area:Hide()
     end
-    v.side.text:SetText(drawing and "Click the corners on a zone map, then press Finish drawing."
+    v.side.text:SetText((circling and "On the map, click the middle, then click where the edge goes.")
+      or (drawing and "Click the corners on a zone map, then press Finish.")
       or (d.cx and ("In |cff2A1F14" .. tostring(d.z) .. "|r: " .. (d.pts and (#d.pts .. " corners") or ("a circle, " .. d.rad .. " yards out")) .. ".\n\nHiding " .. Hi.Clock(d.hs) .. ", seeking " .. Hi.Clock(d.ss) .. ".")
-      or "Set the play area: a circle round where you stand, or draw its corners on the world map."))
+      or "Set the play area: a circle round where you stand, a circle on the map, or a shape's corners on the map."))
     v.side.open:SetEnabled(ready)
     v.side.open:SetAlpha(ready and 1 or 0.45)
     return

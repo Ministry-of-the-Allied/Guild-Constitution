@@ -129,7 +129,7 @@ function HM:Draw()
   self:Hook()
   local d = MOTA.Hide:Draft()
   d.pts, d.cx = nil, nil
-  self.drawing = true
+  self.drawing, self.circling, self.centre = true, false, nil
   openMap()
   MOTA:Print("Click the corners of the play area on a zone map, one by one, then press Finish on the Games Hall page.")
   MOTA:Fire("HIDE_CHANGED")
@@ -145,6 +145,69 @@ function HM:Finish()
   end
   return true
 end
+
+-- A circle on the map: click the middle, then the edge. Between the two
+-- clicks the ring follows the cursor, so the size can be seen before it's set.
+function HM:Circle()
+  if not MOTA.Games:CanRun(MOTA.me) then return nil, "Only the Crown and the Minister of Games run Hide and Seek." end
+  if not map() then return nil, "The world map isn't available." end
+  self:Hook()
+  self.drawing, self.circling, self.centre = false, true, nil
+  openMap()
+  MOTA:Print("Click the middle of the play area on a zone map, then click where its edge goes.")
+  MOTA:Fire("HIDE_CHANGED")
+  return true
+end
+
+function HM:StopCircle()
+  self.circling, self.centre = false, nil
+  MOTA:Fire("HIDE_CHANGED")
+  return true
+end
+
+function HM:CircleClick(mapID, px, py)
+  local inst, x, y = toWorld(mapID, px, py)
+  if not inst then return nil, "That map has no place in the world: use a zone map." end
+  local Hi = MOTA.Hide
+  if not self.centre then
+    local info = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
+    self.centre = { inst = inst, x = x, y = y, m = mapID, z = info and info.name }
+    Hi:SetCircle(inst, x, y, Hi.Draft and Hi:Draft().rad or 100, self.centre.z, mapID)
+    self:Paint()
+    MOTA:Print("Now click where the edge goes.")
+    return true
+  end
+  local c = self.centre
+  if inst ~= c.inst then return nil, "The edge must be on the same map as the middle." end
+  local r = math.sqrt((x - c.x) ^ 2 + (y - c.y) ^ 2)
+  if r < 20 then return nil, "That's too small: the edge must be at least 20 yards out." end
+  if r > 1000 then return nil, "That's too big: keep the edge within 1000 yards." end
+  Hi:SetCircle(c.inst, c.x, c.y, r, c.z, c.m)
+  self.circling, self.centre = false, nil
+  MOTA:Print("Play area set: a circle " .. math.floor(r + 0.5) .. " yards out.")
+  MOTA:Fire("HIDE_CHANGED")
+  self:Paint()
+  return true
+end
+
+-- The ring following the cursor, between the two clicks.
+local follow = CreateFrame("Frame")
+local wait = 0
+follow:SetScript("OnUpdate", function(_, elapsed)
+  if not HM.circling or not HM.centre then return end
+  wait = wait - elapsed
+  if wait > 0 then return end
+  wait = 0.05
+  local m = map()
+  local scroll = m and m.ScrollContainer
+  if not (m and m:IsShown() and scroll and scroll.GetNormalizedCursorPosition) then return end
+  local px, py = scroll:GetNormalizedCursorPosition()
+  local inst, x, y = toWorld(m:GetMapID(), px or -1, py or -1)
+  if inst ~= HM.centre.inst then return end
+  local d = MOTA.Hide:Draft()
+  d.rad = math.max(20, math.min(1000, math.floor(math.sqrt((x - HM.centre.x) ^ 2 + (y - HM.centre.y) ^ 2) + 0.5)))
+  HM:Paint()
+end)
 
 -- A click on the map while drawing.
 function HM:Click(mapID, px, py)
@@ -169,11 +232,12 @@ function HM:Hook()
   local target = scroll or (m.GetCanvas and m:GetCanvas())
   if target and target.HookScript then
     target:HookScript("OnMouseUp", function(_, button)
-      if not HM.drawing or button ~= "LeftButton" then return end
+      if not (HM.drawing or HM.circling) or button ~= "LeftButton" then return end
       local px, py
       if scroll and scroll.GetNormalizedCursorPosition then px, py = scroll:GetNormalizedCursorPosition() end
       if px then
-        local _, err = HM:Click(m:GetMapID(), px, py)
+        local _, err
+        if HM.circling then _, err = HM:CircleClick(m:GetMapID(), px, py) else _, err = HM:Click(m:GetMapID(), px, py) end
         if err then MOTA:Print(err) end
       end
     end)

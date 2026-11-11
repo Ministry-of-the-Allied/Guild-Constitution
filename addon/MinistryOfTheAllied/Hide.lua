@@ -375,6 +375,17 @@ function Hide:SetCentre(inst, x, y, zone)
   return true
 end
 
+-- A circle picked on the map (UI/HideMap.lua): its middle and how far out.
+function Hide:SetCircle(inst, x, y, rad, zone, mapID)
+  local d = self:Draft()
+  d.inst, d.cx, d.cy = inst, math.floor(x * 10 + 0.5) / 10, math.floor(y * 10 + 0.5) / 10
+  d.rad = math.max(20, math.min(1000, math.floor(rad + 0.5)))
+  d.z = (zone and zone ~= "") and zone or "Somewhere"
+  d.pts, d.m = nil, mapID
+  MOTA:Fire("HIDE_CHANGED")
+  return true
+end
+
 -- Drawing a shape: corners added one at a time (UI/HideMap.lua clicks them on the map).
 function Hide:AddCorner(inst, x, y, zone, mapID)
   local d = self:Draft()

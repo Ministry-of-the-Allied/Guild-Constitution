@@ -3546,6 +3546,19 @@ check("Hide: and players see those", HE(hmira, 'local n = 0 for _, t in ipairs(M
 HE(hmax, 'return Hi:Close()')
 run(1)
 
+print("== Hide and Seek: a circle drawn on the map")
+hmax.lua.execute('C_Map.GetWorldPosFromMapPos = function(m, v) local px, py = v:GetXY() return 0, CreateVector2D(2000 - 4000 * py, 2000 - 4000 * px) end; C_Map.GetMapInfo = function(m) return { name = "Elwynn Forest" } end')
+HMQ = 'local HM = M.HideMap '
+HE(hmax, HMQ + 'HM.circling, HM.centre = true, nil return 1')
+check("Circle: the first click sets the middle", HE(hmax, HMQ + 'HM:CircleClick(1429, 0.25, 0.25) local d = Hi:Draft() return d.cx .. "," .. d.cy .. "|" .. tostring(HM.circling)') == "1000,1000|true")
+check("Circle: an edge too close is refused", "too small" in (HE(hmax, HMQ + 'local _, e = HM:CircleClick(1429, 0.251, 0.25) return e') or ""))
+check("Circle: the second click sets the edge", HE(hmax, HMQ + 'HM:CircleClick(1429, 0.2625, 0.25) local d = Hi:Draft() return d.rad .. "|" .. tostring(d.pts) .. "|" .. d.m .. "|" .. d.z .. "|" .. tostring(HM.circling)') == "50|nil|1429|Elwynn Forest|false")
+check("Circle: a game opens with it", HE(hmax, 'return Hi:Open("Ring Hide") ~= nil and Hi:Current().rad == 50 and Hi:Current().pts == nil') is True)
+run(1)
+check("Circle: everyone has the circle", HE(hmira, 'local G = Hi:Current() return G.name .. "|" .. G.rad') == "Ring Hide|50")
+HE(hmax, 'return Hi:Close()')
+run(1)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:
