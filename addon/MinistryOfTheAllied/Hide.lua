@@ -21,9 +21,9 @@
 --               pts: a shape drawn on the world map, { { x, y }, ... } (3 to 16
 --               corners); without it the play area is the circle rad round
 --               cx, cy. m: the zone map it was set on, for the page's map.
---               ov: the organiser's explored map pieces over the area (the
---               zone map's fog of war), so players who haven't explored it
---               still see the map: { { x, y, w, h, nw, nh, f = { file, ... } } }.
+--               ov: only for a map MapReveal.lua doesn't have: the organiser's
+--               explored map pieces over the area, so players who haven't
+--               explored it still see the map: { { x, y, w, h, nw, nh, f } }.
 --   hide.join   a player       { id }
 --   hide.leave  a player       { id }       before the start
 --   hide.start  the organiser  { id, sk }   the first seeker
@@ -430,7 +430,7 @@ function Hide:Open(name)
   if #name > 40 then return nil, "Keep the name to 40 letters." end
   local rec, err = MOTA.Book:Write("hide.open", { name = name, z = d.z, inst = d.inst, cx = d.cx, cy = d.cy, rad = d.rad,
     hs = d.hs, ss = d.ss, nm = d.nm and true or false, nmap = d.nmap and true or false, fr = self.FIND, dw = self.DWELL,
-    pts = d.pts, m = d.m, ov = self:Explored(d) })
+    pts = d.pts, m = d.m, ov = not (MOTA.MapReveal and d.m and MOTA.MapReveal[d.m]) and self:Explored(d) or nil })
   if rec then MOTA.db.hideDraft = nil end
   return rec, err
 end

@@ -1125,8 +1125,19 @@ local function drawArea(a, A)
           end
         end
       end
-      lay(A.ov)
-      lay(MOTA.Hide:Explored(A))
+      -- The whole map, fog lifted (MapReveal.lua, from Forever's own data);
+      -- for a map that isn't there, the organiser's and your explored pieces.
+      local reveal = MOTA.MapReveal and A.m and MOTA.MapReveal[A.m]
+      if reveal then
+        local list = {}
+        for i, e in ipairs(reveal) do
+          list[i] = { x = e[1], y = e[2], w = e[3], h = e[4], nw = e[5], nh = e[6], f = e[7] }
+        end
+        lay(list)
+      else
+        lay(A.ov)
+        lay(MOTA.Hide:Explored(A))
+      end
     end
     -- The edge.
     for _, t in ipairs(a.dots) do t:Hide() end

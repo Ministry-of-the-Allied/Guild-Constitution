@@ -51,6 +51,7 @@ Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua
+MapReveal.lua
 Hide.lua
 UI\Skin.lua
 UI\LiveText.lua
