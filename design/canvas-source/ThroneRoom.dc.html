@@ -63,8 +63,12 @@ a{color:#1B3570}a:hover{color:#3A63B8}
           </div>
           <div class="divider" style="margin: -4px 0 -2px"></div>
 
-          <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 20px">
+          <!-- Below the banner the page scrolls, as in the game (10 Nov); the right column runs What's on, the Statute Book, Recent decrees; Your place is in the left column -->
+          <div class="scroll" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px">
+          <div style="flex: none; display: grid; align-items: start; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 20px">
 
+            <div style="display: flex; flex-direction: column; gap: 10px; min-height: 0; align-self: start">
+            <!-- Your place sits under Who holds power in the left column (Max, 11 Nov) -->
             <section class="plate" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px">
               <h3 class="h-sec">Who holds power</h3>
               <div style="display: flex; align-items: center; gap: 12px">
@@ -95,7 +99,7 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                 <span class="eyebrow" style="font-size: 9.5px">Games</span><span class="small">Osric Hale</span>
               </div>
               <p class="small muted italic" style="margin: 0">The High Judiciary: Osric Hale, Elowen Marsh and Pell Ashworth.</p>
-              <div style="display: flex; align-items: center; gap: 12px; margin-top: auto">
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px">
                 <div class="portrait sm" style="--pc: #9E1B22">GT</div>
                 <div style="flex: 1; display: flex; flex-direction: column">
                   <span class="eyebrow" style="font-size: 10px">Leader of the Opposition</span>
@@ -104,6 +108,12 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                 <span class="chip" style="--c: #9E1B22">Exchange</span>
               </div>
             </section>
+            <section class="plate" style="display: flex; flex-direction: column; gap: 8px; padding: 14px 18px">
+              <h3 class="h-sec">Your place</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip" style="--c: #3D86C6">Cathedral Ward</span><span class="chip" style="--c: #1F4290">Silverhand</span></div>
+              <p class="small" style="margin: 0">Council meets at the <strong>Cathedral of Light</strong> · Sundays, 8 pm</p>
+            </section>
+            </div>
 
             <div style="display: flex; flex-direction: column; gap: 14px; min-height: 0">
               <section class="plate blue" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px">
@@ -121,10 +131,13 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                 <a class="btn gold sm" href="BallotHall.dc.html" style="align-self: flex-start">Go to the ballot</a>
               </section>
 
-              <section class="plate" style="display: flex; flex-direction: column; gap: 8px; padding: 14px 18px">
-                <h3 class="h-sec">Your place</h3>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip" style="--c: #3D86C6">Cathedral Ward</span><span class="chip" style="--c: #1F4290">Silverhand</span></div>
-                <p class="small" style="margin: 0">Council meets at the <strong>Cathedral of Light</strong> · Sundays, 8 pm</p>
+              <!-- The Statute Book (Max, 10-11 Nov; UI/ChronicleBook.lua): a closed tome on the dark plate, under What's on. Hover: the
+                   cover lifts, light at the page edge. Click: the cover turns and the pages flip in a holy light, golden
+                   motes rising, and it rests open (design/textures/chronicle-open.png). A click on the open book opens the
+                   Charter on the Statute Book tab. No count on the plate. Drawn in 3D by tools/textures/chronicle.html. -->
+              <section class="plate blue" style="position: relative; flex: none; height: 228px; padding: 14px 16px" title="Hover: the cover lifts. Click: the pages flip open in a holy light; the open book opens Statute Book · Charter.">
+                <h3 class="h-sec">Statute Book</h3>
+                <img src="../textures/chronicle-closed.png" alt="The Statute Book, a closed leatherbound tome" style="position: absolute; left: 50%; bottom: 14px; width: 126.5px; height: 159px; transform: translateX(-50%)">
               </section>
 
               <section style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px">
@@ -136,6 +149,7 @@ a{color:#1B3570}a:hover{color:#3A63B8}
                 </ol>
               </section>
             </div>
+          </div>
           </div>
         </div>
       </main>

@@ -128,7 +128,6 @@ function Methods:SetVertexColor(r, g, b)
   self.color = { r, g, b }
 end
 function Methods:SetBlendMode(m) assert(({ ADD = 1, BLEND = 1, MOD = 1, ALPHAKEY = 1, DISABLE = 1 })[m], "bad blend") end
-
 function Methods:CreateFontString(name, layer, template)
   local fs = region("FontString", self)
   fs.text = ""
@@ -231,8 +230,8 @@ end
 function StopSound(h) assert(type(h) == "number") VOICE_STOPPED = VOICE_STOPPED + 1 end
 
 -- tooltip
-function Methods:SetOwner() end
-function Methods:AddLine() end
+function Methods:SetOwner() self.lines = {} end
+function Methods:AddLine(text) self.lines = self.lines or {} table.insert(self.lines, text) end
 
 function CreateFrame(kind, name, parent)
   local f = region(kind or "Frame", parent)
@@ -274,7 +273,9 @@ UISpecialFrames = {}
 tinsert = table.insert
 SOUNDKIT = { IG_CHARACTER_INFO_OPEN = 839, IG_CHARACTER_INFO_CLOSE = 840, IG_CHARACTER_INFO_TAB = 841,
   LEVELUPSOUND = 888, READY_CHECK = 8960, RAID_WARNING = 8959,
-  IG_MAINMENU_OPTION_CHECKBOX_ON = 856, IG_MAINMENU_OPTION_CHECKBOX_OFF = 857 }
+  IG_MAINMENU_OPTION_CHECKBOX_ON = 856, IG_MAINMENU_OPTION_CHECKBOX_OFF = 857,
+  IG_ABILITY_PAGE_TURN = 836,   -- the spellbook's page turn (the Chronicle book, 10 Nov)
+  UI_COVENANT_CHOICE_CELEBRATION_ANIMATION_BASTION = 171877 }  -- the book's holy sound (10 Nov)
 LAST_SOUND = nil
 COMBAT = false
 function InCombatLockdown() return COMBAT end
@@ -295,7 +296,8 @@ Settings = {
   OpenToCategory = function(id) SETTINGS_OPENED = id end,
 }
 SOUNDS_PLAYED = 0
-function PlaySound(kit) assert(type(kit) == "number", "PlaySound needs a number") SOUNDS_PLAYED = SOUNDS_PLAYED + 1 LAST_SOUND = kit end
+-- as the game: willPlay, and a handle
+function PlaySound(kit) assert(type(kit) == "number", "PlaySound needs a number") SOUNDS_PLAYED = SOUNDS_PLAYED + 1 LAST_SOUND = kit return true, SOUNDS_PLAYED end
 STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
 ATLASES = { ["bfa-landingbutton-alliance-up"] = true }
 C_Texture = { GetAtlasInfo = function(n) if ATLASES[n] then return { width = 128, height = 128 } end end }

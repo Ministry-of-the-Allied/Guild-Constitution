@@ -58,7 +58,7 @@ class Client:
     # and on add-on message senders. Forever writes one that differs from one
     # player's screen to another's ("CAMWOWEU5Realm7PvE" on one, "...Realm1PvE"
     # on the next), and refuses a whisper addressed with it.
-    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None, place=False, link=False, bnet=None):
+    def __init__(self, name, saved=None, version=None, lockdown=None, protocol=None, realm_late=False, odd_realm=False, voice=False, tag=None, short=None, place=False, link=False, bnet=None, guarded=False):
         self.name = name
         self.full = name + "-" + REALM
         self.tag = tag or REALM
@@ -97,6 +97,9 @@ class Client:
         g.mock_fire("ADDON_LOADED", "SomeOtherAddon")
         g.mock_fire("ADDON_LOADED", "MinistryOfTheAllied")
         ns.db.settings.voice = voice  # the narration has its own checks (section 12)
+        if not guarded:  # commands are the Crown's alone (section 17); only that section's clients keep the rule
+            for c in ns.Commands.list.values():
+                ns.Commands.Open[c.name] = True
         if not place:  # placing yourself in a district writes a record; it has its own checks (section 100b)
             ns.District.PLACE_DELAY = 10 ** 9
         if not link:  # linking the account writes a record too; its checks are in section 15e
@@ -2573,14 +2576,14 @@ check("Throne Room: the row frames for the click overlays span each row (five Ca
 check("Throne Room: a Crown name that wraps to two lines pushes everything on by the board's 20",
       E(ekk, PW_OPEN + 'pw.crown.GetStringHeight = function() return 32 end P:Refresh() local ok = g.crownH == 56 and g.ruleY == 114 and g.flowY == 127 and g.cabY == 215 and g.cabH == 130 pw.crown.GetStringHeight = nil P:Refresh() return ok and g.crownH == 36') is True)
 # /mota throne preview: a made-up government for drawing, never written
-books = E(ek, 'return M.Book:Count()')
-heard = E(em, 'return M.Book:Count()')
+books = E(ek, 'return (M.Book:Count())')
+heard = E(em, 'return (M.Book:Count())')
 ek.slash("throne preview")
 check("Throne preview: /mota throne preview shows a made-up government, tagged Preview",
       E(ek, PW_OPEN + 'return M.Throne:Power().preview == true and pw.previewTag:IsShown() and pw.gov:IsShown() and pw.pm.text == "Seraphine" and #M.Throne:Power().cabinet == 5') is True)
 throne_draws(ek, "a preview")
 run(6)
-check("Throne preview: nothing is written or sent", E(ek, 'return M.Book:Count()') == books and E(em, 'return M.Book:Count()') == heard)
+check("Throne preview: nothing is written or sent", E(ek, 'return (M.Book:Count())') == books and E(em, 'return (M.Book:Count())') == heard)
 ek.slash("throne preview off")
 check("Throne preview: off, the real government and no tag",
       E(ek, PW_OPEN + 'return M.Throne:Power().preview == nil and not pw.previewTag:IsShown() and pw.pm.text == "Bram"') is True)
@@ -2854,6 +2857,154 @@ check("Chronicle: a row opens its page", E(ek, PG + 'for _, r in ipairs(P.chroni
 check("Chronicle: the Throne tab lands on the State of the Realm", E(ek, PG + 'UI:SelectPage(1) return P.view == "state" and P.root.shown and not P.chronicle.shown') is True)
 check("Chronicle: See all opens it", E(ek, PG + 'P.seeAll.scripts.OnClick(P.seeAll) return P.view == "chronicle" and P.chronicle.shown and not P.root.shown') is True)
 check("Chronicle: the Throne Room button goes back", E(ek, PG + 'local b = P.chronicle.back b.scripts.OnClick(b) return P.view == "state" and P.root.shown and not P.chronicle.shown') is True)
+
+# --- The Chronicle book on the Throne Room (UI/ChronicleBook.lua; Max, 10 Nov) ----------------------
+BK = PG + 'local B = P.book '
+def book_wait(c, seconds):  # runs the book's own clock (its OnUpdate) at 30 a second, leaving the game's clock alone
+    E(c, BK + 'for _ = 1, %d do local f = B.scene.scripts.OnUpdate if f then f(B.scene, 1 / 30) end end return 1'
+      % int(round(seconds * 30)))
+def book_turning(c):  # the names of the turning pictures shown now, joined
+    return E(c, BK + 'local n = {} for _, t in ipairs(B.turn) do if t.shown then n[#n + 1] = t.name end end return table.concat(n, ",")') or ""
+E(ek, PG + 'UI:SelectPage(1) return 1')
+errs = len(errors)
+skins_ok = True
+for skin in ("crown", "silverhand", "exchange", "ministry"):
+    E(ek, 'M.Skin:Preview("%s") return 1' % skin)
+    skins_ok = skins_ok and E(ek, BK + 'return B.state == "closed" and B.base.shown and B.base.name == "chronicle_%s:base" and B.turn[1].name == "chronicle_%s:cover000"' % (skin, skin)) is True
+check("Chronicle book: drawn closed in all four skins, the skin's own leather", skins_ok and len(errors) == errs)
+check("Chronicle book: the plate has no count at its top right (it is the Statute Book now)",
+      E(ek, BK + 'return B.count == nil') is True)
+check("Chronicle book: right column top to bottom is What's on, the book, Your duties, Recent decrees",
+      E(ek, BK + 'local function y(f) local _, _, _, _, v = f:GetPoint() return -v end '
+            'local l, b, d, r = P.live.frame, B.plate, P.duties.frame, P.decrees.frame '
+            'return y(l) == 0 and y(b) == y(l) + l.h + 10 and y(d) == y(b) + b.h + 10 and y(r) == y(d) + d.h + 10') is True)
+check("Chronicle book: Your place is in the left column right under Who holds power, nothing stretched",
+      E(ek, BK + 'local function y(f) local _, _, _, x, v = f:GetPoint() return -v, x end '
+            'local pl, pw = P.place.frame, P.power.frame local py, px = y(pl) local wy = y(pw) '
+            'return px == 0 and py == wy + pw.h + 10 and pl.w == pw.w') is True)
+check("Chronicle book: the page's height is its tallest column, so nothing is cut off or left empty",
+      E(ek, BK + 'local function y(f) local _, _, _, _, v = f:GetPoint() return -v end '
+            'local r, pl, body = P.decrees.frame, P.place.frame, P.scroll.scrollChild '
+            'return body.h == math.max(P.scroll.h, y(r) + r.h, y(pl) + pl.h)') is True)
+E(ek, BK + 'B.hit.scripts.OnEnter(B.hit) return 1')
+book_wait(ek, 0.5)
+check("Chronicle book: hovering lifts the cover, with light at the page edge",
+      E(ek, BK + 'return B.lift > 0.99 and B.leak.shown') is True and book_turning(ek).endswith("cover012"))
+check("Chronicle book: its tooltip says a click opens it", E(ek, 'return GameTooltip.text') == "Statute Book · click to open the book")
+E(ek, BK + 'B.hit.scripts.OnLeave(B.hit) return 1')
+book_wait(ek, 0.5)
+check("Chronicle book: leaving lowers the cover, and its clock stops when still",
+      E(ek, BK + 'return B.lift == 0 and not B.leak.shown and B.scene.scripts.OnUpdate == nil') is True and book_turning(ek).endswith("cover000"))
+E(ek, BK + 'B.hit.scripts.OnEnter(B.hit) LAST_SOUND = nil BOOK_SOUNDS = SOUNDS_PLAYED B.hit.scripts.OnClick(B.hit) return 1')
+check("Chronicle book: a click opens it, with the game's page-turn sound and a holy sound",
+      E(ek, BK + 'return B.state == "opening" and SOUNDS_PLAYED == BOOK_SOUNDS + 2 and LAST_SOUND == 171877') is True)
+book_wait(ek, 0.25)
+cover = book_turning(ek)
+check("Chronicle book: the cover is flung open, past its lift", "cover" in cover and int(cover.split("cover")[-1][:3]) > 12)
+check("Chronicle book: the light bursts: rays, the closed book's aura, and a shockwave ring early on",
+      E(ek, BK + 'return B.raysA.shown and B.bloomClosed.shown and B.ring.shown and B.flare.shown') is True)
+book_wait(ek, 0.5)
+seen = book_turning(ek)
+check("Chronicle book: the pages hang in a fan, all nine up",
+      seen.count(":page") == 9 and "cover" not in seen)
+check("Chronicle book: in the light: rays, the shaft from above, the aura, the glow, motes flung out",
+      E(ek, BK + 'local n = 0 for _, m in ipairs(B.motes) do if m.on then n = n + 1 end end '
+            'return B.raysA.shown and B.shaft.shown and B.bloom.shown and B.glow.shown and B.halo.shown and n > 20') is True)
+check("Chronicle book: the shockwave ring is gone after 0.75 s", E(ek, BK + 'return not B.ring.shown') is True)
+book_wait(ek, 0.6)
+check("Chronicle book: then the pages fall, one after another", 0 < book_turning(ek).count(":page") < 9)
+book_wait(ek, 0.8)
+check("Chronicle book: it comes to rest open, the closed book gone, nothing turning",
+      E(ek, BK + 'return B.state == "open" and B.open.shown and B.pages.shown and B.ribbons.shown and not B.base.shown') is True and book_turning(ek) == "")
+check("Chronicle book: the open page says how much the Chronicle holds",
+      re.match(r"^\d+ entr(y|ies) since \d+ [A-Z][a-z]+$", E(ek, BK + 'return B.live.shown and B.live.text') or "") is not None)
+book_wait(ek, 2)
+check("Chronicle book: open, a few motes keep rising", E(ek, BK + 'local n = 0 for _, m in ipairs(B.motes) do if m.on then n = n + 1 end end return n > 0 and B.scene.scripts.OnUpdate ~= nil') is True)
+check("Chronicle book: open, the steady light keeps inside the plate's width",
+      E(ek, BK + 'for _, k in ipairs({ "halo", "raysA", "raysB", "shaft", "beam", "shaftFront", "haloFront" }) do '
+            'if B[k].shown and B[k]:GetWidth() > B.w then return k end end return B.raysA.shown or B.raysB.shown') is True)
+spin = E(ek, BK + 'return B.raysA.name .. "," .. B.raysB.name')
+book_wait(ek, 2.5)
+check("Chronicle book: open, its rays keep turning", E(ek, BK + 'return B.raysA.name .. "," .. B.raysB.name') != spin)
+check("Chronicle book: the cursor still on it, the tooltip returns when the opening ends",
+      E(ek, BK + 'B:Reset() B.hit.scripts.OnEnter(B.hit) B.hit.scripts.OnClick(B.hit) GameTooltip.text = nil '
+            'for _ = 1, 90 do local f = B.scene.scripts.OnUpdate if f then f(B.scene, 1 / 30) end end return B.state == "open" and GameTooltip.text') == "Opens Statute Book · Charter")
+check("Chronicle book: its tooltip now says it opens the Statute Book Charter",
+      E(ek, BK + 'B.hit.scripts.OnLeave(B.hit) B.hit.scripts.OnEnter(B.hit) return GameTooltip.text') == "Opens Statute Book · Charter")
+check("Chronicle book: a click on the open book opens the Charter on the Statute Book tab",
+      E(ek, BK + 'B.hit.scripts.OnClick(B.hit) local o = M.StatutesPage return UI.page == 3 and o:View() == "charter" and not P.root.shown') is True)
+check("Chronicle book: back in the Throne Room it's closed again",
+      E(ek, BK + 'UI:SelectPage(1) return P.root.shown and B.state == "closed" and B.base.shown and not B.open.shown') is True)
+E(ek, BK + 'B.hit.scripts.OnClick(B.hit) return 1')
+book_wait(ek, 0.2)
+check("Chronicle book: a click while it turns goes straight to the open book",
+      E(ek, BK + 'B.hit.scripts.OnClick(B.hit) return B.state == "open" and B.open.shown and not B.base.shown') is True and book_turning(ek) == "")
+check("Chronicle book: another page and back, closed again",
+      E(ek, BK + 'UI:SelectPage(2) UI:SelectPage(1) return B.state == "closed" and B.lift == 0 and B.base.shown') is True)
+
+# The game draws what the previews Max okayed show: every layer of the opening (its picture, strength and
+# size) against tools/textures/chronicle.py's state() at the same moments.
+sys.path.insert(0, os.path.join(HERE, "..", "textures"))
+import chronicle as CHR  # noqa: E402
+BOOK_KEYS = {"halo": "halo", "shaft": "shaft", "bloomClosed": "bloomClosed", "bloom": "bloom", "base": "base",
+             "leak": "leak", "open": "open", "pages": "pages", "ribbons": "ribbons", "glowOpen": "glow", "beam": "beam",
+             "shaftFront": "shaftFront", "haloFront": "haloFront", "ring": "ring", "flare": "flare"}
+def book_layers(c):  # {key: (picture, alpha, w, h) or None}, and the turning pictures in draw order
+    got = E(c, BK + 'local o = {} for _, k in ipairs({ "halo", "raysA", "raysB", "shaft", "bloomClosed", "bloom", "base", '
+                 '"leak", "open", "pages", "ribbons", "glow", "beam", "shaftFront", "haloFront", "ring", "flare" }) do '
+                 'local t = B[k] o[#o + 1] = k .. "=" .. (t.shown and (t.name .. "," .. (t.alpha or 1) .. "," .. t.w .. "," .. t.h) or "-") end '
+                 'local n = {} for _, t in ipairs(B.turn) do if t.shown then n[#n + 1] = t.name .. "," .. t.alpha end end '
+                 'o[#o + 1] = "turn=" .. table.concat(n, "|") return table.concat(o, ";")')
+    out = {}
+    for item in got.split(";"):
+        k, v = item.split("=", 1)
+        if k == "turn":
+            out[k] = [(n.split(":")[-1].split(",")[0], float(n.split(",")[1])) for n in v.split("|") if n]
+        else:
+            out[k] = None if v == "-" else (v.split(",")[0].split(":")[-1],) + tuple(float(x) for x in v.split(",")[1:])
+    return out
+def book_expected(t):
+    media = {"cover": CHR.COVER_REST + CHR.COVER_TURN, "rest": CHR.COVER_REST[-1], "page": CHR.PAGE_TURN, "rays": CHR.RAY_STEPS}
+    _, layers = CHR.state(t, 1, CHR.TIMING, media, spin=t, hover=True)
+    place, want, turn, rays = CHR.TIMING["place"], {}, [], []
+    for layer in layers:
+        part, alpha = layer[0], min(1, layer[1])
+        grow = layer[3] if len(layer) > 3 else 1
+        if re.fullmatch(r"(cover|page)\d{3}", part):
+            turn.append((part, alpha))
+        elif part.startswith("rays"):
+            rays.append((part, alpha, place["rays"]["w"] * grow, place["rays"]["h"] * grow))
+        elif part in BOOK_KEYS:
+            light = "shaft" if part == "shaftFront" else part
+            size = (place[light]["w"] * grow, place[light]["h"] * grow) if light in place else None
+            image = {"shaftFront": "shaft", "haloFront": "halo", "glowOpen": "glowOpen"}.get(part, part)
+            want[BOOK_KEYS[part]] = (image, alpha) + (size or ())
+    want["raysA"], want["raysB"] = rays
+    return want, [x for x in turn if x[1] > 0.003]
+def book_matches(c, t):
+    got, (want, turn) = book_layers(c), book_expected(t)
+    bad = []
+    for k, w in want.items():
+        g = got[k]
+        if w[1] <= 0.003:
+            if g is not None:
+                bad.append(k + " shown")
+        elif g is None or g[0] != w[0] or abs(g[1] - w[1]) > 0.002 or any(abs(a - b) > 0.05 for a, b in zip(g[2:], w[2:]) if len(w) > 2):
+            bad.append("%s %s, wanted %s" % (k, g, w))
+    if [n for n, _ in got["turn"]] != [n for n, _ in turn] or any(abs(a - b) > 0.002 for (_, a), (_, b) in zip(got["turn"], turn)):
+        bad.append("turning %s, wanted %s" % (got["turn"], turn))
+    if bad:
+        print("    at %.3f s: %s" % (t, "; ".join(bad)))
+    return not bad
+E(ek, BK + 'B.hit.scripts.OnEnter(B.hit) B.hit.scripts.OnClick(B.hit) return 1')
+mirror, done = True, 0
+for k in (4, 7, 11, 16, 20, 25, 33, 40, 48, 55, 60):   # frames at 30 a second (off the timeline's edges)
+    E(ek, BK + 'for _ = 1, %d do B.scene.scripts.OnUpdate(B.scene, 1 / 30) end return 1' % (k - done))
+    done = k
+    mirror = book_matches(ek, k / 30) and mirror
+check("Chronicle book: the game draws what chronicle.py's previews show, layer by layer, through the opening", mirror)
+E(ek, BK + 'B.hit.scripts.OnLeave(B.hit) B:Reset() return 1')
+check("Chronicle book: no Lua errors in all that", len(errors) == errs)
 E(ek, 'MinistryOfTheAllied.UI.window:Hide() return 1')
 check("Tooltip: an honoured name shows its letters", E(ek, 'local seal = MinistryOfTheAlliedMinimapButton; seal.scripts.OnEnter(seal); seal.scripts.OnLeave(seal) for _, s in ipairs(M.OnlineTip.state.sections) do for _, n in ipairs(s.names) do if n:find("^Bram |cffC9A24AKC") then return true end end end return false') is True)
 
@@ -3323,6 +3474,115 @@ check("Duels: a fighter can't change their word", RE(rmira, 'return R:Claim(5, "
 RE(rmax, 'return R:Result(5, "Bram")')
 run(2)
 check("Duels: the organiser settles a disagreement", RE(rmira, 'local c = R:Current() return c.bouts[5].w == "Bram" and c.bouts[7].a == "Bram"') is True)
+
+print("== 17. Admin Controls: the Crown's window and Crown-only commands (10 Nov)")
+adm = Client("Max", guarded=True)
+cit = Client("Bram", guarded=True)
+cit2 = Client("Kael", guarded=True)
+clients.extend([adm, cit, cit2])
+run(8)
+A = adm.lua.globals().MinistryOfTheAllied
+C_ = cit.lua.globals().MinistryOfTheAllied
+def controls(c, name, label=None):
+    return [x for x in c.lua.globals().MinistryOfTheAllied.AdminControls.Controls(c.lua.globals().MinistryOfTheAllied.AdminControls).values()
+            if x.name == name and (label is None or x.label == label)]
+def tip_lines(c):
+    return list(c.lua.globals().GameTooltip.lines.values())
+
+# commands: the Crown's alone, except the ones named open
+before = Q(cit, 'return (M.Book:Count())')
+cit.slash("test sneaky")
+check("Commands: a citizen can't use a Crown command (refused politely, nothing written)",
+      cit.said(r"commands are for the Crown alone") and Q(cit, 'return (M.Book:Count())') == before)
+cit.slash("skin crown")
+check("Commands: ...nor the others (skin)", cit.log[-1].endswith("Crown alone."))
+mark = len(cit.log)
+cit.slash("help")
+shown = [l for l in cit.log[mark:] if "/mota " in l]
+check("Commands: /mota help works for everyone and lists only what they can use",
+      len(shown) == 3 and all(any(f"/mota {n}" in l for l in shown) for n in ("help", "noconfidence", "settings")))
+mark = len(adm.log)
+adm.slash("test from the Crown")
+check("Commands: the Crown can use them", Q(adm, 'return (M.Book:Count())') >= 1 and not adm.said(r"Crown alone"))
+mark = len(adm.log)
+adm.slash("help")
+check("Commands: ...and sees the whole list in help", sum(1 for l in adm.log[mark:] if "/mota " in l) > 15)
+Q(cit, 'M.Commands.Open.ring = true')
+cit.slash("ring")
+check("Commands: a name in the open list is for everyone", not cit.log[-1].endswith("Crown alone."))
+for nm in ("noconfidence", "settings"):
+    cit.slash(nm)
+    check(f"Commands: /mota {nm} is open to a citizen", "Crown alone" not in cit.log[-1])
+
+# the knob and the window
+adm.slash("")
+cit.slash("")
+check("Admin knob: shown to the Crown", A.UI.knobAdmin.shown is True)
+check("Admin knob: hidden from a citizen", C_.UI.knobAdmin.shown is False)
+Q(cit, 'M.UI:ShowAdmin(true)')
+check("Admin: a citizen can't open it", Q(cit, 'return M.AdminControls:Frame() == nil') is True)
+A.UI.knobAdmin.scripts.OnClick(A.UI.knobAdmin)
+fr = A.AdminControls.Frame(A.AdminControls)
+check("Admin: the knob opens a window of its own, with the knob lit", fr is not None and fr.shown and A.UI.knobAdmin.lit.shown)
+pt = fr.points[1]
+check("Admin: it docks to the main window's left side", pt[1] == "TOPRIGHT" and pt[3] == "TOPLEFT")
+check("Admin: it is its own window, not inside the main one", adm.lua.eval('MinistryOfTheAlliedAdmin.parent == UIParent') is True)
+names = {c.name for c in A.Commands.list.values()}
+have = {x.name for x in A.AdminControls.Controls(A.AdminControls).values()}
+check("Admin: a row for the announce button and one for every command",
+      len(A.AdminControls.Rows(A.AdminControls)) == 1 + len(A.Commands.list))
+check("Admin: every command can be run from the window", names <= have)
+
+# tooltips: the same words /mota help shows
+for c in A.Commands.list.values():
+    ctl = controls(adm, c.name)[0]
+    ctl.button.scripts.OnEnter(ctl.button)
+    lines = tip_lines(adm)
+    if c.name in ("skin", "voice", "district", "help"):
+        check(f"Admin tooltip: {c.name} says what /mota help says", len(lines) == 1 and lines[0] == c.help)
+ctl = controls(adm, "skin", "Silverhand")[0]
+ctl.button.scripts.OnClick(ctl.button)
+check("Admin: pressing Silverhand under Skin runs /mota skin silverhand", A.skin.KEY == "SILVERHAND")
+ctl = controls(adm, "skin", "Mine")[0]
+ctl.button.scripts.OnClick(ctl.button)
+check("Admin: ...and Mine goes back to the Crown's own", A.skin.KEY == "CROWN")
+ctl = controls(adm, "test", "Run")[0]
+n = Q(adm, 'return (M.Book:Count())')
+ctl.row.box.text = "typed in the box"
+ctl.button.scripts.OnClick(ctl.button)
+check("Admin: Run sends the words in the box, as typed",
+      Q(adm, 'return (M.Book:Count())') == n + 1 and Q(adm, 'return M.Book:Latest(1)[1].d.text') == "typed in the box")
+
+# Announce New Version
+Q(cit, 'local orig = M.Herald.Announce; M.Herald.Announce = function(s, h, f) LASTH = h return orig(s, h, f) end')
+btn = A.AdminControls.Announce(A.AdminControls)
+check("Announce: a button at the top", btn.labelText.lower() == "announce new version")
+ups = lambda c: sum(1 for m in c.wire if m.split('')[1:2] == ['UP'])
+sent = ups(adm)
+btn.scripts.OnClick(btn)
+check("Announce: the first press only asks Are You Sure?", btn.labelText.lower() == "are you sure?" and ups(adm) == sent)
+run(6)
+check("Announce: ...and goes back if left alone", btn.labelText.lower() == "announce new version" and ups(adm) == sent)
+btn.scripts.OnClick(btn)
+btn.scripts.OnClick(btn)
+run(3)
+check("Announce: the second press sends it to the guild", ups(adm) == sent + 1 and adm.said(r"told a new update is available"))
+check("Announce: the button is back to its first label", btn.labelText.lower() == "announce new version")
+check("Announce: the Crown sees the herald too", Q(adm, 'return M.Herald:Waiting()') >= 1)
+check("Announce: a citizen's game shows the herald", Q(cit, 'return M.Herald:Waiting()') >= 1)
+check("Announce: it wears the Crown's seal and says the update words",
+      Q(cit, 'return LASTH.seal') == "crown"
+      and Q(cit, 'return LASTH.text') == "A new update for the add-on is available. Please download the newest update and restart your game.")
+# only the Crown is believed
+k0, ig = Q(cit, 'return M.Herald:Waiting()'), Q(cit, 'return M.stats.ignored')
+Q(cit2, 'M.Comm:Send(M.Comm:Pack("UP", "9.9.9"), "GUILD")')
+run(3)
+check("Announce: the same message from a citizen is ignored",
+      Q(cit, 'return M.Herald:Waiting()') <= k0 and Q(cit, 'return M.stats.ignored') > ig)
+Q(cit2, 'M.AdminControls:SendUpdate()')
+check("Announce: a citizen can't send it", Q(cit2, 'return (M.AdminControls:SendUpdate())') is False)
+A.UI.window.scripts.OnHide(A.UI.window)
+check("Admin: closing the main window closes it too", fr.shown is False)
 
 print()
 print("Lua errors:", len(errors))

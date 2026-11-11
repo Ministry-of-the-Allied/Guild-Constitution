@@ -298,6 +298,7 @@ function Kit:Button(parent, width, height, label, style, onClick)
     end
   end)
   function b:SetLabel(text)
+    self.labelText = text -- as given (the label itself is drawn letter by letter)
     self.label:SetText(text)
     self.label:ClearAllPoints()
     self.label:SetPoint("CENTER", self, "CENTER", 0, 0)
@@ -320,6 +321,7 @@ function Kit:Hot(box, onClick)
   local glow = h:CreateTexture(nil, "HIGHLIGHT")
   glow:SetColorTexture(1, 0.95, 0.7, 0.12) -- plain warm light: reads on every skin
   glow:SetAllPoints()
+  h.glow = glow
   h:SetScript("OnClick", function(self) if self.page then onClick(self) end end)
   h:SetScript("OnEnter", function(self)
     if not self.tip or self.tip == "" then return end

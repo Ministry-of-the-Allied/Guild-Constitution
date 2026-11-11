@@ -76,5 +76,7 @@ UI\MapCompat.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
+UI\ChronicleBook.lua
 UI\FullText.lua
+UI\AdminControls.lua
 Commands.lua

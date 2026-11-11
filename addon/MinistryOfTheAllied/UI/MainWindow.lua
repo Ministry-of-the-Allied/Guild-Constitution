@@ -425,13 +425,27 @@ end
 -- Building the window
 ---------------------------------------------------------------------------
 
-local function buildKnob(f, piece, slot, tooltip, onClick)
+-- slot: a slot's name, or a { x, y, w, h } of its own; place (optional) puts the
+-- piece's picture centred on the knob, for a piece drawn somewhere else on the board.
+-- piece nil: place(b, layer) makes the whole picture itself (the admin knob).
+local function buildKnob(f, piece, slot, tooltip, onClick, place)
   local b = CreateFrame("Button", nil, f)
-  local s = UI:AtSlot(b, slot, 0, HEADER_DROP)
+  local s
+  if type(slot) == "table" then
+    s = slot
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", f, "TOPLEFT", s.x, -(s.y + HEADER_DROP))
+  else
+    s = UI:AtSlot(b, slot, 0, HEADER_DROP)
+  end
   b:SetSize(s.w, s.h)
   b:SetFrameLevel(f:GetFrameLevel() + 15)
-  UI:SkinPiece(b, piece, "skin", "ARTWORK", 0, 0, HEADER_DROP)
-  local glow = UI:SkinPiece(b, piece, "skin", "HIGHLIGHT", 0, 0, HEADER_DROP)
+  local function picture(layer)
+    if piece then return UI:SkinPiece(b, piece, "skin", layer, 0, 0, HEADER_DROP, place) end
+    return place(b, layer) -- a picture of its own (the admin knob)
+  end
+  picture("ARTWORK")
+  local glow = picture("HIGHLIGHT")
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
   b:SetScript("OnClick", onClick)
@@ -442,12 +456,49 @@ local function buildKnob(f, piece, slot, tooltip, onClick)
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- lit while its page is open (the Settings board's .knob.lit)
-  b.lit = UI:SkinPiece(b, piece, "skin", "OVERLAY", 0, 0, HEADER_DROP)
+  b.lit = picture("OVERLAY")
   b.lit:SetBlendMode("ADD")
   b.lit:SetAlpha(0.45)
   b.lit:Hide()
   return b
 end
+
+-- The admin knob's picture: a cell of Media/admin_knob.tga for the current skin, drawn
+-- exactly as the gear knob's piece is (same size, same place against its slot) and
+-- re-drawn when the skin changes. Returns the maker buildKnob calls for each layer.
+local ADMIN_CELL, ADMIN_CELLS = 128, 4
+local ADMIN_ORDER = { crown = 0, exchange = 1, ministry = 2, silverhand = 3 }
+local adminArt = {}
+
+local function wearAdminArt(e)
+  local file = MOTA.skin and MOTA.skin.FILE
+  local cell = ADMIN_ORDER[file] or 0
+  local p = M.pieces[UI:SkinName("knobSettings", "skin")]
+  local slot = M.slots["knob-settings"]
+  local w, h = p.w * 2, p.h * 2 -- the crop's pixels: the board is drawn at twice its size
+  local sheet = ADMIN_CELL * ADMIN_CELLS
+  local t = e.t
+  t:SetTexture(M.dir .. "admin_knob.tga", "CLAMP", "CLAMP", "TRILINEAR")
+  t:SetTexCoord(cell * ADMIN_CELL / sheet, (cell * ADMIN_CELL + w) / sheet, 0, h / ADMIN_CELL)
+  t:SetSize(p.w, p.h)
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", UI.window, "TOPLEFT",
+    e.at.x + (p.x - slot.x), -(e.at.y + HEADER_DROP + (p.y - slot.y)))
+end
+
+local function adminKnobArt(at)
+  return function(b, layer)
+    local t = b:CreateTexture(nil, layer, nil, 0)
+    local e = { t = t, at = at }
+    adminArt[#adminArt + 1] = e
+    wearAdminArt(e)
+    return t
+  end
+end
+
+MOTA:Listen("SKIN_CHANGED", function()
+  for _, e in ipairs(adminArt) do wearAdminArt(e) end
+end)
 
 function UI:Build()
   if self.window then return self.window end
@@ -492,6 +543,14 @@ function UI:Build()
   }
   self.knobSettings = buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:ShowSettings() end)
   buildKnob(f, "knobClose", "knob-close", "Close", function() f:Hide() end)
+  -- Admin Controls (Max, 10 Nov): the Crown's own knob, one place left of the gear (the
+  -- close knob to the gear is 49 units): the gear knob's shape and colours with a lock
+  -- where the gear is (Media/admin_knob.tga, one cell per skin; tools/textures/admin_knob.py).
+  -- Crown only.
+  local gear = M.slots["knob-settings"]
+  local at = { x = gear.x - 49, y = gear.y, w = gear.w, h = gear.h }
+  self.knobAdmin = buildKnob(f, nil, at, "Admin Controls", function() UI:ShowAdmin() end, adminKnobArt(at))
+  self.knobAdmin:Hide()
 
   -- The tab rail.
   self.tabs = {}
@@ -551,6 +610,7 @@ function UI:Build()
   end)
   f:SetScript("OnHide", function()
     play("IG_CHARACTER_INFO_CLOSE")
+    if UI.HideAdmin then UI:HideAdmin() end -- the Admin Controls window shuts with it
     if UI.ticker then UI.ticker:Cancel() UI.ticker = nil end
   end)
 
@@ -633,6 +693,16 @@ local function weekday()
   return date("%A")
 end
 
+-- The Admin Controls knob is there for the Crown alone; if the player stops being
+-- the Crown (a new rank), the window goes too.
+function UI:RefreshAdminKnob()
+  if not self.knobAdmin then return end
+  local crown = MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
+  self.knobAdmin:SetShown(crown)
+  if not crown and self.HideAdmin then self:HideAdmin() end
+end
+MOTA:Listen("GUILD_READY", function() UI:RefreshAdminKnob() end)
+
 function UI:Refresh()
   if not self.window then return end
   -- Forever's UnitName gives only the first name; MOTA.me is the full name
@@ -651,6 +721,7 @@ function UI:Refresh()
     end
   end
   self.initials:SetText(MOTA:Initials(name))
+  self:RefreshAdminKnob()
   -- The canvas shows your district here; until the Citizens module, your guild rank.
   local rank = MOTA.guild and select(2, GetGuildInfo("player"))
   local district = MOTA.District and MOTA.District:Of(MOTA.me)

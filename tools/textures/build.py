@@ -9,6 +9,7 @@ canvas's own stylesheet (design/canvas-source/ministry.css):
   tools/textures/ballot.html   the Ballot Hall's ribbons, seals, buttons and papers (Ballot Hall board)
 
 and cuts the herald pop-up's banner out of Max's reference picture (tools/textures/herald.py),
+draws the Chronicle book at each angle of its opening (tools/textures/chronicle.py, chronicle.html),
 
 then crops each piece, packs them into textures and writes:
 
@@ -35,6 +36,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 import districts  # the Districts page's map, outlines and pins (Batch D3)
 import herald     # the herald pop-up's banner, from Max's reference picture (9 Nov)
+import chronicle  # the Chronicle book on the Throne Room, drawn in 3D in chronicle.html (10 Nov)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -1031,6 +1033,14 @@ def main():
     hd_tex, hd_pieces, hd_media = herald.build(edge)
     textures.update(hd_tex)
     pieces.update(hd_pieces)
+
+    # The Chronicle book on the Throne Room (Max, 10 Nov): drawn in 3D, one picture per angle.
+    print("Drawing the Chronicle book...")
+    fonts = "\n".join(f"@font-face{{font-family:'{fam}';font-weight:{w};font-style:{st};src:url({(FONTS / f).as_uri()})}}"
+                      for fam, w, st, f in FONT_FACES)
+    ch_tex, ch_pieces, ch_media = chronicle.build(edge, pack, fonts)
+    textures.update(ch_tex)
+    pieces.update(ch_pieces)
     for old in ("chrome", "crest"):  # the window before skins: one picture, now in layers
         (MEDIA / f"{old}.tga").unlink(missing_ok=True)
 
@@ -1051,6 +1061,10 @@ def main():
         # where the words go (each line's middle) and each button's body, in canvas units from the frame's
         # top-left. Its pieces are "herald_<file>:frame", ":seal_<name>" and ":btn_<style>" (root "banner").
         "herald": hd_media,
+        # The Chronicle book (chronicle.py): its pieces are "chronicle_<file>:<part>" (per skin) and
+        # "chronicle:<part>", root "book" (canvas units from its scene's top-left); here its angles, the
+        # closed and open book's boxes, the live line's place on the open page and the timings.
+        "chronicle": ch_media,
         "pieces": pieces,
         # Text laid over a piece as game text (UI/LiveText.lua): s words, x y w h its box from the piece's
         # top-left, f font, z size, t letter-spacing in em, c a colour, j justify, n lines, sx sy sc sa shadow.
@@ -1085,7 +1099,7 @@ def main():
            "-- change the design or the layouts, then run the script again.\n"
            "-- Positions are in canvas units from the top-left corner of the piece's root\n"
            "-- (win: the window, herald: the old herald scroll, banner: the herald banner's frame, settings: the settings page,\n"
-           "-- ballot: the Ballot Hall layout;\n"
+           "-- ballot: the Ballot Hall layout; book: the Chronicle book's scene;\n"
            "-- y goes down). l, r, t, b are the piece's texture coordinates.\n\n"
            "local _, MOTA = ...\n\nMOTA.Media = " + lua_value(media) + "\n")
     # through a temporary file: a direct write sometimes fails "Invalid argument" on this machine
