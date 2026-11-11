@@ -242,6 +242,7 @@ function UI:InkWindow()
   ink(self.whoSmall, "PALE_INK")
   ink(self.footLeft, "PALE_INK")
   ink(self.footRight, "PALE_INK")
+  ink(self.footHint, "PALE_INK")
 end
 
 -- The window border (Max, 8 Nov: the lit tab's ornament round the whole window,
@@ -589,10 +590,17 @@ function UI:Build()
   self:SkinPiece(f, "pip", "metal", "ARTWORK")
   self.footLeft = text(f, "foot", "AFC0E6")
   self:AtSlot(self.footLeft, "foot-left", 36, 5) -- clear of the corner ornament
+  -- The place and weekday sit in the middle of the strip since 11 Nov.
   self.footRight = text(f, "foot", "AFC0E6")
   local fr = M.slots["foot-right"]
-  self.footRight:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w - 36, -(fr.y + 5)) -- clear of the corner ornament
-  self.footRight:SetJustifyH("RIGHT")
+  self.footRight:SetPoint("TOP", f, "TOPLEFT", M.window.w / 2, -(fr.y + 5))
+  self.footRight:SetJustifyH("CENTER")
+  -- A fixed hint at the right end, where the place used to be: it points at the
+  -- bottom right grab corner (the drag-to-resize grip).
+  self.footHint = text(f, "foot", "AFC0E6")
+  self.footHint:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w - 36, -(fr.y + 5)) -- clear of the corner ornament
+  self.footHint:SetJustifyH("RIGHT")
+  self.footHint:SetText(("Drag corner to resize ->"):upper())
 
   -- The crest goes on top of everything, breaking out over the frame.
   local top = CreateFrame("Frame", nil, f)
@@ -614,6 +622,7 @@ function UI:Build()
     if UI.ticker then UI.ticker:Cancel() UI.ticker = nil end
   end)
 
+  self:BuildGrips(f)
   self:RestorePosition()
   self:SelectPage(MOTA.db.window.page or 1)
   return f
@@ -776,6 +785,117 @@ function UI:SetScale(scale)
   local s = math.min(scale or DEFAULT_SCALE, fit)
   self.window:SetScale(math.max(0.4, s))
   return s
+end
+
+---------------------------------------------------------------------------
+-- Drag a corner to resize the window (ADDON_SPEC.md 19.1, "Scale the UI")
+---------------------------------------------------------------------------
+
+-- Only the bottom right corner grabs (the built-in resize cursor points that way; the crest's top left never does).
+-- `fixed` is the opposite corner, which stays where it is while the window grows.
+-- dx, dy point from the fixed corner towards the dragged one.
+local GRIP = 36
+local MIN_DRAG_SCALE, MAX_DRAG_SCALE = 0.6, 1.5
+local CREST_LEFT, CREST_UP = 60, 70 -- how far the crest breaks out of the frame (see the clamp insets in Build)
+local GRIPS = {
+  { corner = "BOTTOMRIGHT", fixed = "TOPLEFT", dx = 1, dy = -1 },
+}
+
+-- Where the fixed corner is on the screen, in pixels.
+local function cornerPixels(f, corner)
+  local e = f:GetEffectiveScale()
+  local x = corner:find("LEFT") and f:GetLeft() or f:GetRight()
+  local y = corner:find("TOP") and f:GetTop() or f:GetBottom()
+  return x * e, y * e
+end
+
+-- The scale the cursor asks for, kept between the limits and on the screen.
+-- Returns the new scale as the window's own (UIParent-relative) scale.
+function UI:ScaleForCursor(g, fx, fy, cx, cy)
+  local ui = UIParent:GetEffectiveScale()
+  -- the cursor's offset from the fixed corner, projected on the window's diagonal, keeps the shape
+  local vx, vy = (cx - fx) * g.dx, (cy - fy) * g.dy
+  local eff = (vx * W + vy * H) / (W * W + H * H)
+  eff = math.max(MIN_DRAG_SCALE * ui, math.min(MAX_DRAG_SCALE * ui, eff))
+  -- never so big that the far corner (and the crest, if it moves) leaves the screen
+  local sw, sh = UIParent:GetWidth() * ui, UIParent:GetHeight() * ui
+  local roomX = g.dx > 0 and (sw - fx) or fx
+  local roomY = g.dy > 0 and (sh - fy) or fy
+  local needX = W + (g.dx < 0 and CREST_LEFT or 0)
+  local needY = H + (g.dy > 0 and CREST_UP or 0)
+  eff = math.min(eff, roomX / needX, roomY / needY)
+  return eff / ui
+end
+
+function UI:ResizeLocked()
+  local f = self.window
+  return not f or (InCombatLockdown() and f.IsProtected and f:IsProtected())
+end
+
+function UI:BeginResize(g)
+  if self:ResizeLocked() then return end
+  local f = self.window
+  local fx, fy = cornerPixels(f, g.fixed)
+  self.resizing = { g = g, fx = fx, fy = fy }
+end
+
+function UI:StepResize()
+  local r = self.resizing
+  if not r then return end
+  local f = self.window
+  local cx, cy = GetCursorPosition()
+  local used = self:SetScale(self:ScaleForCursor(r.g, r.fx, r.fy, cx, cy))
+  local k = UIParent:GetEffectiveScale() * used
+  f:ClearAllPoints() -- the fixed corner stays where it was
+  f:SetPoint(r.g.fixed, UIParent, "BOTTOMLEFT", r.fx / k, r.fy / k)
+end
+
+function UI:EndResize()
+  if not self.resizing then return end
+  self.resizing = nil
+  self:SavePosition()
+  MOTA.db.window.scale = self.window:GetScale()
+end
+
+function UI:BuildGrips(f)
+  self.grips = {}
+  for _, g in ipairs(GRIPS) do
+    local b = CreateFrame("Frame", nil, f)
+    b:SetSize(GRIP, GRIP)
+    b:SetPoint(g.corner, f, g.corner, 0, 0)
+    b:SetFrameLevel(f:GetFrameLevel() + 40) -- over the pages and the crest's layer
+    b:EnableMouse(true)
+    local glow = b:CreateTexture(nil, "OVERLAY")
+    glow:SetAllPoints()
+    glow:SetColorTexture(1, 0.82, 0.4, 0.16) -- a faint warm patch while the mouse is over it
+    glow:Hide()
+    b.glow = glow
+    b.grip = g
+    b:SetScript("OnEnter", function(self)
+      if UI:ResizeLocked() then return end
+      self.glow:Show()
+      if SetCursor then SetCursor("UI_RESIZE_CURSOR") end
+    end)
+    b:SetScript("OnLeave", function(self)
+      if not UI.resizing then self.glow:Hide() end
+      if SetCursor and not UI.resizing then SetCursor(nil) end
+    end)
+    b:SetScript("OnMouseDown", function(self, button)
+      if button == "LeftButton" then UI:BeginResize(g) end
+    end)
+    b:SetScript("OnMouseUp", function(self)
+      UI:EndResize()
+      if not self:IsMouseOver() then
+        self.glow:Hide()
+        if SetCursor then SetCursor(nil) end
+      end
+    end)
+    b:SetScript("OnUpdate", function()
+      if UI.resizing then UI:StepResize() end
+    end)
+    b:SetScript("OnHide", function() UI:EndResize() end)
+    self.grips[#self.grips + 1] = b
+  end
 end
 
 function UI:Toggle()
