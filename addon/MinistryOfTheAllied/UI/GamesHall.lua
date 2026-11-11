@@ -1306,7 +1306,7 @@ local function buildHide()
   form.name:SetScript("OnTextChanged", function(e) Hi:Draft().name = e:GetText() end)
   Kit:Label(form, "kitTiny", "7A5719", 0.2, "The play area"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
   local third = (colW - 16) / 3
-  form.here = Kit:Button(form, third, 26, "Around me", "blue", function() report(Hi:SetCentre()) end)
+  form.here = Kit:Button(form, third, 26, "Here", "blue", function() report(Hi:SetCentre()) end)
   form.here:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -104)
   form.circle = Kit:Button(form, third, 26, "Circle", "quiet", function()
     local HMp = MOTA.HideMap
@@ -1326,7 +1326,8 @@ local function buildHide()
   local function stepper(y, get, put, steps)
     local l = Kit:Text(form, "kitSmall")
     l:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -y)
-    l:SetWidth(colW - 120)
+    l:SetWidth(colW - 70)
+    l:SetWordWrap(false)
     local function move(dir)
       local cur, at = get(), 1
       for i, s in ipairs(steps) do if s <= cur then at = i end end
@@ -1362,7 +1363,7 @@ local function buildHide()
   end)
   form.open:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -138)
   form.help = helpButton(form, "Before you open", {
-    "Set the play area: Around me makes a circle round where you stand (size it with - and +); Circle lets you click its middle and then its edge on the world map; Shape lets you click its corners.",
+    "Set the play area: Here makes a circle round where you stand (size it with - and +); Circle lets you click its middle and then its edge on the world map; Shape lets you click its corners.",
     "Names off: friendly names and nameplates are hidden for players until the game ends (they come back after, even after a crash).",
     "Map off: the world map stays shut for players; the play area shows on this page.",
   })
@@ -1400,14 +1401,14 @@ local function refreshHide(v)
     f.draw:SetLabel(drawing and "Finish" or "Shape")
     f.circle:SetLabel(circling and "Cancel" or "Circle")
     local shaped = d.pts ~= nil or drawing
-    f.radius:SetText(shaped and ("Shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · " .. d.rad .. " yards out"))
+    f.radius:SetText(shaped and ("Shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · " .. d.rad .. " yd"))
     f.radius.minus:SetShown(not shaped)
     f.radius.plus:SetShown(not shaped)
     f.undo:SetShown(shaped and d.pts ~= nil)
     f.hs:SetText("Hiding " .. Hi.Clock(d.hs))
     f.ss:SetText("Seeking " .. Hi.Clock(d.ss))
-    f.nm:SetLabel(f.nm.base .. ": " .. (d.nm and "hidden" or "shown"))
-    f.nmap:SetLabel(f.nmap.base .. ": " .. (d.nmap and "off" or "on"))
+    f.nm:SetLabel(d.nm and "Names off" or "Names on")
+    f.nmap:SetLabel(d.nmap and "Map off" or "Map on")
     f.status:SetText((circling and "On the world map, click the middle, then click where the edge goes.")
       or (drawing and "On the world map, click the corners one by one, then press Finish.")
       or (d.cx and ("In |cff2A1F14" .. tostring(d.z) .. "|r: " .. (d.pts and (#d.pts .. " corners") or ("a circle, " .. d.rad .. " yards out")) .. "."))
