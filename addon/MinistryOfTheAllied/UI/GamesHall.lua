@@ -980,8 +980,11 @@ end
 -- Hide and Seek: the play area, the players, the organiser's form
 ---------------------------------------------------------------------------
 
-local LOW_H = HEIGHT - BODY_Y - TOP_H - 12   -- the lower panel
-local AREA = LOW_H - 44                      -- the play area's square, in pixels
+local LOW_H = HEIGHT - BODY_Y - TOP_H - 12   -- the lower panel (playing)
+local AREA = LOW_H - 44                      -- the play area's square while playing
+local FORM_H = 172                           -- the organiser's form (setting up)
+local SET_LOW_H = HEIGHT - BODY_Y - FORM_H - 12
+local PREVIEW_YARDS = 180                    -- before a play area is set: the map round you
 local AREA_GAP = 6                           -- pixels between the edge's dots
 
 local function hideSetting()
@@ -990,8 +993,10 @@ end
 
 -- A small map of the play area: the zone's own map art behind it when the
 -- game gives it (C_Map's art tiles, cut to the area), the edge, and you.
-local function buildArea(parent, x, y)
-  local a = panel(parent, nil, x, y, AREA, AREA)
+local function buildArea(parent, x, y, w, h)
+  w, h = w or AREA, h or AREA
+  local a = panel(parent, nil, x, y, w, h)
+  a.w, a.h = w, h
   Kit:Fill(a, "EFE3C2", "E2D2A8")
   Kit:Outline(a, "6E4F17", 0.5)
   if a.SetClipsChildren then a:SetClipsChildren(true) end
@@ -1001,9 +1006,9 @@ local function buildArea(parent, x, y)
   a.you = a:CreateTexture(nil, "OVERLAY", nil, 7)
   a.you:SetSize(8, 8)
   a.you:SetColorTexture(MOTA:RGB("1B3570"))
-  a.note = Kit:Text(parent, "kitSmallest", "5E4B33", "CENTER")
-  a.note:SetPoint("TOP", a, "BOTTOM", 0, -4)
-  a.note:SetWidth(AREA + 40)
+  a.note = Kit:Text(parent, "kitSmallest", "5E4B33", "RIGHT")
+  a.note:SetPoint("BOTTOMRIGHT", a, "TOPRIGHT", 0, 6)
+  a.note:SetWidth(math.max(160, w - 160))
   return a
 end
 
@@ -1036,7 +1041,7 @@ local function projection(A)
 end
 
 local function areaKey(A)
-  local k = { A.inst, A.cx, A.cy, A.rad, A.m or 0, MOTA.HideMap and MOTA.HideMap.drawing and 1 or 0 }
+  local k = { A.inst, A.cx, A.cy, A.rad, A.m or 0, MOTA.HideMap and MOTA.HideMap.drawing and 1 or 0, A.preview and 1 or 0 }
   for _, q in ipairs(A.pts or {}) do k[#k + 1] = q.x .. ":" .. q.y end
   return table.concat(k, ",")
 end
@@ -1053,7 +1058,8 @@ local function drawArea(a, A)
       x1, y1 = math.max(x1, p[1]), math.max(y1, p[2])
     end
     local span = math.max(x1 - x0, y1 - y0, 1) * 1.25
-    local k = AREA / span
+    local k = math.min(a.w, a.h) / span
+    local halfX, halfY = a.w / 2 / k, a.h / 2 / k
     local ox, oy = (x0 + x1) / 2, (y0 + y1) / 2
     a.proj = function(x, y)
       local sx, sy = proj(x, y)
@@ -1068,7 +1074,7 @@ local function drawArea(a, A)
       local n = 0
       for i, file in ipairs(files) do
         local cx, cy = ((i - 1) % cols) * L.tileWidth, math.floor((i - 1) / cols) * L.tileHeight
-        if cx < ox + half and cx + L.tileWidth > ox - half and cy < oy + half and cy + L.tileHeight > oy - half then
+        if cx < ox + halfX and cx + L.tileWidth > ox - halfX and cy < oy + halfY and cy + L.tileHeight > oy - halfY then
           n = n + 1
           local t = a.tiles[n] or a.art:CreateTexture(nil, "BACKGROUND", nil, 1)
           a.tiles[n] = t
@@ -1143,7 +1149,7 @@ local function drawArea(a, A)
     for _, t in ipairs(a.dots) do t:Hide() end
     local n = 0
     local closed = not (A == (MOTA.db and MOTA.db.hideDraft) and MOTA.HideMap and MOTA.HideMap.drawing)
-    for i = 1, #pts do
+    for i = 1, A.preview and 0 or #pts do
       local p, q = pts[i], pts[i % #pts + 1]
       if closed or i < #pts then
         local ax, ay = (p[1] - ox) * k, -(p[2] - oy) * k
@@ -1173,10 +1179,14 @@ local function drawArea(a, A)
     a.note:SetText(x and "You're in another part of the world" or "No position here")
     return
   end
-  local lim = AREA / 2 - 4
+  local limX, limY = a.w / 2 - 4, a.h / 2 - 4
   a.you:ClearAllPoints()
-  a.you:SetPoint("CENTER", a, "CENTER", math.max(-lim, math.min(lim, sx)), math.max(-lim, math.min(lim, sy)))
+  a.you:SetPoint("CENTER", a, "CENTER", math.max(-limX, math.min(limX, sx)), math.max(-limY, math.min(limY, sy)))
   a.you:Show()
+  if A.preview then
+    a.note:SetText("You're here · set the play area to draw its edge")
+    return
+  end
   a.note:SetText(edge < 0 and "|cff8E1B1BOutside the play area|r" or ("You · " .. math.floor(edge) .. " yards from the edge"))
 end
 
@@ -1192,6 +1202,21 @@ local function sureButton(parent, w, label, fn)
     b:SetLabel(label)
     fn()
   end)
+end
+
+-- A small "?" that explains on hover.
+local function helpButton(parent, title, lines)
+  local b = Kit:Button(parent, 22, 20, "?", "quiet", function() end)
+  b:SetScript("OnEnter", function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title, 1, 0.95, 0.77)
+    for _, l in ipairs(lines) do GameTooltip:AddLine(l, 1, 1, 1, true) end
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  b.lines = lines
+  return b
 end
 
 local PLAYER_ROWS = 9
@@ -1270,34 +1295,38 @@ local function buildHide()
   v.low = low
   v.play = play
 
-  -- Setting: the organiser's form.
+  -- Setting: the organiser's form, the whole width, and the map below it.
   local set = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
-  local form = panel(set, "plain", 0, 0, CLUE_W, TOP_H)
+  local form = panel(set, "plain", 0, 0, MAIN_W, FORM_H)
   Kit:Label(form, "kitSection", BLUE, 0.22, "Open a game"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -14)
-  local fw = CLUE_W - 32
-  local half = (fw - 8) / 2
-  form.name = field(form, "Name", 16, 36, fw, "")
+  local colW = (MAIN_W - 56) / 2
+  local rx = 16 + colW + 24
+  -- Left: the name and the play area.
+  form.name = field(form, "Name", 16, 36, colW, "")
   form.name:SetScript("OnTextChanged", function(e) Hi:Draft().name = e:GetText() end)
   Kit:Label(form, "kitTiny", "7A5719", 0.2, "The play area"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
-  local third = (fw - 16) / 3
-  form.here = Kit:Button(form, third, 24, "Where I stand", "blue", function() report(Hi:SetCentre()) end)
+  local third = (colW - 16) / 3
+  form.here = Kit:Button(form, third, 26, "Around me", "blue", function() report(Hi:SetCentre()) end)
   form.here:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -104)
-  form.circle = Kit:Button(form, third, 24, "Circle on map", "quiet", function()
+  form.circle = Kit:Button(form, third, 26, "Circle", "quiet", function()
     local HMp = MOTA.HideMap
     if not HMp then return end
     if HMp.circling then report(HMp:StopCircle()) else report(HMp:Circle()) end
   end)
   form.circle:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + third + 8, -104)
-  form.draw = Kit:Button(form, third, 24, "Shape on map", "quiet", function()
+  form.draw = Kit:Button(form, third, 26, "Shape", "quiet", function()
     local HMp = MOTA.HideMap
     if not HMp then return end
     if HMp.drawing then report(HMp:Finish()) else report(HMp:Draw()) end
   end)
   form.draw:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + 2 * (third + 8), -104)
+  form.status = line(form, "kitSmallest", "5E4B33", 16, 140, colW)
+  form.status:SetMaxLines(2)
+  -- Right: the size, the times, the options, and Open.
   local function stepper(y, get, put, steps)
     local l = Kit:Text(form, "kitSmall")
-    l:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -y)
-    l:SetWidth(fw - 64)
+    l:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -y)
+    l:SetWidth(colW - 120)
     local function move(dir)
       local cur, at = get(), 1
       for i, s in ipairs(steps) do if s <= cur then at = i end end
@@ -1305,51 +1334,52 @@ local function buildHide()
       Page:Refresh()
     end
     l.minus = Kit:Button(form, 26, 20, "-", "quiet", function() move(-1) end)
-    l.minus:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + fw - 56, -(y - 3))
+    l.minus:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 56, -(y - 3))
     l.plus = Kit:Button(form, 26, 20, "+", "quiet", function() move(1) end)
-    l.plus:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + fw - 26, -(y - 3))
+    l.plus:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 26, -(y - 3))
     return l
   end
   local D = function() return Hi:Draft() end
-  form.radius = stepper(138, function() return D().rad end, function(r) Hi:SetRadius(r) end, Hi.RADII)
+  form.radius = stepper(40, function() return D().rad end, function(r) Hi:SetRadius(r) end, Hi.RADII)
   form.undo = Kit:Button(form, 110, 20, "Undo corner", "quiet", function() report(Hi:UndoCorner()) end)
-  form.undo:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + fw - 110, -135)
-  form.hs = stepper(160, function() return D().hs end, function(s) D().hs = s end, { 30, 60, 120, 180, 300, 600 })
-  form.ss = stepper(182, function() return D().ss end, function(s) D().ss = s end, { 300, 600, 900, 1200, 1800, 2700, 3600 })
+  form.undo:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 110, -37)
+  form.hs = stepper(64, function() return D().hs end, function(s) D().hs = s end, { 30, 60, 120, 180, 300, 600 })
+  form.ss = stepper(88, function() return D().ss end, function(s) D().ss = s end, { 300, 600, 900, 1200, 1800, 2700, 3600 })
+  local half = (colW - 8) / 2
   local function toggle(label, key, x)
     local b = Kit:Button(form, half, 22, "", "quiet", function()
       D()[key] = not D()[key]
       Page:Refresh()
     end)
-    b:SetPoint("TOPLEFT", form, "TOPLEFT", x, -206)
+    b:SetPoint("TOPLEFT", form, "TOPLEFT", x, -110)
     b.base = label
     return b
   end
-  form.nm = toggle("Hide names", "nm", 16)
-  form.nmap = toggle("No map", "nmap", 16 + half + 8)
-  v.form = form
-
-  local side = panel(set, "plain", MAIN_W - SIDE_W, 0, SIDE_W, TOP_H)
-  Kit:Label(side, "kitSection", BLUE, 0.22, "Before you open"):SetPoint("TOPLEFT", side, "TOPLEFT", 14, -12)
-  side.text = line(side, "kitSmallest", nil, 14, 32, SIDE_W - 28)
-  side.text:SetMaxLines(9)
-  side.open = Kit:Button(side, SIDE_W - 28, 26, "Open the game", "blue", function()
+  form.nm = toggle("Names", "nm", rx)
+  form.nmap = toggle("Map", "nmap", rx + half + 8)
+  form.open = Kit:Button(form, colW, 26, "Open the game", "blue", function()
     report(Hi:Open(form.name:GetText()))
   end)
-  side.open:SetPoint("BOTTOMLEFT", side, "BOTTOMLEFT", 14, 12)
-  v.side = side
+  form.open:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -138)
+  form.help = helpButton(form, "Before you open", {
+    "Set the play area: Around me makes a circle round where you stand (size it with - and +); Circle lets you click its middle and then its edge on the world map; Shape lets you click its corners.",
+    "Names off: friendly names and nameplates are hidden for players until the game ends (they come back after, even after a crash).",
+    "Map off: the world map stays shut for players; the play area shows on this page.",
+  })
+  form.help:SetPoint("TOPRIGHT", form, "TOPRIGHT", -12, -10)
+  v.form = form
 
-  local note = panel(set, "sunk", 0, TOP_H + 12, MAIN_W, LOW_H)
+  -- Below: the map, the whole width.
+  local note = panel(set, "sunk", 0, FORM_H + 12, MAIN_W, SET_LOW_H)
   Kit:Label(note, "kitSection", BLUE, 0.22, "The play area"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
-  note.area = buildArea(note, 14, 26)
-  local hx = AREA + 40
-  Kit:Label(note, "kitSection", BLUE, 0.22, "How it plays"):SetPoint("TOPLEFT", note, "TOPLEFT", hx, -10)
-  local how = line(note, "kitSmall", nil, hx, 30, MAIN_W - hx - 14)
-  how:SetMaxLines(14)
-  how:SetText("Players join, then you start it. Everyone hides; then the seeker sets off. A seeker who stands within "
-    .. Hi.FIND .. " yards of a hider for " .. Hi.DWELL .. " seconds finds them, and they seek too. 10 seconds outside the play area and you're out."
-    .. "\n\nEveryone found: the best seeker wins. Time up: everyone still hidden shares first."
-    .. "\n\nHide names turns friendly names and nameplates off for players until the game ends. No map keeps the world map shut for them; the play area shows on this page.")
+  note.area = buildArea(note, 14, 30, MAIN_W - 28, SET_LOW_H - 44)
+  note.help = helpButton(note, "How it plays", {
+    "Players join, then you start it. Everyone hides; then the seeker sets off.",
+    "A seeker who stands within " .. Hi.FIND .. " yards of a hider for " .. Hi.DWELL .. " seconds finds them, and they seek too.",
+    "10 seconds outside the play area and you're out.",
+    "Everyone found: the best seeker wins. Time up: everyone still hidden shares first.",
+  })
+  note.help:SetPoint("TOPLEFT", note, "TOPLEFT", 150, -6)
   v.note = note
   v.set = set
   return v
@@ -1367,32 +1397,40 @@ local function refreshHide(v)
     local drawing = MOTA.HideMap and MOTA.HideMap.drawing
     local circling = MOTA.HideMap and MOTA.HideMap.circling
     if not f.name:HasFocus() then f.name:SetText(d.name or "") end
-    f.draw:SetLabel(drawing and "Finish" or "Shape on map")
-    f.circle:SetLabel(circling and "Cancel" or "Circle on map")
+    f.draw:SetLabel(drawing and "Finish" or "Shape")
+    f.circle:SetLabel(circling and "Cancel" or "Circle")
     local shaped = d.pts ~= nil or drawing
-    f.radius:SetText(shaped and ("Drawn shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · edge " .. d.rad .. " yards out"))
+    f.radius:SetText(shaped and ("Shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · " .. d.rad .. " yards out"))
     f.radius.minus:SetShown(not shaped)
     f.radius.plus:SetShown(not shaped)
     f.undo:SetShown(shaped and d.pts ~= nil)
     f.hs:SetText("Hiding " .. Hi.Clock(d.hs))
     f.ss:SetText("Seeking " .. Hi.Clock(d.ss))
-    f.nm:SetLabel(f.nm.base .. ": " .. (d.nm and "on" or "off"))
-    f.nmap:SetLabel(f.nmap.base .. ": " .. (d.nmap and "on" or "off"))
-    local area = v.note.area
+    f.nm:SetLabel(f.nm.base .. ": " .. (d.nm and "hidden" or "shown"))
+    f.nmap:SetLabel(f.nmap.base .. ": " .. (d.nmap and "off" or "on"))
+    f.status:SetText((circling and "On the world map, click the middle, then click where the edge goes.")
+      or (drawing and "On the world map, click the corners one by one, then press Finish.")
+      or (d.cx and ("In |cff2A1F14" .. tostring(d.z) .. "|r: " .. (d.pts and (#d.pts .. " corners") or ("a circle, " .. d.rad .. " yards out")) .. "."))
+      or "Not set yet.")
     local ready = d.cx ~= nil and (not d.pts or #d.pts >= Hi.MIN_PTS) and not drawing and not circling
-    if d.cx then
+    f.open:SetEnabled(ready)
+    f.open:SetAlpha(ready and 1 or 0.45)
+    -- The map: the play area, or until there is one, the map round where you stand.
+    local area = v.note.area
+    local A = d.cx and d
+    if not A then
+      local inst, x, y = Hi:Where()
+      local m = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+      if x then A = { inst = inst, cx = math.floor(x / 20 + 0.5) * 20, cy = math.floor(y / 20 + 0.5) * 20, rad = PREVIEW_YARDS, m = m, preview = true } end
+    end
+    if A then
       area:Show()
-      drawArea(area, d)
+      drawArea(area, A)
     else
       area.areaKey = nil
       area:Hide()
+      area.note:SetText("No position here: go outdoors")
     end
-    v.side.text:SetText((circling and "On the map, click the middle, then click where the edge goes.")
-      or (drawing and "Click the corners on a zone map, then press Finish.")
-      or (d.cx and ("In |cff2A1F14" .. tostring(d.z) .. "|r: " .. (d.pts and (#d.pts .. " corners") or ("a circle, " .. d.rad .. " yards out")) .. ".\n\nHiding " .. Hi.Clock(d.hs) .. ", seeking " .. Hi.Clock(d.ss) .. ".")
-      or "Set the play area: a circle round where you stand, a circle on the map, or a shape's corners on the map."))
-    v.side.open:SetEnabled(ready)
-    v.side.open:SetAlpha(ready and 1 or 0.45)
     return
   end
 

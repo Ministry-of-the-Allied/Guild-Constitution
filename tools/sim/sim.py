@@ -3559,6 +3559,12 @@ check("Circle: everyone has the circle", HE(hmira, 'local G = Hi:Current() retur
 HE(hmax, 'return Hi:Close()')
 run(1)
 
+print("== Hide and Seek: the organiser's page before a play area is set")
+errs = len(errors)
+HE(hmax, 'M.db.hideDraft = nil M.GamesPage:Select("hide") M.GamesPage:Refresh() return 1')
+check("Setup: the map round where you stand shows before a play area is set", len(errors) == errs and HE(hmax, 'local a = M.GamesPage._hideArea(true) return a:IsShown() and a.you:IsShown()') is True)
+check("Setup: with no edge drawn yet", HE(hmax, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea(true).dots) do if t:IsShown() then n = n + 1 end end return n') == 0)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:
