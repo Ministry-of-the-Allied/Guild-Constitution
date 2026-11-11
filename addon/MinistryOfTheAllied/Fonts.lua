@@ -24,6 +24,7 @@ local FILES = {
 -- name = { file, size, shadow? }  Sizes are the canvas's, in window units.
 local STYLES = {
   heading = { "decoBold", 30 },             -- .h-page
+  dotsTitle = { "decoBold", 26 },            -- the guild dots question's title (UI/Dots.lua): a little under .h-page
   body = { "garamond", 16 },                -- .prose
   bodyItalic = { "garamondItalic", 14 },    -- .prose.italic.small
   who = { "cinzel", 12.5, true },           -- .rail-foot .who

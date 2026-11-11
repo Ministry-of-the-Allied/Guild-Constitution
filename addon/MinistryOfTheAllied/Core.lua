@@ -225,6 +225,9 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       mapSkin = "party",    -- the world map's dress (UI/WorldMapSkin.lua): "party" (as the window),
                             -- "ministry" or "plain". On from the start; a choice is kept until changed by hand.
       voice = true,        -- the Charter narration on first login (/mota voice off)
+      dotsShare = false,   -- tell the guild where I stand, for their maps (Dots.lua): off until I say yes
+      dotsShow = true,     -- guild members who share, as dots on my maps (UI/Dots.lua)
+      dotsAsked = false,   -- the one-time question has been answered (UI/Dots.lua)
     },
     guilds = {},  -- one book per guild, see CheckGuild
     window = {},  -- where the window was left, its size and page (UI/MainWindow.lua)

@@ -51,6 +51,7 @@ Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua
+Dots.lua
 UI\Skin.lua
 UI\LiveText.lua
 UI\MainWindow.lua
@@ -73,6 +74,7 @@ UI\Districts.lua
 UI\WorldMap.lua
 UI\WorldMapSkin.lua
 UI\MapCompat.lua
+UI\Dots.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua

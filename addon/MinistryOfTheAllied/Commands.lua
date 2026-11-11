@@ -20,7 +20,7 @@ end
 -- Who may use which command (Max, 10 Nov): every command is the Crown's alone,
 -- except the ones named here. Add a command's name to OPEN to let everyone use it
 -- (for the guild to test or look at a feature); a command's own checks still apply.
-local OPEN = { help = true, noconfidence = true, settings = true }
+local OPEN = { help = true, noconfidence = true, settings = true, dots = true }
 
 local function allowed(name)
   return OPEN[name] == true or isCrown()
@@ -479,6 +479,15 @@ add("minimap", "", "hide or show the seal on the minimap", function()
   local show = MOTA.db.minimap.hide
   MOTA.UI:ShowMinimapSeal(show)
   MOTA:Print(show and "The seal is back on the minimap." or "The minimap seal is hidden. /mota minimap brings it back.")
+end)
+
+add("dots", "[reset]", "guild members on the maps: your sharing and showing, or 'reset' to be asked the sharing question again", function(arg)
+  if arg == "reset" then return MOTA.Dots.UI:Reset() end
+  local s = MOTA.db.settings
+  local held = 0
+  for _ in pairs(MOTA.Dots.live) do held = held + 1 end
+  MOTA:Print("Guild dots: sharing", s.dotsShare and "on" or "off", "· showing", s.dotsShow and "on" or "off", "·",
+    held, held == 1 and "guild dot held" or "guild dots held")
 end)
 
 add("settings", "", "open the Ministry's settings in the game's options", function()

@@ -237,6 +237,8 @@ end
 
 -- A pin or another part of the map has the game's tooltip up: it wins.
 local function gameTipBusy()
+  -- a guild member's dot has its own tip up (UI/Dots.lua)
+  if MOTA.Dots and MOTA.Dots.TipBusy and MOTA.Dots:TipBusy() then return true end
   local gt = GameTooltip
   if not gt or not gt:IsShown() then return false end
   return not gt.GetOwner or gt:GetOwner() ~= nil

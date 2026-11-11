@@ -76,7 +76,16 @@ function Methods:IsShown() return self.shown end
 function Methods:IsVisible() return self.shown end
 function Methods:SetScript(name, fn) self.scripts[name] = fn end
 function Methods:GetScript(name) return self.scripts[name] end
-function Methods:HookScript(name, fn) self.scripts[name] = fn end
+-- As in the game, a hook runs after what the frame already had; hooks stack (11 Nov: a second add-on
+-- hooking the world map's OnShow used to replace the first's).
+function Methods:HookScript(name, fn)
+  local prev = self.scripts[name]
+  if not prev then self.scripts[name] = fn return end
+  self.scripts[name] = function(...)
+    prev(...)
+    return fn(...)
+  end
+end
 function Methods:RegisterEvent(e) self.events[e] = true end
 function Methods:UnregisterEvent(e) self.events[e] = nil end
 function Methods:SetFrameLevel(l) self.level = l end
@@ -94,11 +103,37 @@ function Methods:StopMovingOrSizing() end
 function Methods:SetClipsChildren() end
 function Methods:SetScale(s) self.scale = s end
 function Methods:GetScale() return self.scale end
-function Methods:GetEffectiveScale() return self.scale end
+function Methods:GetEffectiveScale()
+  local p = rawget(self, "parent")
+  return (self.scale or 1) * (p and p.GetEffectiveScale and p:GetEffectiveScale() or 1)
+end
 function Methods:SetAlpha(a) self.alpha = a end
 function Methods:GetAlpha() return self.alpha end
 function Methods:IsObjectType(t) return self.kind == t or (t == "Frame" and self.kind == "Button") end
 function Methods:GetRegions() return unpack(self.regions) end
+-- The frame's edges in its own units, from its first point (added 11 Nov, the drag-to-resize window).
+-- Only a point on UIParent is understood, as the window has. As in the game, an edge is given in the frame's own
+-- units: GetLeft() * GetEffectiveScale() is the place in pixels.
+local ANCHOR = { BOTTOMLEFT = { 0, 0 }, BOTTOM = { .5, 0 }, BOTTOMRIGHT = { 1, 0 }, LEFT = { 0, .5 }, CENTER = { .5, .5 },
+  RIGHT = { 1, .5 }, TOPLEFT = { 0, 1 }, TOP = { .5, 1 }, TOPRIGHT = { 1, 1 } }
+-- Opt-in (a test sets `frame.mockRects = true`): other code asks frames for their edges and expects nothing back.
+local function edges(self)
+  if not rawget(self, "mockRects") then return nil end
+  local p = self.points[1]
+  local s = self:GetScale() or 1
+  local w, h = (self.w or 0) * s, (self.h or 0) * s
+  if not p then return 0, 0, w, h end
+  local a = ANCHOR[p[1]]
+  local r = ANCHOR[p[3] or p[1]]
+  local x = (p[4] or 0) * s + r[1] * UIParent.w
+  local y = (p[5] or 0) * s + r[2] * UIParent.h
+  local left, bottom = x - a[1] * w, y - a[2] * h
+  return left / s, bottom / s, (left + w) / s, (bottom + h) / s
+end
+function Methods:GetLeft() local l = edges(self) return l end
+function Methods:GetBottom() local _, b = edges(self) return b end
+function Methods:GetRight() local _, _, r = edges(self) return r end
+function Methods:GetTop() local _, _, _, t = edges(self) return t end
 function Methods:GetCenter() return rawget(self, "cx") or 500, rawget(self, "cy") or 400 end
 
 function Methods:CreateTexture(name, layer, template, sublevel)
@@ -107,6 +142,9 @@ function Methods:CreateTexture(name, layer, template, sublevel)
   local t = region("Texture", self)
   return t
 end
+-- A round cut for a texture (added 11 Nov, the guild dots' fallback circle): a texture that takes SetAllPoints and SetTexture.
+function Methods:CreateMaskTexture() return region("Texture", self) end
+function Methods:AddMaskTexture(mask) self.mask = mask end
 function Methods:SetTexture(path, wrapH, wrapV, filter)
   self.texture = path
   self.wrap = wrapH
@@ -306,7 +344,10 @@ function GetZoneText() return ZONE or "Stormwind City" end
 C_DateAndTime = { GetCurrentCalendarTime = function() return { weekday = 5 } end }
 CALENDAR_WEEKDAY_NAMES = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
 date = os.date
-function GetCursorPosition() return 1180, 700 end
+CURSOR = { 1180, 700 }
+function GetCursorPosition() return CURSOR[1], CURSOR[2] end
+CURSOR_SHAPE = nil
+function SetCursor(c) CURSOR_SHAPE = c end
 
 function mock_unknown()
   local t = {}

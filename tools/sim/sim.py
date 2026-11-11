@@ -399,6 +399,7 @@ check("/mota opens the window", win is not None and win.shown)
 check("The window opens on the Throne Room", ns.UI.heading.text == "The Throne Room")
 check("Footer shows sync status", "SYNCED WITH" in ns.UI.footLeft.text)
 check("Footer shows the place and weekday", ns.UI.footRight.text == "TRADE DISTRICT · THURSDAY")
+check("Footer: a hint at the right points at the resize corner", ns.UI.footHint.text == "DRAG CORNER TO RESIZE ->")
 check("Rail foot shows the player's name", ns.UI.who.text == "Bram" and ns.UI.initials.text == "B")
 tab3 = ns.UI.tabs[3]
 tab3.scripts.OnEnter(tab3)
@@ -436,6 +437,62 @@ ui_client.slash("crest 11")
 ui_client.slash("crest 99")
 ui_client.slash("crest ours")
 check("Back to our crest", ns.db.crest is None)
+
+print("== 9a. drag a corner to resize the window (3c, 11 Nov)")
+def QW(code):
+    return ui_client.lua.eval("(function() local M = MinistryOfTheAllied " + code + " end)()")
+QW('M.UI.window.mockRects = true')  # the mock gives this window's edges (and no other frame's)
+def recentre():
+    QW('M.db.window.point = nil M.db.window.scale = nil M.UI:RestorePosition()')
+def corner_px(corner):
+    return QW('local f = M.UI.window local e = f:GetEffectiveScale() return '
+              + ('f:GetLeft()' if "LEFT" in corner else 'f:GetRight()') + ' * e, '
+              + ('f:GetTop()' if "TOP" in corner else 'f:GetBottom()') + ' * e')
+def drag(idx, x, y):
+    QW(f'local g = M.UI.grips[{idx}] g.scripts.OnMouseDown(g, "LeftButton") CURSOR = {{ {x}, {y} }} g.scripts.OnUpdate(g, 0.016) g.scripts.OnMouseUp(g, "LeftButton")')
+def grip_index(corner):
+    return QW(f'for i, g in ipairs(M.UI.grips) do if g.grip.corner == "{corner}" then return i end end')
+def near(a, b, tol=0.05):
+    return abs(a - b) < tol
+corners = sorted(QW('local t = {} for _, g in ipairs(M.UI.grips) do t[#t + 1] = g.grip.corner end return table.concat(t, ",")').split(","))
+# Only the bottom right corner has a resize grip (the crest's top left never does)
+check("Only the bottom right corner has a resize grip (the crest's top left never does)",
+      corners == ["BOTTOMRIGHT"])
+check("The bottom right grab zone is 36 by 36", QW('return M.UI.grips[1]:GetWidth()') == 36)
+recentre()
+check("Window starts at the default size, centred", near(QW('return M.UI.window:GetScale()'), 0.85, 1e-6))
+tl = corner_px("TOPLEFT")
+drag(grip_index("BOTTOMRIGHT"), tl[0] + 700, tl[1] - 476)
+check("Dragging the bottom right corner sets the size the cursor asks for", near(QW('return M.UI.window:GetScale()'), 0.7, 1e-4))
+after = corner_px("TOPLEFT")
+check("...the opposite (top left) corner stays put", near(after[0], tl[0]) and near(after[1], tl[1]))
+check("...and the size is saved in the settings", near(QW('return M.db.window.scale'), 0.7, 1e-4))
+check("...with the corner it is anchored on", QW('return M.db.window.point') == "TOPLEFT")
+drag(grip_index("BOTTOMRIGHT"), tl[0] + 100, tl[1] - 50)
+check("The size never goes below 0.6", near(QW('return M.UI.window:GetScale()'), 0.6, 1e-4))
+drag(grip_index("BOTTOMRIGHT"), 1364, 1)
+check("A huge drag stops while the whole window is still on the screen",
+      QW('local f = M.UI.window local e = f:GetEffectiveScale() return f:GetBottom() * e >= -0.01 and f:GetRight() * e <= UIParent.w + 0.01 and f:GetScale() <= 1.5'))
+recentre()
+tl = corner_px("TOPLEFT")
+drag(grip_index("BOTTOMRIGHT"), tl[0] + 700, tl[1] - 476)
+QW('M.UI.window:SetScale(1) M.UI.window.scale = 1')
+QW('M.UI:RestorePosition()')
+check("The saved size is restored at login", near(QW('return M.UI.window:GetScale()'), 0.7, 1e-4))
+check("The size can reach 1.5 on a large screen",
+      near(QW('local ow, oh = UIParent.w, UIParent.h UIParent.w, UIParent.h = 6000, 4000 local g = M.UI.grips[1].grip '
+              'local s = M.UI:ScaleForCursor(g, 0, 4000, 6000, 0) UIParent.w, UIParent.h = ow, oh return s'), 1.5, 1e-6))
+# in combat, only a protected window is left alone (this window isn't protected, but a page might one day make it so)
+recentre()
+tl = corner_px("TOPLEFT")
+QW('COMBAT = true M.UI.window.IsProtected = function() return true end')
+drag(grip_index("BOTTOMRIGHT"), tl[0] + 700, tl[1] - 476)
+check("In combat, a window that is protected is not resized", near(QW('return M.UI.window:GetScale()'), 0.85, 1e-6))
+QW('M.UI.window.IsProtected = nil')
+drag(grip_index("BOTTOMRIGHT"), tl[0] + 700, tl[1] - 476)
+check("In combat, an unprotected window still can be", near(QW('return M.UI.window:GetScale()'), 0.7, 1e-4))
+QW('COMBAT = false')
+recentre()
 
 print("== 9b. window skins (Milestone 5)")
 def rgb255(t):
@@ -649,7 +706,7 @@ glow_switch.scripts.OnClick(glow_switch)
 check("The District glow switch turns the glow off and tells the map",
       hns.db.settings.glow == False and glow_switch.off.shown and HL.GLOW_HEARD == 1)
 glow_switch.scripts.OnClick(glow_switch)
-cards_switch = controls[13]
+cards_switch = controls[15]   # (the two Guild on the maps switches sit before it since 11 Nov)
 cards_switch.scripts.OnClick(cards_switch)
 check("A switch for a later feature doesn't change", hns.db.settings.cards == False)
 modest = controls[3]
@@ -3500,7 +3557,7 @@ mark = len(cit.log)
 cit.slash("help")
 shown = [l for l in cit.log[mark:] if "/mota " in l]
 check("Commands: /mota help works for everyone and lists only what they can use",
-      len(shown) == 3 and all(any(f"/mota {n}" in l for l in shown) for n in ("help", "noconfidence", "settings")))
+      len(shown) == 4 and all(any(f"/mota {n}" in l for l in shown) for n in ("help", "noconfidence", "settings", "dots")))
 mark = len(adm.log)
 adm.slash("test from the Crown")
 check("Commands: the Crown can use them", Q(adm, 'return (M.Book:Count())') >= 1 and not adm.said(r"Crown alone"))
@@ -3583,6 +3640,300 @@ Q(cit2, 'M.AdminControls:SendUpdate()')
 check("Announce: a citizen can't send it", Q(cit2, 'return (M.AdminControls:SendUpdate())') is False)
 A.UI.window.scripts.OnHide(A.UI.window)
 check("Admin: closing the main window closes it too", fr.shown is False)
+
+print("== 18. Guild members on the maps (11 Nov): sharing, dots, minimap, the question, OpenMap stepping aside")
+# Two fresh clients: Max shares where he stands, Bram looks. A pretend map API with a
+# straight-line world: on map 1429 the first world coordinate grows to the north (1000 a
+# map length) and the second to the west (2000), as in the game.
+clients[:] = []
+dk = Client("Max")
+clients.append(dk)
+run(1)
+dc = Client("Bram")
+clients.append(dc)
+MAPS_LUA = '''
+  IN_INSTANCE, LOCK = false, false
+  function IsInInstance() return IN_INSTANCE, IN_INSTANCE and "party" or "none" end
+  C_ChatInfo.InChatMessagingLockdown = function() return LOCK end
+  POS = { map = 1429, x = 0.5, y = 0.5 }
+  C_Map = C_Map or {}
+  C_Map.GetBestMapForUnit = function() return POS.map end
+  C_Map.GetPlayerMapPosition = function() if POS.x == nil then return nil end return { GetXY = function() return POS.x, POS.y end } end
+  C_Map.GetMapInfo = function(id) if id == 9999999 then return nil end return { name = "Zone " .. id, mapID = id } end
+  C_Map.GetWorldPosFromMapPos = function(id, v) return 0, { GetXY = function() return 1000 - 1000 * v.y, 2000 - 2000 * v.x end } end
+  function CreateVector2D(x, y) return { x = x, y = y } end
+  function UnitPosition() return 1000 - 1000 * POS.y, 2000 - 2000 * POS.x, 0, 0 end
+  function UnitClass() return "Paladin", "PALADIN" end
+  function UnitLevel() return 60 end
+  RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 } }
+'''
+for c in (dk, dc):
+    c.lua.execute(MAPS_LUA)
+run(10)
+SEP = "\x1f"
+kind_count = lambda c, k: sum(1 for m in c.wire if m.split(SEP)[1:2] == [k])
+
+check("Dots: sharing is off by default and showing is on",
+      Q(dk, 'return M.db.settings.dotsShare') is False and Q(dk, 'return M.db.settings.dotsShow') is True)
+run(70)
+check("Dots: nothing is sent while sharing is off (no place, no stop)",
+      kind_count(dk, "LP") == 0 and kind_count(dk, "LS") == 0)
+
+# Sharing on: the place goes out at once
+Q(dk, 'M.db.settings.dotsShare = true; M.Dots:Changed()')
+run(3)
+check("Dots: switching sharing on sends the place at once", kind_count(dk, "LP") == 1)
+check("Dots: Bram's game holds Max as a dot on map 1429",
+      Q(dc, 'local p = M.Dots.live["Max"] return p ~= nil and p.map == 1429 and p.x == 0.5 and p.y == 0.5 and p.class == "PALADIN" and p.level == 60') is True)
+check("Dots: Max does not draw himself", Q(dk, 'return next(M.Dots.live) == nil'))
+run(30)
+check("Dots: standing still sends nothing for a while (60 s apart)", kind_count(dk, "LP") == 1)
+run(32)
+check("Dots: ...and again after a minute", kind_count(dk, "LP") == 2)
+Q(dk, 'POS.x = 0.52')
+run(11)
+check("Dots: moving sends every 10 s", kind_count(dk, "LP") == 3)
+Q(dk, 'POS.x = 0.5201')   # a move under the threshold counts as standing still
+run(15)
+check("Dots: a move under 0.002 counts as standing still", kind_count(dk, "LP") == 3)
+
+# a newer message replaces an older one waiting behind a lockdown
+n0 = kind_count(dk, "LP")
+Q(dk, 'LOCK = true; M.Dots.last.at = -1e9; POS.x = 0.6; M.Dots:Tick(); POS.x = 0.7; M.Dots.last.at = -1e9; M.Dots:Tick()')
+check("Dots: while messages are locked only the newest place waits", Q(dk, 'return M.Dots.pending ~= nil and M.Dots.pending:find("0.7000", 1, true) ~= nil') is True)
+Q(dk, 'LOCK = false; M.Dots:Flush()')
+run(2)
+check("Dots: ...and it goes once the lock lifts, once", kind_count(dk, "LP") == n0 + 1
+      and Q(dc, 'return M.Dots.live["Max"].x') == 0.7)
+
+# instances, bad positions
+Q(dk, 'IN_INSTANCE = true; M.Dots:Zoned()')
+run(2)
+check("Dots: entering an instance sends a stop and the dot goes",
+      kind_count(dk, "LS") == 1 and Q(dc, 'return M.Dots.live["Max"] == nil') is True and Q(dk, 'return M.Dots.sharing') is False)
+n0 = kind_count(dk, "LP")
+run(30)
+check("Dots: nothing is sent from inside an instance", kind_count(dk, "LP") == n0)
+Q(dk, 'IN_INSTANCE = false')
+run(5)
+check("Dots: back outside, the place is sent again", kind_count(dk, "LP") == n0 + 1)
+n0 = kind_count(dk, "LP")
+Q(dk, 'POS.x, POS.y = 0, 0; M.Dots.last.at = -1e9')
+run(5)
+check("Dots: a position of (0, 0) is never shared (and a stop goes)", kind_count(dk, "LP") == n0 and kind_count(dk, "LS") == 2)
+Q(dk, 'POS.x = nil; M.Dots.last.at = -1e9')
+run(5)
+check("Dots: a map that gives no position shares nothing and breaks nothing", kind_count(dk, "LP") == n0)
+Q(dk, 'POS.x, POS.y = 0.5, 0.5; M.Dots.last.at = -1e9')
+run(5)
+check("Dots: and it comes back when the position does", kind_count(dk, "LP") == n0 + 1)
+
+# switching off
+Q(dk, 'M.db.settings.dotsShare = false; M.Dots:Changed()')
+run(2)
+check("Dots: switching sharing off sends a stop and the dot goes",
+      kind_count(dk, "LS") == 3 and Q(dc, 'return M.Dots.live["Max"] == nil') is True)
+
+# receiving: what is refused
+bad = {
+    "map 0": '{"0", "0.5", "0.5", "MAGE", "60"}',
+    "x over 1": '{"1429", "1.5", "0.5", "MAGE", "60"}',
+    "(0, 0)": '{"1429", "0", "0", "MAGE", "60"}',
+    "lower-case class": '{"1429", "0.5", "0.5", "mage", "60"}',
+    "a class the game doesn't have": '{"1429", "0.5", "0.5", "WIZARD", "60"}',
+    "an unknown map": '{"9999999", "0.5", "0.5", "MAGE", "60"}',
+    "words for numbers": '{"1429", "left", "0.5", "MAGE", "60"}',
+}
+for what, fields in bad.items():
+    check(f"Dots: a place with {what} is refused", Q(dc, f'return M.Dots:Heard("Mallory", {fields})') is False)
+check("Dots: a good place is taken", Q(dc, 'return M.Dots:Heard("Mallory", {"1429", "0.25", "0.5", "MAGE", "60"})') is True)
+Q(dc, 'M.Dots.live["Mallory"] = nil')
+
+# a message of our own kinds from outside the guild channel, and Max hearing himself
+Q(dc, 'M.Comm:Send(M.Comm:Pack("LP", 1429, "0.1000", "0.1000", "MAGE", 60), "GUILD")')
+run(2)
+check("Dots: Max never takes his own message as someone else's", Q(dk, 'return M.Dots.live["Bram"] ~= nil and M.Dots.live["Max"] == nil') is True)
+Q(dc, 'M.Dots.live["Bram"] = nil')
+
+# silence: a dot goes after 150 s
+Q(dc, 'M.Dots:Heard("Mallory", {"1429", "0.25", "0.5", "MAGE", "60"})')
+run(120)
+check("Dots: a dot stays while it was heard from recently", Q(dc, 'return M.Dots.live["Mallory"] ~= nil') is True)
+run(35)
+check("Dots: a dot goes after about 150 s of silence", Q(dc, 'return M.Dots.live["Mallory"] == nil') is True)
+
+# who is out there: a newcomer's question is answered, spread out
+Q(dk, 'M.db.settings.dotsShare = true; M.Dots:Changed()')
+run(3)
+Q(dc, 'M.Dots.live["Max"] = nil; M.Dots.asked = false; M.Dots:Ask()')
+n0 = kind_count(dk, "LP")
+run(7)
+check("Dots: someone sharing answers a new arrival's question with a place within seconds",
+      kind_count(dk, "LP") == n0 + 1 and Q(dc, 'return M.Dots.live["Max"] ~= nil') is True)
+
+# the world map
+dc.lua.execute('''
+  WorldMapFrame = CreateFrame("Frame", "WorldMapFrame", UIParent)
+  local canvas = CreateFrame("Frame", nil, WorldMapFrame)
+  canvas:SetSize(1000, 600)
+  WorldMapFrame.mapID = 1429
+  function WorldMapFrame:GetCanvas() return canvas end
+  function WorldMapFrame:GetMapID() return self.mapID end
+  function WorldMapFrame:GetCanvasScale() return self.zoom or 1 end
+  function WorldMapFrame:OnMapChanged() end
+  function WorldMapFrame:SetMapID(id) self.mapID = id self:OnMapChanged() end
+  mock_fire("ADDON_LOADED", "Blizzard_WorldMap")
+  WorldMapFrame:Show()
+''')
+DU = dc.lua.globals().MinistryOfTheAllied.Dots.UI
+check("Dot map: hooked on once the game's map loads", DU.map is not None)
+check("Dot map: a dot for Max, drawn at his place on the canvas (500, 300)",
+      Q(dc, '''local d = M.Dots.UI.worldDots[1]
+        if not d or not d.shown then return false end
+        local p = d.points[#d.points]
+        return p[1] == "CENTER" and p[3] == "TOPLEFT" and p[4] == 500 and p[5] == -300''') is True)
+check("Dot map: the dot wears Max's class colour (Paladin pink)", Q(dc, '''local c = M.Dots.UI.worldDots[1].fill.color
+        return c ~= nil and math.abs(c[1] - 0.96) < 1e-6 and math.abs(c[2] - 0.55) < 1e-6''') is True)
+dc.lua.execute('WorldMapFrame:SetMapID(1453)')
+check("Dot map: no dot on a map that doesn't show where he is", Q(dc, 'return not M.Dots.UI.worldDots[1].shown'))
+dc.lua.execute('WorldMapFrame:SetMapID(1429); WorldMapFrame.zoom = 2')
+run(1)
+check("Dot map: a zoom keeps the dot the same size on screen", Q(dc, 'return M.Dots.UI.worldDots[1].scale == 0.5') is True)
+dc.lua.execute('WorldMapFrame.zoom = 1')
+run(1)
+d1 = Q(dc, 'local d = M.Dots.UI.worldDots[1] d.scripts.OnEnter(d) return M.Dots.UI.tip.shown and M.Dots.UI.tipState.name')
+check("Dot map: hovering a dot shows our own tip, with his name", d1 == "Max")
+check("Dot map: ...which has the district tip step aside", Q(dc, 'return M.Dots:TipBusy()') is True)
+check("Dot map: ...and the tip names the zone and the place", Q(dc, 'return M.Dots.UI.tipState.where:find("Zone 1429", 1, true) ~= nil and M.Dots.UI.tipState.where:find("50.0, 50.0", 1, true) ~= nil') is True)
+Q(dc, 'local d = M.Dots.UI.worldDots[1] d.scripts.OnLeave(d)')
+check("Dot map: leaving the dot puts the tip away", Q(dc, 'return not M.Dots.UI.tip.shown and not M.Dots:TipBusy()'))
+Q(dc, 'M.db.settings.dotsShow = false; M.Dots:Changed()')
+check("Dot map: the Show guild dots switch takes the dots away", Q(dc, 'return not M.Dots.UI.worldDots[1].shown'))
+Q(dc, 'M.db.settings.dotsShow = true; M.Dots:Changed()')
+check("Dot map: ...and brings them back", Q(dc, 'return M.Dots.UI.worldDots[1].shown'))
+check("Dot map: the layer takes no mouse, only the dots do", Q(dc, 'return M.Dots.UI.layer ~= nil') is True)
+
+# the minimap: Bram stands at (0.45, 0.55); Max is 100 yards east and 50 north of him
+Q(dc, 'POS.x, POS.y = 0.45, 0.55')
+run(1)
+check("Minimap: Max shows 100 yards east and 50 north, by the minimap's reach",
+      Q(dc, '''local d = M.Dots.UI.miniDots[1]
+        if not d or not d.shown then return false end
+        local p = d.points[#d.points]
+        return p[1] == "CENTER" and math.abs(p[4] - 30) < 0.01 and math.abs(p[5] - 15) < 0.01''') is True)
+mo = lambda args: dc.lua.eval('(function() local a, b, rim = MinistryOfTheAllied.Dots.UI.MinimapOffset(%s) return a .. "," .. b .. "," .. tostring(rim) end)()' % args)
+# (my first, my second, their first, their second, reach, rotate, sin, cos, shape, half)
+ox, oy, rim = mo("0, 0, 0, -100, 200, false, 0, 1, nil, 70").split(",")
+check("Minimap: a target 100 yards east is right of centre", abs(float(ox) - 35) < 1e-6 and abs(float(oy)) < 1e-6 and rim == "false")
+ox, oy, rim = mo("0, 0, 100, 0, 200, false, 0, 1, nil, 70").split(",")
+check("Minimap: a target 100 yards north is above centre", abs(float(ox)) < 1e-6 and abs(float(oy) - 35) < 1e-6)
+ox, oy, rim = mo("0, 0, 0, 100, 200, false, 0, 1, nil, 70").split(",")
+check("Minimap: a target to the west is left of centre", abs(float(ox) + 35) < 1e-6)
+ox, oy, rim = mo("0, 0, 1000, 0, 200, false, 0, 1, nil, 70").split(",")
+check("Minimap: a target out of reach is held on the rim, 90% of the way out",
+      abs(float(oy) - 63) < 1e-6 and rim == "true")
+ox, oy, rim = mo("0, 0, 100, 0, 200, true, 1, 0, nil, 70").split(",")
+check("Minimap: facing west on a turning minimap, a target to the north is on the right",
+      abs(float(ox) - 35) < 1e-6 and abs(float(oy)) < 1e-6)
+ox, oy, rim = mo("0, 0, 1000, 1000, 200, false, 0, 1, {false, false, false, false}, 70").split(",")
+check("Minimap: a square minimap holds a far north-west target at its top-left corner",
+      abs(float(ox) + 63) < 1e-6 and abs(float(oy) - 63) < 1e-6)
+Q(dc, 'M.db.settings.dotsShow = false; M.Dots:Changed()')
+check("Minimap: the Show guild dots switch takes the minimap's dots away", Q(dc, 'return not M.Dots.UI.miniDots[1].shown'))
+Q(dc, 'M.db.settings.dotsShow = true; M.Dots:Changed()')
+Q(dc, 'M.Dots.live["Max"].map = 1453')
+Q(dc, 'M.Dots.live["Max"].wmap = nil')
+Q(dc, 'C_Map.GetWorldPosFromMapPos = function() return 1, { GetXY = function() return 0, 0 end } end')
+Q(dc, 'M.Dots.UI:PaintMinimap()')
+check("Minimap: someone on another continent isn't shown", Q(dc, 'return not M.Dots.UI.miniDots[1].shown'))
+
+# the Settings page
+SP = dc.lua.globals().MinistryOfTheAllied.SettingsPage
+rows = Q(dc, '''local keys = {}
+  for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do keys[r.key] = g.title end end
+  return keys.dotsShare .. "|" .. keys.dotsShow''')
+check("Settings: a Guild on the maps group holds both switches", rows == "Guild on the maps|Guild on the maps")
+Q(dc, 'M.db.settings.dotsShare = false; M.db.settings.dotsAsked = false')
+Q(dc, '''for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do
+    if r.key == "dotsShare" then M.db.settings.dotsShare = true; r.changed() end end end''')
+run(2)
+check("Settings: the Share my place switch starts sharing and counts as answering the question",
+      Q(dc, 'return M.Dots.sharing and M.db.settings.dotsAsked') is True)
+Q(dc, 'M.db.settings.dotsShare = false; M.Dots:Changed()')
+
+# the one-time question
+Q(dc, 'M.db.settings.dotsAsked = false; M.db.settings.dotsShare = false')
+dc.lua.execute('WorldMapFrame:Hide(); WorldMapFrame:Show()')
+run(1)
+check("Question: the first time the map opens, it asks", Q(dc, 'return M.Dots.UI.ask ~= nil and M.Dots.UI.ask.shown') is True)
+check("Question: it is in our words and keeps its own button names",
+      Q(dc, 'return M.Dots.UI.ask.yes.labelText == "Share my place" and M.Dots.UI.ask.no.labelText == "Keep private"') is True)
+check("Question: it says only the guild, and no dungeons, raids or battlegrounds",
+      Q(dc, 'local t = M.Dots.UI.ask.body:GetText() return t:find("only to the guild", 1, true) ~= nil and t:find("dungeons, raids or battlegrounds", 1, true) ~= nil') is True)
+check("Question: the body starts clear of a two-line title",
+      Q(dc, 'local t, b = M.Dots.UI.ask.title.points[1][5], M.Dots.UI.ask.body.points[1][5] return t == -40 and b == -112 and math.abs(b) >= math.abs(t) + 2*26 + 4') is True)
+check("Question: nothing is shared before the answer", Q(dc, 'return M.db.settings.dotsShare') is False)
+Q(dc, 'M.Dots.UI:Answer(false)')
+check("Question: Keep private shares nothing and puts the question away",
+      Q(dc, 'return M.db.settings.dotsShare == false and M.db.settings.dotsAsked == true and not M.Dots.UI.ask.shown') is True)
+dc.lua.execute('WorldMapFrame:Hide(); WorldMapFrame:Show()')
+run(1)
+check("Question: it is not asked again", Q(dc, 'return not M.Dots.UI.ask.shown'))
+Q(dc, 'M.db.settings.dotsAsked = false; M.Dots.UI:MaybeAsk(); M.Dots.UI:Answer(true)')
+run(2)
+check("Question: Share my place turns sharing on and sends the place", Q(dc, 'return M.db.settings.dotsShare and M.Dots.sharing') is True)
+Q(dc, 'M.db.settings.dotsShare = false; M.Dots:Changed()')
+
+# Ask again (/mota dots reset, and the Settings button): sharing goes off and the question comes back
+Q(dc, 'M.db.settings.dotsShare = true; M.db.settings.dotsAsked = true; M.Dots:Changed()')
+dc.lua.execute('WorldMapFrame:Hide(); WorldMapFrame:Show()')
+run(1)
+check("Ask again: with the answer given, the open map shows no question", Q(dc, 'return not M.Dots.UI.ask.shown') is True)
+ls0 = kind_count(dc, "LS")
+Q(dc, 'M.Dots.UI:Reset()')
+run(1)
+check("Ask again: the answer is forgotten and sharing is off",
+      Q(dc, 'return M.db.settings.dotsAsked == false and M.db.settings.dotsShare == false and M.Dots.sharing == false') is True)
+check("Ask again: the question shows at once, the map being open", Q(dc, 'return M.Dots.UI.ask.shown == true') is True)
+check("Ask again: a stop was sent when sharing ended", kind_count(dc, "LS") == ls0 + 1)
+Q(dc, 'M.Dots.UI:Answer(false)')
+Q(dc, 'M.db.settings.dotsAsked = true')
+dc.slash("dots reset")
+check("Ask again: /mota dots reset forgets the answer", Q(dc, 'return M.db.settings.dotsAsked == false') is True)
+dc.slash("dots")
+check("Ask again: /mota dots says sharing is off", dc.said(r"Guild dots: sharing off"))
+Q(dc, 'M.Dots.UI:Answer(false)')
+
+# OpenMap steps aside (its two saved switches, held off for this session only)
+dc.lua.execute('''
+  OPENMAP = true
+  C_AddOns.IsAddOnLoaded = function(n) return n == "OpenMap" and OPENMAP end
+  OpenMapDB = { worldmap = { guild = true, friendsShare = true, friends = true } }
+''')
+Q(dc, 'M.db.settings.dotsShow = true; M.db.settings.dotsShare = false; M.Dots:Changed()')
+check("OpenMap: with our guild dots on, its Guild members on the map is held off",
+      Q(dc, 'return _G.OpenMapDB.worldmap.guild') is False)
+check("OpenMap: ...but its own sharing stays while we don't share",
+      Q(dc, 'return _G.OpenMapDB.worldmap.friendsShare') is True and Q(dc, 'return _G.OpenMapDB.worldmap.friends') is True)
+Q(dc, 'M.db.settings.dotsShare = true; M.Dots:Changed()')
+check("OpenMap: while we share, its Share where you are is held off too",
+      Q(dc, 'return _G.OpenMapDB.worldmap.friendsShare') is False and Q(dc, 'return M.MapCompat:OpenMapHeld("friendsShare")') is True)
+Q(dc, 'OpenMapDB.worldmap.guild = true')   # its own options page turned it back on
+run(6)
+check("OpenMap: held off again within a few seconds if its options turn it back on",
+      Q(dc, 'return _G.OpenMapDB.worldmap.guild') is False)
+Q(dc, 'M.db.settings.dotsShare = false; M.Dots:Changed()')
+check("OpenMap: our sharing off gives its sharing back at once",
+      Q(dc, 'return _G.OpenMapDB.worldmap.friendsShare') is True)
+Q(dc, 'M.db.settings.dotsShare = true; M.Dots:Changed()')
+dc.lua.execute('mock_fire("PLAYER_LOGOUT")')
+check("OpenMap: at logout both of its choices are back as it had them, so nothing of OpenMap's is changed for good",
+      Q(dc, 'return _G.OpenMapDB.worldmap.guild and _G.OpenMapDB.worldmap.friendsShare') is True)
+Q(dc, 'M.db.settings.dotsShare = false; M.db.settings.dotsShow = false; M.Dots:Changed()')
+dc.lua.execute('OPENMAP = false; OpenMapDB.worldmap.guild = true')
+Q(dc, 'M.db.settings.dotsShow = true; M.Dots:Changed()')
+check("OpenMap: not loaded, nothing of its is touched", Q(dc, 'return _G.OpenMapDB.worldmap.guild') is True)
+check("Dots: nothing in this section raised a Lua error", len(errors) == 0)
 
 print()
 print("Lua errors:", len(errors))
