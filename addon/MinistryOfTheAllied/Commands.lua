@@ -213,13 +213,18 @@ add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank be
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits|bank|map|gossip [nohide|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either)", function(arg)
+add("probe", "[limits|bank|map|gossip [nohide|off]|quest [nohide|fade|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either), 'quest' whether the game's quest page can be hidden so our own could take its place ('quest fade' makes it invisible for 4 s, 'quest nohide' is the control run that never touches it, 'quest off' stops any)", function(arg)
   local what, extra = arg:lower():match("^(%S*)%s*(.-)$")
   if what == "gossip" then
     if extra ~= "" and extra ~= "off" and extra ~= "nohide" then
       return MOTA:Print("Use /mota probe gossip, /mota probe gossip nohide (control run, we do not hide the window) or /mota probe gossip off.")
     end
     MOTA.Probe:Gossip(extra ~= "" and extra or nil)
+  elseif what == "quest" then
+    if extra ~= "" and extra ~= "off" and extra ~= "nohide" and extra ~= "fade" then
+      return MOTA:Print("Use /mota probe quest, /mota probe quest fade (the page goes invisible for 4 s), /mota probe quest nohide (control run, we do not touch the page) or /mota probe quest off.")
+    end
+    MOTA.Probe:Quest(extra ~= "" and extra or nil)
   elseif arg == "limits" then
     MOTA.Probe:Limits()
   elseif arg == "map" then

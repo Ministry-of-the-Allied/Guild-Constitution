@@ -4980,6 +4980,148 @@ check("Gossip probe: the 21st run drops the oldest, 20 kept",
 check("Gossip probe: controls still persist after many runs", Q(mk, 'return M.db.probe.gossip.control[222].closedByGame') is False)
 check("Gossip probe: nothing in this section raised a Lua error", len(errors) == 0)
 
+# 20e. A quest line in the gossip window: the button reports no ID, the quest route names it. One pick, a quest,
+# with its own nohide control ("q<ID>", never mixed with option IDs).
+Q(mk, '''
+  local b = CreateFrame("Button", nil, UIParent)
+  b.data = { name = "Data Hoarders" }
+  function b:GetElementData() return { info = self.data } end
+  -- the game's quest line has no option ID and no index (the mock answers any missing field with a function)
+  local mt = getmetatable(b)
+  setmetatable(b, { __index = function(t, k)
+    if k == "gossipOptionID" or k == "index" or k == "GetOptionID" then return nil end
+    return mt.__index(t, k)
+  end })
+  BTNS[3] = b
+  HIDE_BLOCKED = false
+''')
+mk.slash("probe gossip nohide")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1)')
+mk.log.clear()
+Q(mk, 'CLICK(BTNS[3]); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.3); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); mock_advance(1)')
+check("Gossip probe: a quest button click and its SelectAvailableQuest are one pick, named as the quest",
+      mk.said(r'quest 5001 "Data Hoarders" picked') and not mk.said(r"option index") and sum(1 for l in mk.log if "picked" in l) == 1
+      and mk.said(r"route: button \+ SelectAvailableQuest")
+      and Q(mk, 'local p = M.db.probe.gossip.picks return #p == 1 and p[1].kind == "quest" and p[1].optionID == 5001 and p[1].routes[1] == "button" and p[1].routes[2] == "SelectAvailableQuest"') is True)
+check("Gossip probe: ...the game closing the window is that quest's nohide control, kept apart from option IDs",
+      mk.said(r"nohide control for quest 5001: the game closed the window")
+      and Q(mk, 'local c = M.db.probe.gossip.control return c["q5001"] ~= nil and c["q5001"].closedByGame == true and c[5001] == nil') is True)
+mk.slash("probe gossip off")
+mk.slash("probe gossip")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[3]); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(2)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: a quest hide pick is matched to the quest's control: unclear, the game closes it itself",
+      mk.said(r"verdict: unclear, the game closes quest 5001 itself \(nohide control\)") and mk.said(r"quest 5001: nohide control: game closed it"))
+
+print("== 20f. The quest probe: /mota probe quest (Crown-only, off by default, can the game's quest page be hidden)")
+QUEST_LUA = '''
+  QUEST_ALIVE = false
+  QuestFrame = CreateFrame("Frame", "QuestFrame", UIParent)
+  QuestFrame:SetAlpha(1)
+  function GetQuestID() return QUEST_ALIVE and 5001 or 0 end
+  function GetTitleText() return QUEST_ALIVE and "A Small Errand" or "" end
+  function GetQuestText() return QUEST_ALIVE and "Take this to the Ministry." or "" end
+  function GetObjectiveText() return QUEST_ALIVE and "Deliver it." or "" end
+  function GetNumQuestRewards() return 1 end
+  function GetNumQuestChoices() return 0 end
+  function GetRewardMoney() return 100 end
+  -- the game opens its quest page: the data is readable, the frame shown
+  function OPEN_PAGE(event) QUEST_ALIVE = true; QuestFrame:SetAlpha(1); QuestFrame:Show(); mock_fire(event or "QUEST_DETAIL") end
+'''
+bm.slash("probe quest")
+check("Quest probe: a citizen is refused (the probe stays Crown-only)", bm.log[-1].endswith("Crown alone."))
+check("Quest probe: ...and it is in the Crown's usage", any(("quest [nohide|fade|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
+mk.log.clear()
+mk.slash("probe quest bogus")
+check("Quest probe: a wrong word says how to use it", mk.said(r"Use /mota probe quest, /mota probe quest fade"))
+mk.slash("probe quest")
+check("Quest probe: a client without the quest functions says so, without errors", mk.said(r"missing: QuestFrame") and len(errors) == 0)
+mk.slash("probe quest off")
+Q(mk, QUEST_LUA)
+mk.log.clear()
+Q(mk, 'OPEN_PAGE(); mock_advance(5)')
+check("Quest probe: off by default, a quest page is not reported and not touched",
+      not mk.said(r"Quest probe") and Q(mk, 'return QuestFrame:IsShown()') is True)
+Q(mk, 'QUEST_ALIVE = false; QuestFrame:Hide()')
+mk.slash("probe quest")
+check("Quest probe: on, every function found, events registered, the pick hooks named",
+      mk.said(r"every quest function is present") and mk.said(r"Events registered: 10 of 10")
+      and mk.said(r"C_GossipInfo\.SelectActiveQuest=yes") and mk.said(r"C_GossipInfo\.SelectAvailableQuest=yes")
+      and mk.said(r"mode: hide \(normal run") and Q(mk, 'return M.db.probe.quest.mode') == "hide" and Q(mk, 'return M.db.probe.quest.run') == 2)  # run 1 was the start with no quest functions
+# Hide mode: the page is closed, and the game ends the conversation with it (as its own OnHide does).
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_advance(0.5); mock_fire("GOSSIP_CLOSED"); C_GossipInfo.SelectAvailableQuest(5001); OPEN_PAGE("QUEST_DETAIL"); mock_advance(0.1)')
+Q(mk, 'QUEST_ALIVE = false; mock_fire("QUEST_FINISHED"); mock_advance(3)')
+check("Quest probe: the page opening is reported with its quest ID and title read from the game",
+      mk.said(r'QUEST_DETAIL') and mk.said(r'quest page detail 5001 "A Small Errand"') and mk.said(r"data on arrival: readable: yes"))
+check("Quest probe: ...and the pick that led to it, with its quest ID",
+      mk.said(r"picked from the gossip window by: SelectAvailableQuest \(quest 5001\)"))
+check("Quest probe: our hide is named, tried / changed the page, frame shown before and after",
+      mk.said(r"our hide: tried / changed the page: .*yes .* frame shown before: yes, after: no") and Q(mk, 'return QuestFrame:IsShown()') is False)
+check("Quest probe: QUEST_FINISHED after our hide is the conversation ending, timed from the page opening",
+      mk.said(r"the conversation ended \(QUEST_FINISHED\) 0\.1 s after the page opened"))
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest probe: off prints the events in order, with the quest pick, the page and the finish",
+      mk.said(r"events: .*GOSSIP_SHOW@0\.0 > GOSSIP_CLOSED@0\.5 > pick SelectAvailableQuest quest 5001@0\.5 > QUEST_DETAIL@0\.5 > QUEST_FINISHED@0\.6"))
+check("Quest probe: hide that ended the conversation is verdict 'no', named by page, and saved",
+      mk.said(r'verdict: no, page 5001 "A Small Errand": our hide hid it but the conversation ended \(QUEST_FINISHED 0\.1 s after the page opened\)')
+      and mk.said(r"can the game's quest page be hidden while the conversation stays alive: no \(1 page\)")
+      and Q(mk, 'return M.db.probe.quest.verdict') == "no" and Q(mk, 'return M.db.probe.quest.pages[1].tried') is True)
+# Fade mode: invisible for 4 s while the frame stays shown, then put back; the conversation stays alive.
+mk.log.clear()
+mk.slash("probe quest fade")
+check("Quest probe: fade says what it does, and not to click", mk.said(r"mode: fade: the quest page goes invisible for 4 s") and mk.said(r"do not click"))
+Q(mk, 'OPEN_PAGE("QUEST_DETAIL"); mock_advance(0.3)')
+check("Quest probe: fade makes the page invisible (alpha 0) with the frame still shown",
+      Q(mk, 'return QuestFrame:GetAlpha()') == 0 and Q(mk, 'return QuestFrame:IsShown()') is True)
+mk.log.clear()
+Q(mk, 'mock_advance(4)')
+check("Quest probe: ...and puts it back to full view after 4 s", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"quest page back in full view \(after 4 s\)"))
+check("Quest probe: ...the page report says fade, frame shown, data readable, conversation alive",
+      mk.said(r"our fade: page made invisible \(alpha 0\) for 4 s") and mk.said(r"frame after: shown at 0\.2 s \(alpha 0\), shown at 1 s \(alpha 0\), shown at 3 s \(alpha 0\)")
+      and mk.said(r"the conversation is still alive at 3 s .+ quest data readable: yes"))
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest probe: fade that hid the page and kept the conversation alive is verdict 'yes'",
+      mk.said(r'verdict: yes, page 5001 "A Small Errand": our fade hid it and the conversation stayed alive with the quest data readable at 3 s')
+      and mk.said(r"can the game's quest page be hidden while the conversation stays alive: yes \(1 page\)") and Q(mk, 'return M.db.probe.quest.verdict') == "yes")
+# A fade is never left on: put back when the probe is turned off, or when the conversation ends.
+mk.slash("probe quest fade")
+Q(mk, 'OPEN_PAGE("QUEST_DETAIL"); mock_advance(0.5)')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest probe: off puts a faded page back at once", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"back in full view \(probe off\)"))
+mk.slash("probe quest fade")
+Q(mk, 'OPEN_PAGE("QUEST_DETAIL"); mock_advance(0.5)')
+mk.log.clear()
+Q(mk, 'QuestFrame:Hide(); QUEST_ALIVE = false; mock_fire("QUEST_FINISHED")')
+check("Quest probe: the conversation ending puts a faded page back", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"back in full view \(the conversation ended\)"))
+mk.slash("probe quest off")
+# Control run: the page is never touched.
+mk.slash("probe quest nohide")
+Q(mk, 'OPEN_PAGE("QUEST_DETAIL"); mock_advance(3.1)')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest probe: nohide never touches the page, and off says there is no verdict, with the control result",
+      Q(mk, 'return QuestFrame:IsShown() and QuestFrame:GetAlpha() == 1') is True and mk.said(r"control run: we did NOT touch the quest page, so there is no verdict")
+      and mk.said(r"control: page 5001: frame still shown at 3 s, quest data readable: yes") and Q(mk, 'return M.db.probe.quest.verdict') is None
+      and not mk.said(r"can the game's quest page be hidden"))
+check("Quest probe: a page that is hidden when no hide was tried is not a 'hidden by us' page",
+      Q(mk, 'local p = M.db.probe.quest.pages[1] return p.mode == "nohide" and p.tried == nil and p.faded == nil and p.shownBefore == true') is True)
+# Every run is kept; off stops everything.
+check("Quest probe: every run is kept in MOTADB.probe.questRuns, the latest is probe.quest",
+      Q(mk, 'local r = M.db.probe.questRuns return #r == 6 and r[1].mode == "hide" and r[2].mode == "hide" and r[3].mode == "fade" and r[6].mode == "nohide" and r[6] == M.db.probe.quest and r[6].run == 6') is True)
+mk.log.clear()
+Q(mk, 'OPEN_PAGE("QUEST_DETAIL"); mock_fire("QUEST_FINISHED"); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(20)')
+check("Quest probe: off, the events, picks and samples stay silent", not mk.said(r"Quest probe") and Q(mk, 'return QuestFrame:IsShown()') is True)
+for _ in range(20):
+    mk.slash("probe quest")
+    mk.slash("probe quest off")
+check("Quest probe: the 21st run drops the oldest, 20 kept", Q(mk, 'local r = M.db.probe.questRuns return #r == 20 and r[20] == M.db.probe.quest and r[20].run == 26') is True)
+check("Quest probe: nothing in this section raised a Lua error", len(errors) == 0)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

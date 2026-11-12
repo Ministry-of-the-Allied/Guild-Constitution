@@ -8,8 +8,9 @@
 -- /mota probe bank    what the game lets us see of the guild bank (open it first)
 -- /mota probe map     what the world map is made of (stand in Stormwind City)
 -- /mota probe gossip  [nohide|off] can we see a gossip option being picked and open our own page (19.1)
+-- /mota probe quest   [nohide|fade|off] can the game's quest page be hidden so our own could take its place (19.1)
 --
--- Both also save their results in the add-on's saved file (written on logout
+-- Each probe also saves its results in the add-on's saved file (written on logout
 -- or /reload), so they can be read straight from
 -- WTF\Account\<account>\SavedVariables\MinistryOfTheAllied.lua.
 
@@ -339,6 +340,19 @@ local function pickIdText(pick)
   return "index " .. tostring(pick.index)
 end
 
+-- The key a pick's nohide control is kept under: the option ID, or "q<ID>" for a quest (the two
+-- ID spaces are separate, so a quest ID must never overwrite an option's control).
+local function controlKey(pick)
+  if pick.optionID == nil then return nil end
+  if pick.kind == "option" then return pick.optionID end
+  if pick.kind == "quest" then return "q" .. tostring(pick.optionID) end
+  return nil
+end
+
+local function pickLabel(pick)
+  return (pick.kind == "quest" and "quest " or "option ") .. tostring(pick.optionID)
+end
+
 -- Tries the hide on a pick's window and records "tried" and "changed" (the window
 -- was shown before our HideUIPanel and not after it). Never closes anything else.
 function Probe:GossipTryHide(pick)
@@ -371,15 +385,16 @@ end
 -- rewriteOptions (a number) = the window stayed open but the game replaced its contents
 -- with a new GOSSIP_SHOW of that many options (saved as rewritten = true).
 function Probe:GossipControl(pick, closedByGame, rewriteOptions)
-  if pick.mode ~= "nohide" or pick.controlSet or pick.kind ~= "option" or pick.optionID == nil then return end
+  local key = controlKey(pick)
+  if pick.mode ~= "nohide" or pick.controlSet or key == nil then return end
   pick.controlSet = true
   local r = gossipResults()
   -- A rewrite is inferred (no close seen before the reshow), so it never replaces a result seen directly.
-  if rewriteOptions ~= nil and not closedByGame and r.control[pick.optionID] then return end
+  if rewriteOptions ~= nil and not closedByGame and r.control[key] then return end
   local c = { closedByGame = closedByGame, name = pick.optionName, npcID = pick.npcID, at = GetServerTime() }
   if rewriteOptions ~= nil and not closedByGame then c.rewritten, c.options = true, rewriteOptions end
-  r.control[pick.optionID] = c
-  P("  nohide control for option " .. tostring(pick.optionID) .. ": "
+  r.control[key] = c
+  P("  nohide control for " .. pickLabel(pick) .. ": "
     .. (closedByGame and "the game closed the window"
         or c.rewritten and ("the window stayed open (the game rewrote it with " .. tostring(c.options) .. " options)")
         or "the window stayed open"))
@@ -395,23 +410,24 @@ function Probe:GossipVerdict()
     for _, p in ipairs(r.picks) do
       if p.mode ~= "nohide" and p.tried and p.shownBefore then
         n = n + 1
-        local id = p.kind == "option" and p.optionID or nil
-        local ctl = id ~= nil and r.control[id] or nil
+        local key = controlKey(p)
+        local ctl = key ~= nil and r.control[key] or nil
+        local label = pickLabel(p)
         local v, text
-        if id == nil then
+        if key == nil then
           v, text = "unclear", "verdict: unclear, no option ID for " .. pickIdText(p) .. " to match a nohide control"
         elseif not ctl then
-          v, text = "unclear", "verdict: unclear, no nohide control for option " .. tostring(id) .. " yet"
+          v, text = "unclear", "verdict: unclear, no nohide control for " .. label .. " yet"
         elseif ctl.closedByGame then
-          v, text = "unclear", "verdict: unclear, the game closes option " .. tostring(id) .. " itself (nohide control)"
+          v, text = "unclear", "verdict: unclear, the game closes " .. label .. " itself (nohide control)"
         elseif p.changed and ctl.rewritten then
           local n2 = p.reshow and p.reshow.options or ctl.options or 0
-          v, text = "yes", "verdict: yes, option " .. tostring(id) .. ": our hide closed a window the game leaves open (the game then reshowed it with "
+          v, text = "yes", "verdict: yes, " .. label .. ": our hide closed a window the game leaves open (the game then reshowed it with "
             .. tostring(n2) .. " option" .. (n2 == 1 and "" or "s") .. ")"
         elseif p.changed then
-          v, text = "yes", "verdict: yes, option " .. tostring(id) .. ": our hide closed it, and the nohide control stayed open"
+          v, text = "yes", "verdict: yes, " .. label .. ": our hide closed it, and the nohide control stayed open"
         else
-          v, text = "no", "verdict: no, option " .. tostring(id) .. ": our hide did not close it, and the nohide control stayed open"
+          v, text = "no", "verdict: no, " .. label .. ": our hide did not close it, and the nohide control stayed open"
         end
         p.verdict = v
         if v == "yes" then yes = yes + 1 elseif v == "no" then no = no + 1 else unclear = unclear + 1 end
@@ -433,7 +449,8 @@ function Probe:GossipControlLines()
   local out = {}
   for _, id in ipairs(ids) do
     local c = r.control[id]
-    out[#out + 1] = ("option %s: nohide control: %s"):format(tostring(id), c.closedByGame and "game closed it"
+    local what = type(id) == "string" and id:match("^q(.+)$") and ("quest " .. id:sub(2)) or ("option " .. tostring(id))
+    out[#out + 1] = ("%s: nohide control: %s"):format(what, c.closedByGame and "game closed it"
       or c.rewritten and ("stayed open (game rewrote it with " .. tostring(c.options) .. " options)") or "stayed open")
   end
   return out
@@ -617,6 +634,20 @@ function Probe:GossipPick(spec)
     if old.printed then
       P("  route also: " .. spec.via .. (spec.index and (" (index " .. tostring(spec.index) .. ")") or ""))
     end
+    return old
+  end
+
+  -- A quest line in the gossip window is clicked like an option button, but the button reports no ID;
+  -- the quest route that follows in the same moment names it. That is one pick, and it is a quest.
+  if kind == "quest" and spec.optionID ~= nil and old and now - old.t <= MERGE_WINDOW and old.kind == "option"
+      and old.optionID == nil and old.index == nil and old.routeSet.button and not old.routeSet[spec.via] then
+    old.kind, old.optionID = "quest", spec.optionID
+    old.routeSet[spec.via] = true
+    old.routes[#old.routes + 1] = spec.via
+    r.viaSeen = r.viaSeen or {}
+    r.viaSeen[spec.via] = (r.viaSeen[spec.via] or 0) + 1
+    refreshStep(old)
+    if old.printed then P("  route also: " .. spec.via .. " (it is quest " .. tostring(spec.optionID) .. ")") end
     return old
   end
 
@@ -935,6 +966,384 @@ function Probe:Gossip(arg)
   pcall(self.GossipHookButtons, self) -- a gossip window that is already open
   P("Talk to an NPC and pick a gossip option" .. (self.gossipMode == "nohide" and ", then leave the windows alone for 30 s" or "")
     .. ". `/mota probe gossip off` stops it. Results save on /reload.")
+end
+
+---------------------------------------------------------------------------
+-- /mota probe quest: can the game's quest page be kept from showing, so our own
+-- page could take its place (19.1, the quest engine)? The gossip probe showed a
+-- quest pick is seen (SelectAvailableQuest, with the quest ID) and that hiding the
+-- gossip window changes nothing: the game's quest page opens anyway.
+-- Modes (all Crown-only, off until typed, `/mota probe quest off` stops it):
+--   hide    (default) right after the quest page opens, HideUIPanel(QuestFrame).
+--   fade    makes the page invisible (alpha 0) for 4 s, then puts it back: the
+--           conversation should stay alive, so our page could still accept.
+--   nohide  the control run: the quest page is never touched.
+-- It never accepts, declines, completes or abandons a quest. Hide mode ends the
+-- conversation (the game's own close); talk to the NPC again to get the page back.
+-- Each page's quest data is read on arrival, and again at 0.2/1/3 s, to learn whether
+-- it stays readable once the page is hidden.
+---------------------------------------------------------------------------
+
+local QUEST_EVENTS = { "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "QUEST_GREETING", "QUEST_FINISHED",
+  "QUEST_ACCEPTED", "GOSSIP_SHOW", "GOSSIP_CLOSED",
+  "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }
+local QUEST_PAGE_EVENTS = { QUEST_DETAIL = "detail", QUEST_PROGRESS = "progress", QUEST_COMPLETE = "complete",
+  QUEST_GREETING = "greeting" }
+local QUEST_APIS = { "QuestFrame", "HideUIPanel", "GetQuestID", "GetTitleText", "GetQuestText", "GetObjectiveText",
+  "C_GossipInfo.SelectAvailableQuest", "C_GossipInfo.SelectActiveQuest" }
+-- { table, function, byID }: which ways a quest pick can travel (the game's quest-list NPCs pass an index).
+local QUEST_ENTRY_POINTS = {
+  { "C_GossipInfo", "SelectAvailableQuest", true },
+  { "C_GossipInfo", "SelectActiveQuest", true },
+  { "_G", "SelectAvailableQuest", false },
+  { "_G", "SelectActiveQuest", false },
+}
+local QUEST_SAMPLE_AT = { 0.2, 1, 3 } -- seconds after a page opens that the frame and its data are looked at
+local QUEST_FADE_FOR = 4 -- seconds the fade mode keeps the page invisible
+local QUEST_STEP_KEEP = 60
+local QUEST_RUNS_KEEP = 20
+local QUEST_PICK_WITHIN = 5 -- a page this soon after a quest pick is that pick's page
+
+local function callGlobal(name, ...)
+  local f = rawget(_G, name)
+  if type(f) ~= "function" then return nil end
+  local ok, v = pcall(f, ...)
+  if ok then return v end
+  return nil
+end
+
+-- What the game's quest functions say about the page that is open now.
+local function readQuestData()
+  local d = { id = callGlobal("GetQuestID"), title = safeString(callGlobal("GetTitleText")) }
+  local text, obj = callGlobal("GetQuestText"), callGlobal("GetObjectiveText")
+  d.textLen = type(text) == "string" and #text or nil
+  d.objectiveLen = type(obj) == "string" and #obj or nil
+  d.rewards, d.choices, d.money = callGlobal("GetNumQuestRewards"), callGlobal("GetNumQuestChoices"), callGlobal("GetRewardMoney")
+  d.readable = (type(d.id) == "number" and d.id ~= 0 and (d.title or "") ~= "") and true or false
+  return d
+end
+
+-- QuestFrame: shown (true/false, nil if there is no such frame) and its alpha.
+local function questFrameState()
+  local f = rawget(_G, "QuestFrame")
+  if type(f) ~= "table" or type(f.IsShown) ~= "function" then return nil, nil end
+  local ok, shown = pcall(f.IsShown, f)
+  local alpha
+  if type(f.GetAlpha) == "function" then
+    local ok2, a = pcall(f.GetAlpha, f)
+    if ok2 then alpha = a end
+  end
+  return (ok and shown and true or false), alpha
+end
+
+local function questRound1(x) return math.floor(x * 10 + 0.5) / 10 end
+
+function Probe:QuestStep(text)
+  local r = self.questRun
+  if not r then return end
+  r.steps[#r.steps + 1] = { t = math.floor((GetTime() - r.t0) * 100 + 0.5) / 100, s = text }
+  while #r.steps > QUEST_STEP_KEEP do table.remove(r.steps, 1) end
+end
+
+function Probe:QuestChainLine()
+  local r = self.questRun
+  local parts = {}
+  for _, st in ipairs(r and r.steps or {}) do parts[#parts + 1] = ("%s@%.1f"):format(st.s, st.t) end
+  return "events: " .. (#parts > 0 and table.concat(parts, " > ") or "none")
+end
+
+-- Puts a faded quest page back to full view.
+function Probe:QuestRestore(why)
+  local f = self.questFaded
+  if not f then return end
+  self.questFaded = nil
+  local frame = rawget(_G, "QuestFrame")
+  if type(frame) == "table" and type(frame.SetAlpha) == "function" then pcall(frame.SetAlpha, frame, f.alpha or 1) end
+  f.page.restoredBy = why
+  if self.questOn then P(MOTA:Color("leaf", "Quest probe") .. ": quest page back in full view (" .. why .. ")") end
+end
+
+local function questSampleText(page)
+  local parts = {}
+  for _, smp in ipairs(page.samples) do
+    parts[#parts + 1] = (smp.shown == nil and "no frame" or (smp.shown and "shown" or "hidden")) .. " at " .. secs(smp.t)
+      .. (smp.alpha and smp.shown and (" (alpha " .. ("%g"):format(smp.alpha) .. ")") or "")
+  end
+  return table.concat(parts, ", ")
+end
+
+function Probe:QuestPagePrint(page)
+  if page.printed then return end
+  page.printed = true
+  local tag = MOTA:Color("leaf", "Quest probe")
+  local d = page.data
+  P(tag .. ": quest page " .. page.kind .. " " .. tostring(d.id) .. (d.title and d.title ~= "" and (' "' .. d.title .. '"') or "")
+    .. (page.mode ~= "hide" and (" [" .. page.mode .. "]") or ""))
+  P("  data on arrival: readable: " .. yesno(d.readable) .. " · text " .. tostring(d.textLen) .. " chars · objectives "
+    .. tostring(d.objectiveLen) .. " chars · rewards " .. tostring(d.rewards) .. " + choices " .. tostring(d.choices))
+  if page.pickedVia then P("  picked from the gossip window by: " .. page.pickedVia .. (page.pickedID and (" (quest " .. tostring(page.pickedID) .. ")") or "")) end
+  if page.frameFound == false then
+    P("  No QuestFrame in this client.")
+  elseif page.tried then
+    P("  our hide: tried / changed the page: " .. yesno(page.changed)
+      .. (page.hideError and (" (error: " .. page.hideError .. ")") or "")
+      .. " · frame shown before: " .. yesno(page.shownBefore) .. ", after: " .. yesno(page.shownAfter))
+  elseif page.faded then
+    P("  our fade: page made invisible (alpha " .. tostring(page.alphaAfter) .. ") for " .. QUEST_FADE_FOR .. " s"
+      .. (page.restoredBy and (", then put back (" .. page.restoredBy .. ")") or ""))
+  elseif page.mode == "nohide" then
+    P("  our hide: not tried (control run: we do NOT touch the quest page)")
+  else
+    P("  our hide: not tried")
+  end
+  P("  frame after: " .. questSampleText(page))
+  local last = page.samples[#page.samples]
+  if page.finishedAt then
+    P("  the conversation ended (QUEST_FINISHED) " .. secs(page.finishedAt) .. " after the page opened")
+  else
+    P("  the conversation is still alive at " .. secs(QUEST_SAMPLE_AT[#QUEST_SAMPLE_AT]) .. " · quest data readable: "
+      .. yesno(last and last.readable))
+  end
+end
+
+-- A quest page (detail, progress, complete or greeting) just opened.
+function Probe:QuestPageOpened(event)
+  local r = self.questRun
+  if not r then return end
+  local now = GetTime()
+  local page = { at = GetServerTime(), t = now, kind = QUEST_PAGE_EVENTS[event], event = event, mode = self.questMode,
+    samples = {}, data = readQuestData() }
+  local pick = self.questLastPick
+  if pick and now - pick.t <= QUEST_PICK_WITHIN then page.pickedVia, page.pickedID = pick.via, pick.id end
+  keep(r.pages, page)
+  self.questPage = page
+  if not (C_Timer and C_Timer.After) then return end
+  -- The game's own handler may show the frame after this event: act a moment later.
+  pcall(C_Timer.After, 0, function()
+    if not self.questOn then return end
+    local ok, err = pcall(function()
+      local shown, alpha = questFrameState()
+      page.frameFound, page.shownBefore, page.alphaBefore = shown ~= nil, shown, alpha
+      local frame = rawget(_G, "QuestFrame")
+      if shown == nil or page.mode == "nohide" then return end
+      if page.mode == "hide" then
+        if rawget(_G, "HideUIPanel") then
+          local hok, herr = pcall(HideUIPanel, frame)
+          page.tried = true
+          if not hok then page.hideError = safeString(herr) end
+          local after = questFrameState()
+          page.shownAfter = after
+          page.changed = (hok and shown and not after) and true or false
+        end
+      elseif page.mode == "fade" and type(frame.SetAlpha) == "function" then
+        self:QuestRestore("a new page opened")
+        local fok, ferr = pcall(frame.SetAlpha, frame, 0)
+        page.faded = fok
+        if not fok then page.hideError = safeString(ferr) end
+        local after, aAlpha = questFrameState()
+        page.shownAfter, page.alphaAfter = after, aAlpha
+        if fok then
+          self.questFaded = { alpha = alpha or 1, page = page }
+          -- Put back whether or not the probe is still on, so the page is never left invisible.
+          pcall(C_Timer.After, QUEST_FADE_FOR, function()
+            if self.questFaded and self.questFaded.page == page then self:QuestRestore("after " .. QUEST_FADE_FOR .. " s") end
+          end)
+        end
+      end
+    end)
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+  for i, at in ipairs(QUEST_SAMPLE_AT) do
+    pcall(C_Timer.After, at, function()
+      if not self.questOn then return end
+      local ok, err = pcall(function()
+        local shown, alpha = questFrameState()
+        local d = readQuestData()
+        page.samples[#page.samples + 1] = { t = at, shown = shown, alpha = alpha, id = d.id, readable = d.readable }
+        if i == #QUEST_SAMPLE_AT then self:QuestPagePrint(page) end
+      end)
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end)
+  end
+end
+
+function Probe:QuestEvent(event, ...)
+  local tag = MOTA:Color("leaf", "Quest probe")
+  if QUEST_PAGE_EVENTS[event] then
+    self:QuestStep(event)
+    P(tag .. ": " .. event)
+    self:QuestPageOpened(event)
+  elseif event == "QUEST_FINISHED" then
+    local pg = self.questPage
+    if pg and not pg.finishedAt then pg.finishedAt = questRound1(GetTime() - pg.t) end
+    self:QuestStep("QUEST_FINISHED")
+    P(tag .. ": QUEST_FINISHED")
+    self:QuestRestore("the conversation ended")
+  elseif event == "QUEST_ACCEPTED" then
+    self:QuestStep("QUEST_ACCEPTED")
+    P(tag .. ": QUEST_ACCEPTED (by you: this probe never accepts)")
+  elseif event == "GOSSIP_SHOW" or event == "GOSSIP_CLOSED" then
+    self:QuestStep(event == "GOSSIP_SHOW" and "GOSSIP_SHOW" or "GOSSIP_CLOSED")
+  else
+    local kind = ...
+    local name = interactionName(kind)
+    self:QuestStep((event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" and "INT+" or "INT-") .. (name or tostring(kind)))
+  end
+end
+
+function Probe:QuestHookEntryPoints(r)
+  self.questEntryHooked = self.questEntryHooked or {}
+  r.entryPoints = {}
+  for _, e in ipairs(QUEST_ENTRY_POINTS) do
+    local tname, fname, byID = e[1], e[2], e[3]
+    local label = (tname == "_G" and "" or (tname .. ".")) .. fname
+    local tbl = tname == "_G" and _G or rawget(_G, tname)
+    if not self.questEntryHooked[label] and type(tbl) == "table" and type(tbl[fname]) == "function" then
+      self.questEntryHooked[label] = pcall(hooksecurefunc, tbl, fname, function(arg1)
+        if not self.questOn then return end
+        local ok, err = pcall(function()
+          self.questLastPick = { t = GetTime(), via = fname, id = byID and arg1 or nil }
+          self:QuestStep("pick " .. fname .. (byID and (" quest " .. tostring(arg1)) or (" index " .. tostring(arg1))))
+        end)
+        if not ok then P("Quest probe error:", safeString(err)) end
+      end)
+    end
+    r.entryPoints[label] = self.questEntryHooked[label] == true
+  end
+end
+
+-- "can the game's quest page be hidden while the conversation stays alive", from our own
+-- hide or fade attempts. Returns the overall line and one line per page we acted on.
+function Probe:QuestVerdict()
+  local r = self.questRun
+  local lines, n, yes, no = {}, 0, 0, 0
+  local lastAt = QUEST_SAMPLE_AT[#QUEST_SAMPLE_AT]
+  if r.mode ~= "nohide" then
+    for _, p in ipairs(r.pages) do
+      if p.tried or p.faded then
+        n = n + 1
+        local name = "page " .. tostring(p.data.id) .. (p.data.title and p.data.title ~= "" and (' "' .. p.data.title .. '"') or "")
+        local act = p.tried and "hide" or "fade"
+        local hidden = p.tried and p.changed == true or (p.faded and p.alphaAfter ~= nil and p.alphaAfter <= 0.01) or false
+        local ended = p.finishedAt ~= nil and p.finishedAt <= lastAt
+        local v, text
+        if not hidden then
+          v, text = "no", ("verdict: no, %s: our %s did not hide it"):format(name, act)
+        elseif ended then
+          v, text = "no", ("verdict: no, %s: our %s hid it but the conversation ended (QUEST_FINISHED %s after the page opened)")
+            :format(name, act, secs(p.finishedAt))
+        elseif #p.samples < #QUEST_SAMPLE_AT then
+          v, text = "unclear", ("verdict: unclear, %s: stopped before %s, so the conversation was not followed long enough"):format(name, secs(lastAt))
+        else
+          local last = p.samples[#p.samples]
+          if last.readable then
+            v, text = "yes", ("verdict: yes, %s: our %s hid it and the conversation stayed alive with the quest data readable at %s")
+              :format(name, act, secs(lastAt))
+          else
+            v, text = "unclear", ("verdict: unclear, %s: our %s hid it and no QUEST_FINISHED came, but the quest data was not readable at %s")
+              :format(name, act, secs(lastAt))
+          end
+        end
+        p.verdict = v
+        if v == "yes" then yes = yes + 1 elseif v == "no" then no = no + 1 end
+        lines[#lines + 1] = text
+      end
+    end
+  end
+  local word = (n == 0 and "unclear") or (yes == n and "yes") or (no == n and "no") or "unclear"
+  r.verdict, r.verdictPages = word, n
+  return ("can the game's quest page be hidden while the conversation stays alive: %s (%d page%s)")
+    :format(word, n, n == 1 and "" or "s"), lines
+end
+
+function Probe:QuestOff()
+  local tag = MOTA:Color("leaf", "Quest probe")
+  local r = self.questRun
+  self:QuestRestore("probe off")
+  if r then
+    for _, p in ipairs(r.pages) do
+      if not p.printed then self:QuestPagePrint(p) end
+    end
+    P("  " .. self:QuestChainLine())
+    if r.mode == "nohide" then
+      P(tag .. ": control run: we did NOT touch the quest page, so there is no verdict.")
+      for _, p in ipairs(r.pages) do
+        local last = p.samples[#p.samples]
+        P(tag .. (": control: page %s: frame %s at %s, quest data readable: %s%s"):format(tostring(p.data.id),
+          last and (last.shown == nil and "not found" or (last.shown and "still shown" or "hidden")) or "not sampled",
+          last and secs(last.t) or "-", yesno(last and last.readable),
+          p.finishedAt and (", conversation ended " .. secs(p.finishedAt) .. " after it opened") or ""))
+      end
+      r.verdict, r.verdictPages = nil, nil
+    else
+      local line, lines = self:QuestVerdict()
+      for _, l in ipairs(lines) do P(tag .. ": " .. l) end
+      P(tag .. ": " .. line)
+    end
+  end
+end
+
+function Probe:Quest(arg)
+  local tag = MOTA:Color("leaf", "Quest probe")
+  if arg == "off" then
+    if self.questOn then
+      local ok, err = pcall(self.QuestOff, self)
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end
+    if self.questWatch then self.questWatch:UnregisterAllEvents() end
+    self.questOn = false
+    local qr = MOTA.db.probe and MOTA.db.probe.quest
+    return P(tag .. ": off. What it saw stays in the saved file (probe.quest)."
+      .. (qr and qr.run and (" Run " .. qr.run .. " saved.") or ""))
+  end
+
+  self:QuestRestore("a new run started")
+  local mode = (arg == "nohide" or arg == "fade") and arg or "hide"
+  MOTA.db.probe = MOTA.db.probe or {}
+  local probe = MOTA.db.probe
+  probe.questRuns = probe.questRuns or {}
+  local runs = probe.questRuns
+  local maxRun = 0
+  for _, x in ipairs(runs) do if type(x.run) == "number" and x.run > maxRun then maxRun = x.run end end
+  local r = { run = maxRun + 1, at = GetServerTime(), startTime = time(), t0 = GetTime(), mode = mode,
+    pages = {}, steps = {}, apis = {}, events = {} }
+  probe.quest = r -- the latest run; also in questRuns (the same table, so live updates are what is saved)
+  runs[#runs + 1] = r
+  while #runs > QUEST_RUNS_KEEP do table.remove(runs, 1) end
+  self.questRun, self.questMode, self.questPage, self.questLastPick = r, mode, nil, nil
+  P(tag .. ": run " .. r.run .. " saved (earlier runs kept in MOTADB.probe.questRuns)")
+  P(tag .. ": mode: " .. (mode == "nohide" and "nohide, control run: we do NOT touch the quest page"
+    or mode == "fade" and ("fade: the quest page goes invisible for " .. QUEST_FADE_FOR .. " s, then comes back (do not click while it is invisible)")
+    or "hide (normal run: the quest page is closed right after it opens; the quest is not accepted or declined)"))
+  local missing = {}
+  for _, name in ipairs(QUEST_APIS) do
+    local present = lookup(_G, name) ~= nil
+    r.apis[name] = present
+    if not present then missing[#missing + 1] = name end
+  end
+  P(tag .. ":", #missing == 0 and "every quest function is present" or ("missing: " .. table.concat(missing, ", ")))
+
+  self.questOn = true
+  if not self.questWatch then
+    self.questWatch = CreateFrame("Frame")
+    self.questWatch:SetScript("OnEvent", function(_, event, ...)
+      if not self.questOn then return end
+      local ok, err = pcall(self.QuestEvent, self, event, ...)
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end)
+  end
+  local heard = 0
+  for _, event in ipairs(QUEST_EVENTS) do
+    r.events[event] = pcall(self.questWatch.RegisterEvent, self.questWatch, event)
+    if r.events[event] then heard = heard + 1 end
+  end
+  self:QuestHookEntryPoints(r)
+  local eps = {}
+  for label, on in pairs(r.entryPoints) do eps[#eps + 1] = label .. "=" .. (on and "yes" or "no") end
+  table.sort(eps)
+  P("Watching quest pages. Events registered:", heard .. " of " .. #QUEST_EVENTS, "· quest pick hooks:", table.concat(eps, ", "))
+  P("Talk to an NPC with a quest and click it" .. (mode == "nohide" and ", then leave the windows alone for 30 s" or "")
+    .. ". Never accept it. `/mota probe quest off` stops it. Results save on /reload.")
 end
 
 ---------------------------------------------------------------------------
