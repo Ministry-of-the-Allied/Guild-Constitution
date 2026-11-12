@@ -114,8 +114,10 @@ end
 function C:OpenMapStepAside()
   local w = openMapSettings()
   if not w or not MOTA.db then return end
+  -- Playing Hide and Seek, OpenMap's sharing is held off too (Hide.lua).
+  local playing = MOTA.Hide and MOTA.Hide:Silenced()
   for key, ours in pairs(OPENMAP_SWITCHES) do
-    if MOTA.db.settings[ours] then
+    if MOTA.db.settings[ours] or (playing and key == "friendsShare") then
       if not held[key] then held[key] = { value = w[key] } end
       if w[key] ~= false then w[key] = false end
     elseif held[key] then
@@ -143,6 +145,7 @@ MOTA:On("PLAYER_LOGIN", function()
   C_Timer.NewTicker(5, function() C:OpenMapStepAside() end)
 end)
 MOTA:Listen("DOTS_CHANGED", function() C:OpenMapStepAside() end)
+MOTA:Listen("HIDE_CHANGED", function() C:OpenMapStepAside() end)
 MOTA:On("PLAYER_LOGOUT", function() C:OpenMapGiveBack() end)
 
 ---------------------------------------------------------------------------

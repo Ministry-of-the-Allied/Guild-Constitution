@@ -3,7 +3,8 @@
 -- count it (Cup.lua) and the winners are honoured (Honours.lua).
 --
 --   game.result  the Crown or the Minister of Games
---                { g = kind, name, places = { first, second, ... }, ds = { district of each } }
+--                { g = kind, name, places = { first, second, ... }, ds = { district of each },
+--                  at = { place of each } }  (optional: shared places, as { 1, 1, 2, 3 })
 --
 -- Results come from the games themselves (the treasure hunt and the lottery,
 -- later) or are written by hand for games run in the world:
@@ -38,6 +39,20 @@ function Games:CanRun(name)
   return MOTA:IsCrown(name) or name == self:Minister()
 end
 
+-- Shared places: one rank per name, starting at 1, never going down.
+function Games:ValidAt(at, n)
+  if type(at) ~= "table" or #at ~= n or at[1] ~= 1 then return false end
+  for i, v in ipairs(at) do
+    if type(v) ~= "number" or v < 1 or v > n or (i > 1 and v < at[i - 1]) then return false end
+  end
+  return true
+end
+
+-- The place of the i-th name in a result.
+function Games:PlaceOf(e, i)
+  return type(e.at) == "table" and e.at[i] or i
+end
+
 MOTA.Book.rules["game.result"] = function(a, rec)
   local d = rec and rec.d or {}
   if not Games:CanRun(a) or not Games.KINDS[d.g] or not str(d.name, 60) then return false end
@@ -45,6 +60,7 @@ MOTA.Book.rules["game.result"] = function(a, rec)
   for _, n in ipairs(d.places) do
     if not str(n, 40) then return false end
   end
+  if d.at ~= nil and not Games:ValidAt(d.at, #d.places) then return false end
   return true
 end
 
@@ -56,7 +72,7 @@ local function build()
     -- results stand after they leave the post), so only the shape is checked here.
     if r.k == "game.result" and type(r.d) == "table" and type(r.d.places) == "table" and r.d.places[1] then
       local d = r.d
-      out[#out + 1] = { t = r.t, by = r.a, g = d.g, name = d.name, places = d.places, ds = d.ds or {} }
+      out[#out + 1] = { t = r.t, by = r.a, g = d.g, name = d.name, places = d.places, ds = d.ds or {}, at = Games:ValidAt(d.at, #d.places) and d.at or nil }
     end
   end
   return out
@@ -68,8 +84,9 @@ function Games:Log()
   return cache
 end
 
--- Writes a result. places are names, first place first.
-function Games:Record(kind, name, places)
+-- Writes a result. places are names, first place first; at (optional) gives
+-- each name's place, for ties.
+function Games:Record(kind, name, places, at)
   if not self:CanRun(MOTA.me) then return nil, "Only the Crown and the Minister of Games record the guild's games." end
   kind = self.KINDS[kind] and kind or "other"
   name = name and strtrim(name) or ""
@@ -87,15 +104,17 @@ function Games:Record(kind, name, places)
     local district = MOTA.District and MOTA.District:Of(who)
     ds[i] = district and district.code or ""
   end
-  return MOTA.Book:Write("game.result", { g = kind, name = name, places = clean, ds = ds })
+  if at ~= nil and not self:ValidAt(at, #clean) then return nil, "Those places don't add up." end
+  return MOTA.Book:Write("game.result", { g = kind, name = name, places = clean, ds = ds, at = at })
 end
 
 -- One line per result, for /mota games.
 function Games:Line(e)
   local shown = {}
   for i, n in ipairs(e.places) do
-    if i > 3 then break end
-    shown[#shown + 1] = ({ "1st", "2nd", "3rd" })[i] .. " " .. MOTA:Short(n)
+    local p = self:PlaceOf(e, i)
+    if p > 3 then break end
+    shown[#shown + 1] = ({ "1st", "2nd", "3rd" })[p] .. " " .. MOTA:Short(n)
   end
   return date("%d %b", e.t) .. " · " .. e.name .. " (" .. (self.KINDS[e.g] or "Game") .. ") · " .. table.concat(shown, ", ")
 end
@@ -109,10 +128,15 @@ MOTA:Listen("RECORD_ADDED", function(self, rec)
   self:Fire("GAMES_CHANGED")
   local d = rec.d or {}
   if self.Book.replaying or not self.Herald or type(d.places) ~= "table" or not d.places[1] then return end
-  local rest = {}
-  for i = 2, math.min(3, #d.places) do rest[#rest + 1] = MOTA:Short(d.places[i]) end
+  local firsts, rest = {}, {}
+  for i = 1, #d.places do
+    local p = Games:PlaceOf(d, i)
+    if p == 1 then firsts[#firsts + 1] = MOTA:Short(d.places[i])
+    elseif p <= 3 and #rest < 2 then rest[#rest + 1] = MOTA:Short(d.places[i]) end
+  end
+  local who = #firsts > 1 and (table.concat(firsts, ", ", 1, #firsts - 1) .. " and " .. firsts[#firsts] .. " share") or (firsts[1] .. " wins")
   self.Herald:Announce({ seal = "official", eyebrow = "The Games",
-    title = self:Short(d.places[1]) .. " wins " .. tostring(d.name),
+    title = who .. " " .. tostring(d.name),
     text = #rest > 0 and ("Then " .. table.concat(rest, ", then ") .. ". Well played, all.") or "Well played, all.",
     button = { label = "Dismiss", style = "quiet" } })
 end)
