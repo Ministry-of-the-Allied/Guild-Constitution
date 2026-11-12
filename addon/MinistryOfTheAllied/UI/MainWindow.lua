@@ -242,6 +242,7 @@ function UI:InkWindow()
   ink(self.whoSmall, "PALE_INK")
   ink(self.footLeft, "PALE_INK")
   ink(self.footRight, "PALE_INK")
+  ink(self.footHint, "PALE_INK")
 end
 
 -- The window border (Max, 8 Nov: the lit tab's ornament round the whole window,
@@ -425,13 +426,27 @@ end
 -- Building the window
 ---------------------------------------------------------------------------
 
-local function buildKnob(f, piece, slot, tooltip, onClick)
+-- slot: a slot's name, or a { x, y, w, h } of its own; place (optional) puts the
+-- piece's picture centred on the knob, for a piece drawn somewhere else on the board.
+-- piece nil: place(b, layer) makes the whole picture itself (the admin knob).
+local function buildKnob(f, piece, slot, tooltip, onClick, place)
   local b = CreateFrame("Button", nil, f)
-  local s = UI:AtSlot(b, slot, 0, HEADER_DROP)
+  local s
+  if type(slot) == "table" then
+    s = slot
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", f, "TOPLEFT", s.x, -(s.y + HEADER_DROP))
+  else
+    s = UI:AtSlot(b, slot, 0, HEADER_DROP)
+  end
   b:SetSize(s.w, s.h)
   b:SetFrameLevel(f:GetFrameLevel() + 15)
-  UI:SkinPiece(b, piece, "skin", "ARTWORK", 0, 0, HEADER_DROP)
-  local glow = UI:SkinPiece(b, piece, "skin", "HIGHLIGHT", 0, 0, HEADER_DROP)
+  local function picture(layer)
+    if piece then return UI:SkinPiece(b, piece, "skin", layer, 0, 0, HEADER_DROP, place) end
+    return place(b, layer) -- a picture of its own (the admin knob)
+  end
+  picture("ARTWORK")
+  local glow = picture("HIGHLIGHT")
   glow:SetBlendMode("ADD")
   glow:SetAlpha(0.3)
   b:SetScript("OnClick", onClick)
@@ -442,12 +457,49 @@ local function buildKnob(f, piece, slot, tooltip, onClick)
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- lit while its page is open (the Settings board's .knob.lit)
-  b.lit = UI:SkinPiece(b, piece, "skin", "OVERLAY", 0, 0, HEADER_DROP)
+  b.lit = picture("OVERLAY")
   b.lit:SetBlendMode("ADD")
   b.lit:SetAlpha(0.45)
   b.lit:Hide()
   return b
 end
+
+-- The admin knob's picture: a cell of Media/admin_knob.tga for the current skin, drawn
+-- exactly as the gear knob's piece is (same size, same place against its slot) and
+-- re-drawn when the skin changes. Returns the maker buildKnob calls for each layer.
+local ADMIN_CELL, ADMIN_CELLS = 128, 4
+local ADMIN_ORDER = { crown = 0, exchange = 1, ministry = 2, silverhand = 3 }
+local adminArt = {}
+
+local function wearAdminArt(e)
+  local file = MOTA.skin and MOTA.skin.FILE
+  local cell = ADMIN_ORDER[file] or 0
+  local p = M.pieces[UI:SkinName("knobSettings", "skin")]
+  local slot = M.slots["knob-settings"]
+  local w, h = p.w * 2, p.h * 2 -- the crop's pixels: the board is drawn at twice its size
+  local sheet = ADMIN_CELL * ADMIN_CELLS
+  local t = e.t
+  t:SetTexture(M.dir .. "admin_knob.tga", "CLAMP", "CLAMP", "TRILINEAR")
+  t:SetTexCoord(cell * ADMIN_CELL / sheet, (cell * ADMIN_CELL + w) / sheet, 0, h / ADMIN_CELL)
+  t:SetSize(p.w, p.h)
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", UI.window, "TOPLEFT",
+    e.at.x + (p.x - slot.x), -(e.at.y + HEADER_DROP + (p.y - slot.y)))
+end
+
+local function adminKnobArt(at)
+  return function(b, layer)
+    local t = b:CreateTexture(nil, layer, nil, 0)
+    local e = { t = t, at = at }
+    adminArt[#adminArt + 1] = e
+    wearAdminArt(e)
+    return t
+  end
+end
+
+MOTA:Listen("SKIN_CHANGED", function()
+  for _, e in ipairs(adminArt) do wearAdminArt(e) end
+end)
 
 function UI:Build()
   if self.window then return self.window end
@@ -492,6 +544,14 @@ function UI:Build()
   }
   self.knobSettings = buildKnob(f, "knobSettings", "knob-settings", "Settings", function() UI:ShowSettings() end)
   buildKnob(f, "knobClose", "knob-close", "Close", function() f:Hide() end)
+  -- Admin Controls (Max, 10 Nov): the Crown's own knob, one place left of the gear (the
+  -- close knob to the gear is 49 units): the gear knob's shape and colours with a lock
+  -- where the gear is (Media/admin_knob.tga, one cell per skin; tools/textures/admin_knob.py).
+  -- Crown only.
+  local gear = M.slots["knob-settings"]
+  local at = { x = gear.x - 49, y = gear.y, w = gear.w, h = gear.h }
+  self.knobAdmin = buildKnob(f, nil, at, "Admin Controls", function() UI:ShowAdmin() end, adminKnobArt(at))
+  self.knobAdmin:Hide()
 
   -- The tab rail.
   self.tabs = {}
@@ -530,10 +590,17 @@ function UI:Build()
   self:SkinPiece(f, "pip", "metal", "ARTWORK")
   self.footLeft = text(f, "foot", "AFC0E6")
   self:AtSlot(self.footLeft, "foot-left", 36, 5) -- clear of the corner ornament
+  -- The place and weekday sit in the middle of the strip since 11 Nov.
   self.footRight = text(f, "foot", "AFC0E6")
   local fr = M.slots["foot-right"]
-  self.footRight:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w - 36, -(fr.y + 5)) -- clear of the corner ornament
-  self.footRight:SetJustifyH("RIGHT")
+  self.footRight:SetPoint("TOP", f, "TOPLEFT", M.window.w / 2, -(fr.y + 5))
+  self.footRight:SetJustifyH("CENTER")
+  -- A fixed hint at the right end, where the place used to be: it points at the
+  -- bottom right grab corner (the drag-to-resize grip).
+  self.footHint = text(f, "foot", "AFC0E6")
+  self.footHint:SetPoint("TOPRIGHT", f, "TOPLEFT", fr.x + fr.w - 36, -(fr.y + 5)) -- clear of the corner ornament
+  self.footHint:SetJustifyH("RIGHT")
+  self.footHint:SetText(("Drag corner to resize ->"):upper())
 
   -- The crest goes on top of everything, breaking out over the frame.
   local top = CreateFrame("Frame", nil, f)
@@ -551,9 +618,11 @@ function UI:Build()
   end)
   f:SetScript("OnHide", function()
     play("IG_CHARACTER_INFO_CLOSE")
+    if UI.HideAdmin then UI:HideAdmin() end -- the Admin Controls window shuts with it
     if UI.ticker then UI.ticker:Cancel() UI.ticker = nil end
   end)
 
+  self:BuildGrips(f)
   self:RestorePosition()
   self:SelectPage(MOTA.db.window.page or 1)
   return f
@@ -633,6 +702,16 @@ local function weekday()
   return date("%A")
 end
 
+-- The Admin Controls knob is there for the Crown alone; if the player stops being
+-- the Crown (a new rank), the window goes too.
+function UI:RefreshAdminKnob()
+  if not self.knobAdmin then return end
+  local crown = MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
+  self.knobAdmin:SetShown(crown)
+  if not crown and self.HideAdmin then self:HideAdmin() end
+end
+MOTA:Listen("GUILD_READY", function() UI:RefreshAdminKnob() end)
+
 function UI:Refresh()
   if not self.window then return end
   -- Forever's UnitName gives only the first name; MOTA.me is the full name
@@ -651,6 +730,7 @@ function UI:Refresh()
     end
   end
   self.initials:SetText(MOTA:Initials(name))
+  self:RefreshAdminKnob()
   -- The canvas shows your district here; until the Citizens module, your guild rank.
   local rank = MOTA.guild and select(2, GetGuildInfo("player"))
   local district = MOTA.District and MOTA.District:Of(MOTA.me)
@@ -705,6 +785,117 @@ function UI:SetScale(scale)
   local s = math.min(scale or DEFAULT_SCALE, fit)
   self.window:SetScale(math.max(0.4, s))
   return s
+end
+
+---------------------------------------------------------------------------
+-- Drag a corner to resize the window (ADDON_SPEC.md 19.1, "Scale the UI")
+---------------------------------------------------------------------------
+
+-- Only the bottom right corner grabs (the built-in resize cursor points that way; the crest's top left never does).
+-- `fixed` is the opposite corner, which stays where it is while the window grows.
+-- dx, dy point from the fixed corner towards the dragged one.
+local GRIP = 36
+local MIN_DRAG_SCALE, MAX_DRAG_SCALE = 0.6, 1.5
+local CREST_LEFT, CREST_UP = 60, 70 -- how far the crest breaks out of the frame (see the clamp insets in Build)
+local GRIPS = {
+  { corner = "BOTTOMRIGHT", fixed = "TOPLEFT", dx = 1, dy = -1 },
+}
+
+-- Where the fixed corner is on the screen, in pixels.
+local function cornerPixels(f, corner)
+  local e = f:GetEffectiveScale()
+  local x = corner:find("LEFT") and f:GetLeft() or f:GetRight()
+  local y = corner:find("TOP") and f:GetTop() or f:GetBottom()
+  return x * e, y * e
+end
+
+-- The scale the cursor asks for, kept between the limits and on the screen.
+-- Returns the new scale as the window's own (UIParent-relative) scale.
+function UI:ScaleForCursor(g, fx, fy, cx, cy)
+  local ui = UIParent:GetEffectiveScale()
+  -- the cursor's offset from the fixed corner, projected on the window's diagonal, keeps the shape
+  local vx, vy = (cx - fx) * g.dx, (cy - fy) * g.dy
+  local eff = (vx * W + vy * H) / (W * W + H * H)
+  eff = math.max(MIN_DRAG_SCALE * ui, math.min(MAX_DRAG_SCALE * ui, eff))
+  -- never so big that the far corner (and the crest, if it moves) leaves the screen
+  local sw, sh = UIParent:GetWidth() * ui, UIParent:GetHeight() * ui
+  local roomX = g.dx > 0 and (sw - fx) or fx
+  local roomY = g.dy > 0 and (sh - fy) or fy
+  local needX = W + (g.dx < 0 and CREST_LEFT or 0)
+  local needY = H + (g.dy > 0 and CREST_UP or 0)
+  eff = math.min(eff, roomX / needX, roomY / needY)
+  return eff / ui
+end
+
+function UI:ResizeLocked()
+  local f = self.window
+  return not f or (InCombatLockdown() and f.IsProtected and f:IsProtected())
+end
+
+function UI:BeginResize(g)
+  if self:ResizeLocked() then return end
+  local f = self.window
+  local fx, fy = cornerPixels(f, g.fixed)
+  self.resizing = { g = g, fx = fx, fy = fy }
+end
+
+function UI:StepResize()
+  local r = self.resizing
+  if not r then return end
+  local f = self.window
+  local cx, cy = GetCursorPosition()
+  local used = self:SetScale(self:ScaleForCursor(r.g, r.fx, r.fy, cx, cy))
+  local k = UIParent:GetEffectiveScale() * used
+  f:ClearAllPoints() -- the fixed corner stays where it was
+  f:SetPoint(r.g.fixed, UIParent, "BOTTOMLEFT", r.fx / k, r.fy / k)
+end
+
+function UI:EndResize()
+  if not self.resizing then return end
+  self.resizing = nil
+  self:SavePosition()
+  MOTA.db.window.scale = self.window:GetScale()
+end
+
+function UI:BuildGrips(f)
+  self.grips = {}
+  for _, g in ipairs(GRIPS) do
+    local b = CreateFrame("Frame", nil, f)
+    b:SetSize(GRIP, GRIP)
+    b:SetPoint(g.corner, f, g.corner, 0, 0)
+    b:SetFrameLevel(f:GetFrameLevel() + 40) -- over the pages and the crest's layer
+    b:EnableMouse(true)
+    local glow = b:CreateTexture(nil, "OVERLAY")
+    glow:SetAllPoints()
+    glow:SetColorTexture(1, 0.82, 0.4, 0.16) -- a faint warm patch while the mouse is over it
+    glow:Hide()
+    b.glow = glow
+    b.grip = g
+    b:SetScript("OnEnter", function(self)
+      if UI:ResizeLocked() then return end
+      self.glow:Show()
+      if SetCursor then SetCursor("UI_RESIZE_CURSOR") end
+    end)
+    b:SetScript("OnLeave", function(self)
+      if not UI.resizing then self.glow:Hide() end
+      if SetCursor and not UI.resizing then SetCursor(nil) end
+    end)
+    b:SetScript("OnMouseDown", function(self, button)
+      if button == "LeftButton" then UI:BeginResize(g) end
+    end)
+    b:SetScript("OnMouseUp", function(self)
+      UI:EndResize()
+      if not self:IsMouseOver() then
+        self.glow:Hide()
+        if SetCursor then SetCursor(nil) end
+      end
+    end)
+    b:SetScript("OnUpdate", function()
+      if UI.resizing then UI:StepResize() end
+    end)
+    b:SetScript("OnHide", function() UI:EndResize() end)
+    self.grips[#self.grips + 1] = b
+  end
 end
 
 function UI:Toggle()

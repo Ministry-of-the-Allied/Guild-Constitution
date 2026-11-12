@@ -58,8 +58,9 @@ Hide.MAX_OV = 12
 
 -- Add-ons that tell the guild where its members stand, so hiders would show
 -- on a map: players with one loaded can't join until they turn it off.
--- { folder = "...", label = "..." }. Empty until we find one in use (OpenMap
--- only draws the map; it shares nothing).
+-- { folder = "...", label = "..." }. Empty for now: our own guild dots
+-- (Dots.lua) go quiet for players, and OpenMap's "Share where you are" is
+-- held off while they play (UI/MapCompat.lua).
 Hide.BLOCKED = {}
 
 -- The game's settings that show friendly players' names.
@@ -550,6 +551,14 @@ function Hide:MapBlocked()
   local G = self:Current()
   local s = self:Stage(G)
   return G ~= nil and G.nmap and (s == "hiding" or s == "seeking") and self:Role(MOTA.me, G) ~= nil and self:Role(MOTA.me, G) ~= "out"
+end
+
+-- Playing (hiding or seeking, not out): the guild dots (Dots.lua) stay quiet.
+function Hide:Silenced()
+  local G = self:Current()
+  local s = self:Stage(G)
+  local role = G and self:Role(MOTA.me, G)
+  return (s == "hiding" or s == "seeking") and role ~= nil and role ~= "out"
 end
 
 local hooked

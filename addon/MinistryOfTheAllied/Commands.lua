@@ -13,6 +13,19 @@ local function add(name, usage, help, fn, shown)
   order[#order + 1] = { name = name, usage = usage, help = help, shown = shown }
 end
 
+local function isCrown()
+  return MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
+end
+
+-- Who may use which command (Max, 10 Nov): every command is the Crown's alone,
+-- except the ones named here. Add a command's name to OPEN to let everyone use it
+-- (for the guild to test or look at a feature); a command's own checks still apply.
+local OPEN = { help = true, noconfidence = true, settings = true, dots = true }
+
+local function allowed(name)
+  return OPEN[name] == true or isCrown()
+end
+
 local function needGuild()
   if MOTA.guild then return true end
   if IsInGuild() then
@@ -26,7 +39,7 @@ end
 
 local function showHelp()
   for _, c in ipairs(order) do
-    if not c.shown or c.shown() then
+    if allowed(c.name) and (not c.shown or c.shown()) then
       MOTA:Print(MOTA:Color("leaf", "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")), "·", c.help)
     end
   end
@@ -222,10 +235,6 @@ add("scale", "<size>", "the window's size, such as 0.8 (blank for the default)",
   local used = MOTA.UI:SetScale(n)
   MOTA:Print(("Window size %.2f%s."):format(used, n and used < n and " (as big as fits your screen)" or ""))
 end)
-
-local function isCrown()
-  return MOTA.me ~= nil and MOTA:IsCrown(MOTA.me)
-end
 
 -- Crown ranks only (ADDON_SPEC.md 9.1): everyone else wears the skin of their
 -- guild rank, and the command isn't listed for them.
@@ -472,6 +481,15 @@ add("minimap", "", "hide or show the seal on the minimap", function()
   MOTA:Print(show and "The seal is back on the minimap." or "The minimap seal is hidden. /mota minimap brings it back.")
 end)
 
+add("dots", "[reset]", "guild members on the maps: your sharing and showing, or 'reset' to be asked the sharing question again", function(arg)
+  if arg == "reset" then return MOTA.Dots.UI:Reset() end
+  local s = MOTA.db.settings
+  local held = 0
+  for _ in pairs(MOTA.Dots.live) do held = held + 1 end
+  MOTA:Print("Guild dots: sharing", s.dotsShare and "on" or "off", "· showing", s.dotsShow and "on" or "off", "·",
+    held, held == 1 and "guild dot held" or "guild dots held")
+end)
+
 add("settings", "", "open the Ministry's settings in the game's options", function()
   MOTA.UI:OpenSettings()
 end)
@@ -515,6 +533,24 @@ add("fanfare", "[number]", "list the game's fanfare sounds, or play and choose o
   MOTA:Print("/mota fanfare <number> plays one and chooses it.")
 end)
 
+add("booksound", "[number]", "list the holy sounds for the Chronicle book, or play and choose one", function(arg)
+  local Book = MOTA.ChronicleBook
+  local list = Book:HolySounds()
+  if #list == 0 then return MOTA:Print("This client has none of the holy sounds the add-on knows.") end
+  local n = tonumber(arg)
+  if n and list[n] then
+    MOTA.db.settings.bookSound = list[n]
+    Book:PlayHoly(list[n])
+    return MOTA:Print("Holy sound", n, "(" .. list[n] .. ") chosen for the Chronicle book.")
+  end
+  local chosen = MOTA.db.settings.bookSound
+  for i, name in ipairs(list) do
+    MOTA:Print(MOTA:Color("leaf", i), name, name == chosen and MOTA:Color("leaf", "· chosen") or "")
+  end
+  MOTA:Print(chosen and "/mota booksound <number> plays one and chooses it."
+    or "None chosen: the book plays the first one the game has. /mota booksound <number> plays one and chooses it.")
+end)
+
 add("crests", "", "show the game's own Alliance crests, to choose one", function()
   MOTA.UI:ShowCrests()
 end)
@@ -533,6 +569,25 @@ add("help", "", "this list", function()
   showHelp()
 end)
 
+-- What the Admin Controls window (UI/AdminControls.lua) reads: every command, in
+-- order, with its usage and help text (the same words /mota help shows), and a way to
+-- run one exactly as if it had been typed. A command added above shows up there too.
+MOTA.Commands = {
+  list = order,
+  Allowed = allowed,
+  Open = OPEN, -- the exceptions: a name set to true here is for everyone
+  Run = function(self, name, arg)
+    local fn = commands[name]
+    if not fn then return false end
+    if not allowed(name) then
+      MOTA:Print("The Ministry's commands are for the Crown alone.")
+      return false
+    end
+    fn(arg or "")
+    return true
+  end,
+}
+
 SLASH_MINISTRYOFTHEALLIED1 = "/mota"
 SLASH_MINISTRYOFTHEALLIED2 = "/ministry"
 SlashCmdList.MINISTRYOFTHEALLIED = function(input)
@@ -543,7 +598,7 @@ SlashCmdList.MINISTRYOFTHEALLIED = function(input)
   end
   local fn = commands[cmd]
   if fn then
-    fn(rest or "")
+    MOTA.Commands:Run(cmd, rest or "")
   else
     MOTA:Print("Unknown command \"" .. cmd .. "\". Commands:")
     showHelp()

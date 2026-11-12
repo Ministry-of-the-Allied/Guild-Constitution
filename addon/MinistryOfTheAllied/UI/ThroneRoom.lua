@@ -28,9 +28,17 @@ local VIEW_H = HEIGHT - GRID_Y
 local LIVE_H, DUTY_H, PLACE_H, VGAP = 130, 104, 78, 10
 local DUTY_ROWS, DECREE_ROWS = 3, 5
 local DECREE_ROW_H = 26
--- the right column's natural height: the four panels and the decrees under them
-local BODY_H = math.max(VIEW_H, LIVE_H + DUTY_H + PLACE_H + 3 * VGAP + 18 + DECREE_ROWS * DECREE_ROW_H + 8)
-local GRID_H = BODY_H
+-- The right column, top to bottom (Max, 11 Nov): What's on, the Statute Book on its plate
+-- (UI/ChronicleBook.lua; room above the closed book for its pages to rise as they turn), Your duties,
+-- Recent decrees. Your place moved to the left column, under Who holds power.
+local DECREES_H = 18 + DECREE_ROWS * DECREE_ROW_H + 8
+local CHRONICLE_H = 228
+local COLUMN_H = LIVE_H + CHRONICLE_H + DUTY_H + DECREES_H + 3 * VGAP
+-- Who holds power is as tall as its own content needs (the longest case: a two-line Crown and Justices),
+-- with Your place right under it: no stretched gap inside the plate (Max, 10 Nov, 11 Nov)
+local GRID_H = 480
+local LEFT_COLUMN_H = GRID_H + VGAP + PLACE_H
+local BODY_H = math.max(VIEW_H, COLUMN_H, LEFT_COLUMN_H)
 -- Who holds power, in the board's numbers (the window is 1000 x 680 on the board and in the game, so 1 to 1)
 local PAD_X, PAD_Y, FLOW = 18, 16, 12      -- .plate padding 16 18; the column's gap
 local PW = LEFT_W - 2 * PAD_X              -- inside the plate
@@ -171,6 +179,7 @@ local function buildHead()
   title:SetText("The State of the Realm")
   local plate = panel(root, "blue", WIDTH - 236, 0, 236, 64)
   head.hot = link(plate)
+  head.hot.glow:Hide() -- no white wash on this plate
   head.crest = seal(plate, "hseal_crown", 46)
   head.crest:SetPoint("LEFT", plate, "LEFT", 12, 0)
   head.plateEyebrow = Kit:Label(plate, "kitTiny", "C9D6F5", 0.2, "")
@@ -302,13 +311,14 @@ local function buildPowerLinks()
 end
 
 ---------------------------------------------------------------------------
--- The right column: what's on, my duties, my place, recent decrees
+-- The right column: what's on, the Statute Book, my duties, recent decrees (my place is in the left column)
 ---------------------------------------------------------------------------
 
 local function buildLive()
   local p = panel(body, "blue", RIGHT_X, 0, RIGHT_W, LIVE_H)
   live = { frame = p }
   live.hot = link(p) -- the whole plate opens what's on; the buttons below sit above it
+  live.hot.glow:Hide() -- no white wash on this plate
   Kit:Label(p, "kitSection", "F3D98A", 0.22, "What's on"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -14)
   -- LIVE, with its red dot
   local dot = p:CreateTexture(nil, "OVERLAY")
@@ -351,7 +361,7 @@ local function buildLive()
 end
 
 local function buildDuties()
-  local y = LIVE_H + VGAP
+  local y = LIVE_H + VGAP + CHRONICLE_H + VGAP
   local p = panel(body, "plain", RIGHT_X, y, RIGHT_W, DUTY_H)
   duties = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Your duties"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -12)
@@ -367,8 +377,7 @@ local function buildDuties()
 end
 
 local function buildPlace()
-  local y = LIVE_H + VGAP + DUTY_H + VGAP
-  local p = panel(body, "plain", RIGHT_X, y, RIGHT_W, PLACE_H)
+  local p = panel(body, "plain", 0, GRID_H + VGAP, LEFT_W, PLACE_H) -- the left column, under Who holds power
   place = { frame = p }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Your place"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -12)
   place.district = chip(p)
@@ -378,14 +387,14 @@ local function buildPlace()
   place.districtHot, place.partyHot = link(place.district), link(place.party)
   place.meet = Kit:Text(p, "kitSmallest", "2A1F14")
   place.meet:SetPoint("TOPLEFT", p, "TOPLEFT", 16, -56)
-  place.meet:SetWidth(RIGHT_W - 32)
+  place.meet:SetWidth(LEFT_W - 32)
   place.meet:SetMaxLines(1)
-  place.meetHot = link(zone(p, 16, 54, RIGHT_W - 32, 16)) -- the council line belongs to the district
+  place.meetHot = link(zone(p, 16, 54, LEFT_W - 32, 16)) -- the council line belongs to the district
 end
 
 local function buildDecrees()
-  local y = LIVE_H + VGAP + DUTY_H + VGAP + PLACE_H + VGAP
-  local p = panel(body, nil, RIGHT_X, y, RIGHT_W, BODY_H - y)
+  local y = LIVE_H + VGAP + CHRONICLE_H + VGAP + DUTY_H + VGAP
+  local p = panel(body, nil, RIGHT_X, y, RIGHT_W, DECREES_H)
   decrees = { frame = p, rows = {} }
   Kit:Label(p, "kitSection", "1B3570", 0.22, "Recent decrees"):SetPoint("TOPLEFT", p, "TOPLEFT", 2, 0)
   -- "See all" opens the Chronicle
@@ -421,6 +430,15 @@ local function buildDecrees()
   decrees.none:SetPoint("TOPLEFT", p, "TOPLEFT", 2, -24)
   decrees.none:SetWidth(RIGHT_W)
   decrees.none:SetText("Nothing has been decreed yet.")
+end
+
+-- The Statute Book: a closed tome on a dark plate that opens with its pages flipping in a holy light
+-- (UI/ChronicleBook.lua); the open book opens the Charter on the Statute Book tab (Max, 11 Nov).
+local book
+local function buildChronicle()
+  local p = panel(body, "blue", RIGHT_X, LIVE_H + VGAP, RIGHT_W, CHRONICLE_H)
+  Kit:Label(p, "kitSection", "F3D98A", 0.22, "Statute Book"):SetPoint("TOPLEFT", p, "TOPLEFT", 16, -14)
+  if MOTA.ChronicleBook and MOTA.Media.chronicle then book = MOTA.ChronicleBook:Build(p, RIGHT_W, CHRONICLE_H) end
 end
 
 ---------------------------------------------------------------------------
@@ -830,11 +848,16 @@ local function build()
   buildDuties()
   buildPlace()
   buildDecrees()
+  buildChronicle()
   buildBar()
   Page.root, Page.scroll, Page.head, Page.live = root, scroll, head, live -- for the pretend client's checks
   Page.power, Page.recruit, Page.duties, Page.place, Page.decrees = power, recruit, duties, place, decrees
   Page.seeAll = decrees.seeAll
+  Page.book = book
 end
+
+-- What the open Statute Book does when clicked (UI/ChronicleBook.lua): the Charter on the Statute Book tab
+function Page:OpenCharter() go(MOTA.Throne.PAGES.statute, "charter") end
 
 -- The Throne Room has a second view, the Chronicle (UI/ChroniclePage.lua): Page:Open("chronicle") and
 -- Page:Open("state"). Choosing the tab itself always lands on the State of the Realm.
@@ -844,6 +867,7 @@ function Page:Show(show)
   if self.ShowChronicle then self:ShowChronicle(chronicle) end
   if show and not chronicle and not root then build() end
   if not root then return end
+  if book and not (show and not chronicle) then book:Reset() end -- the book is closed when you come back
   root:SetShown(show and not chronicle)
   if show and not chronicle then self:Refresh() end
 end

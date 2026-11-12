@@ -85,6 +85,70 @@ function C:Note()
 end
 
 ---------------------------------------------------------------------------
+-- OpenMap's own guild dots step aside (Max, 11 Nov): while our guild dots are
+-- on, OpenMap's "Guild members on the map" is held off, and while we share
+-- where you are, so is OpenMap's own "Share where you are" (they would send
+-- your place twice and draw each member twice). That way our dots, and our own
+-- hover tip, are the ones shown, with or without OpenMap.
+--
+-- OpenMap keeps no door for this (its API is read-only by design), so its two
+-- saved switches are held off in its settings table for this session only:
+-- the choices you made in OpenMap come back at logout, before the game saves
+-- them, so OpenMap's own settings are never changed for good. A switch of
+-- ours turned off gives OpenMap's back at once. OpenMap reads them again on its
+-- own within seconds. (Held again every few seconds, in case its options page
+-- turns them back on.)
+---------------------------------------------------------------------------
+
+local OPENMAP_SWITCHES = { guild = "dotsShow", friendsShare = "dotsShare" } -- OpenMap's key -> ours
+local held = {}  -- OpenMap's key -> the value it had, while we hold it off
+
+local function openMapSettings()
+  if not loaded("OpenMap") then return nil end
+  local db = _G.OpenMapDB
+  local w = type(db) == "table" and db.worldmap
+  return type(w) == "table" and w or nil
+end
+
+-- Holds OpenMap's switches off, or gives them back, to match ours.
+function C:OpenMapStepAside()
+  local w = openMapSettings()
+  if not w or not MOTA.db then return end
+  -- Playing Hide and Seek, OpenMap's sharing is held off too (Hide.lua).
+  local playing = MOTA.Hide and MOTA.Hide:Silenced()
+  for key, ours in pairs(OPENMAP_SWITCHES) do
+    if MOTA.db.settings[ours] or (playing and key == "friendsShare") then
+      if not held[key] then held[key] = { value = w[key] } end
+      if w[key] ~= false then w[key] = false end
+    elseif held[key] then
+      w[key] = held[key].value
+      held[key] = nil
+    end
+  end
+end
+
+-- Gives OpenMap's choices back (at logout, before the game saves them).
+function C:OpenMapGiveBack()
+  local w = openMapSettings()
+  if not w then return end
+  for key, h in pairs(held) do w[key] = h.value end
+  held = {}
+end
+
+-- Whether OpenMap's switch is being held off now (for the sim).
+function C:OpenMapHeld(key)
+  return held[key] ~= nil
+end
+
+MOTA:On("PLAYER_LOGIN", function()
+  C:OpenMapStepAside()
+  C_Timer.NewTicker(5, function() C:OpenMapStepAside() end)
+end)
+MOTA:Listen("DOTS_CHANGED", function() C:OpenMapStepAside() end)
+MOTA:Listen("HIDE_CHANGED", function() C:OpenMapStepAside() end)
+MOTA:On("PLAYER_LOGOUT", function() C:OpenMapGiveBack() end)
+
+---------------------------------------------------------------------------
 -- Telling EllesmereUI and ElvUI (once, at our ADDON_LOADED: before their
 -- skins run at PLAYER_LOGIN)
 ---------------------------------------------------------------------------

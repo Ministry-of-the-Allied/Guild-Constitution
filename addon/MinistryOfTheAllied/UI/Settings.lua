@@ -66,6 +66,15 @@ local GROUPS = {
       act = { label = function() return Page:KeyText() end, w = 150,
               onClick = function(b) Page:CaptureKey(b) end } },
   } },
+  -- Guild members on the maps (ADDON_SPEC.md 10.17): sharing is off until chosen here or in the one-time question.
+  { title = "Guild on the maps", rows = {
+    { key = "dotsShare", label = "Share my place", small = "Guild members with the add-on see you as a dot · never from instances", sw = SW,
+      changed = function() MOTA.db.settings.dotsAsked = true MOTA.Dots:Changed() end },
+    { key = "dotsShow", label = "Show guild dots", small = "Members who share appear on the world map and minimap", sw = SW,
+      changed = function() MOTA.Dots:Changed() end },
+    { key = "dotsReset", label = "Ask me again", small = "Turns sharing off and shows the question again the next time the map opens",
+      act = { label = "Ask again", w = 130, onClick = function() MOTA.Dots.UI:Reset() end } },
+  } },
   { title = "Coming later", rows = {
     { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members · later", sw = SW, later = true },
   } },

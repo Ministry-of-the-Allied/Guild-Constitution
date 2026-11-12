@@ -53,6 +53,7 @@ Lottery.lua
 Hunt.lua
 MapReveal.lua
 Hide.lua
+Dots.lua
 UI\Skin.lua
 UI\LiveText.lua
 UI\MainWindow.lua
@@ -76,8 +77,11 @@ UI\Districts.lua
 UI\WorldMap.lua
 UI\WorldMapSkin.lua
 UI\MapCompat.lua
+UI\Dots.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
+UI\ChronicleBook.lua
 UI\FullText.lua
+UI\AdminControls.lua
 Commands.lua
