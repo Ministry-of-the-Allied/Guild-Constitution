@@ -53,6 +53,8 @@ Lottery.lua
 Hunt.lua
 MapReveal.lua
 Hide.lua
+QuizBank.lua
+Quiz.lua
 Dots.lua
 UI\Skin.lua
 UI\LiveText.lua
@@ -71,6 +73,7 @@ UI\GamesHall.lua
 UI\HideMap.lua
 UI\HuntGlow.lua
 UI\BankPrompt.lua
+UI\QuizPrompt.lua
 UI\Parties.lua
 UI\Treasury.lua
 UI\Districts.lua
