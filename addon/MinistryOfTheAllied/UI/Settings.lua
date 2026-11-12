@@ -27,6 +27,9 @@ local BLUE = "1B3570"                   -- the accent's ink (Kit follows the ski
 -- Each row: a switch (sw) or a choice (seg: the box's piece and slot, then
 -- value, button slot, piece prefix).
 local SW = { slot = "sw1", on = { "swOn", "sw1" }, off = { "swOff", "sw4" } }
+-- The far markers' choice (NPC markers): its words and the order a click goes round.
+local FAR_LABEL = { arrow = "Arrow", strip = "Compass strip", both = "Both", off = "Off" }
+local FAR_NEXT = { arrow = "strip", strip = "both", both = "off", off = "arrow" }
 local GROUPS = {
   { title = "Heralds", rows = {
     { key = "herald", label = "Herald pop-ups", small = "Announce votes, laws and defections live", sw = SW },
@@ -74,6 +77,24 @@ local GROUPS = {
       changed = function() MOTA.Dots:Changed() end },
     { key = "dotsReset", label = "Ask me again", small = "Turns sharing off and shows the question again the next time the map opens",
       act = { label = "Ask again", w = 130, onClick = function() MOTA.Dots.UI:Reset() end } },
+  } },
+  -- Party quest markers over NPCs (ADDON_SPEC.md 10.18): on by default; far NPCs by an arrow, a compass
+  -- strip, both or nothing; the game's friendly NPC nameplates turned on near a marked NPC (UI/NPCPlates.lua).
+  -- The small words are Max's reminder (12 Nov): everyone's quests are the Crown's colour, and Arrow vs strip
+  -- (kept short, the row cuts longer words off); /mota marker help says it in full.
+  { title = "NPC markers", rows = {
+    { key = "markerShow", label = "Show quest markers", small = "A ! or ? over your party's quest NPCs · everyone's quests in Crown purple", sw = SW,
+      changed = function() MOTA.Markers.UI:Rescan() MOTA.Markers.UI.Names:Tick() end },
+    { key = "markerFar", label = "Far markers", small = "Arrow: easiest to see, behind you too · Strip: quieter · Both: the two",
+      act = { w = 130,
+              label = function() return FAR_LABEL[MOTA.Markers:Far()] end,
+              onClick = function(b)
+                MOTA.db.settings.markerFar = FAR_NEXT[MOTA.Markers:Far()]
+                if b.SetLabel then b:SetLabel(FAR_LABEL[MOTA.Markers:Far()]) end
+                MOTA.Markers.UI:Rescan()
+              end } },
+    { key = "markerPlates", label = "Nameplates near a marker", small = "Friendly NPC nameplates on near a marked NPC, name only, off after", sw = SW,
+      changed = function() MOTA.Markers.UI.Names:Tick() MOTA.Markers.UI:Rescan() end },
   } },
   { title = "Coming later", rows = {
     { key = "cards", label = "Citizen cards", small = "Show the card when hovering guild members · later", sw = SW, later = true },

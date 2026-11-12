@@ -20,7 +20,7 @@ end
 -- Who may use which command (Max, 10 Nov): every command is the Crown's alone,
 -- except the ones named here. Add a command's name to OPEN to let everyone use it
 -- (for the guild to test or look at a feature); a command's own checks still apply.
-local OPEN = { help = true, noconfidence = true, settings = true, dots = true }
+local OPEN = { help = true, noconfidence = true, settings = true, dots = true, marker = true }
 
 local function allowed(name)
   return OPEN[name] == true or isCrown()
@@ -488,6 +488,90 @@ add("dots", "[reset]", "guild members on the maps: your sharing and showing, or 
   for _ in pairs(MOTA.Dots.live) do held = held + 1 end
   MOTA:Print("Guild dots: sharing", s.dotsShare and "on" or "off", "· showing", s.dotsShow and "on" or "off", "·",
     held, held == 1 and "guild dot held" or "guild dots held")
+end)
+
+-- Party quest markers over NPCs (ADDON_SPEC.md 10.18). Anyone can look at and test them;
+-- only the Crown marks an NPC for a party.
+add("marker", "[help|test|add|clear|list|lift|size|namesize|scale|namey|probe]", "party quest markers over NPCs: 'test' marks your target on your own screen, the Crown marks with 'add sh|ex|all [?]'", function(arg)
+  local M = MOTA.Markers
+  local sub, rest = arg:match("^(%S*)%s*(.-)$")
+  sub = (sub or ""):lower()
+  if sub == "test" then
+    local ok, what = M:Test(rest)
+    if not ok then return MOTA:Print(what) end
+    if what == "off" then return MOTA:Print("Test marks off. /mota marker test on brings them back.") end
+    if what == "on" then return MOTA:Print("Test marks back on.") end
+    return MOTA:Print("Test mark on", what, "· on your screen only, nothing is sent. /mota marker test off clears it.")
+  elseif sub == "add" then
+    local p, q = rest:lower():match("^(%S*)%s*(%S*)$")
+    if q == "?" or q == "in" then q = "in" elseif q == "" then q = nil end
+    local rec, what = M:Add(p, q)
+    if not rec then return MOTA:Print(what) end
+    return MOTA:Print(what, "now carries a", q and "hand-in marker (?)" or "quest marker (!)", "for", M.CODES[p] .. ".")
+  elseif sub == "help" then
+    -- Max's reminder (12 Nov): what the colours and the far choices mean.
+    MOTA:Print("Quest markers: a ! for a quest to pick up, a ? for one to hand in, in the party's colours. Quests for everyone always wear the Crown's dark purple: they are regular quests the Crown gives.")
+    MOTA:Print("Far markers (Settings > NPC markers): Arrow points round the middle of the screen, behind you too, and is the easiest to notice. Compass strip is quieter: pips along the top, left and right only. Both shows the two.")
+    MOTA:Print("Near a marked NPC the add-on turns the game's friendly NPC nameplates on, showing just the name, and back off after (Settings: Nameplates near a marker).")
+    return
+  elseif sub == "clear" then
+    local rec, why = M:Clear(tonumber(rest))
+    if not rec then return MOTA:Print(why) end
+    return MOTA:Print("Marker taken off.")
+  elseif sub == "list" then
+    local all = M:All()
+    if #all == 0 then return MOTA:Print("No NPC is marked.") end
+    for _, m in ipairs(all) do
+      MOTA:Print(m.npc, m.name or "", "· for", M.CODES[m.p], m.q == "in" and "· hand-in (?)" or "")
+    end
+    return
+  elseif M.UI.SIZES[sub] then
+    -- size, lift, namesize, scale, namey: one table says each one's range (UI/NPCMarkers.lua,
+    -- UI.SIZES), so a number the screen can't show is turned down, not quietly saved (Max, 12 Nov)
+    local S = M.UI.SIZES[sub]
+    local function apply(v)
+      MOTA.db.settings[S.key] = v
+      M.UI:Rescan()
+      for _, st in pairs(M.UI.Names.styled) do
+        if st.label then M.UI.Names.Follow(st.label, 0) end
+      end
+    end
+    local word = rest:lower()
+    if word == "default" then
+      apply(nil)
+      return MOTA:Print(("Marker %s back to its default, %s."):format(sub, tostring(S.default)))
+    end
+    local n = tonumber(rest)
+    if not n then
+      return MOTA:Print(("Marker %s (%s): %s now. Give a number from %s, or 'default' (%s)."):format(
+        sub, S.what, tostring(M.UI.Setting(sub)), M.UI.RangeText(sub), tostring(S.default)))
+    end
+    if n < S.min or n > S.max then
+      return MOTA:Print(("Marker %s goes from %s; %s is outside it, so nothing changed."):format(sub, M.UI.RangeText(sub), rest))
+    end
+    n = math.floor(n / S.step + 0.5) * S.step
+    if n == S.default then n = nil end -- the default itself: nothing kept
+    apply(n)
+    return MOTA:Print(("Marker %s set to %s (%s)."):format(sub, tostring(M.UI.Setting(sub)), M.UI.RangeText(sub)))
+  elseif sub == "probe" then
+    -- what the game does to nameplates with distance: run it near an NPC, then further away
+    local list = M.UI.Names:Probe()
+    if #list == 0 then return MOTA:Print("No nameplates on screen.") end
+    for _, e in ipairs(list) do
+      MOTA:Print(("%s · scale %.2f · effective %.2f · unit frame %.2f · %dx%d"):format(e.name, e.scale, e.eff, e.ufScale, e.w, e.h))
+    end
+    -- and how far the game says your target is, step by step (which items it answers for)
+    if UnitExists and UnitExists("target") then
+      MOTA:Print("Target distance:", M.UI.Names:RangeAnswers("target"), "· taken as", tostring(M.UI.Names:Yards("target")), "yards")
+    end
+    return
+  end
+  local s = MOTA.db.settings
+  local plates = C_CVar and C_CVar.GetCVar and C_CVar.GetCVar("nameplateShowFriendlyNPCs") or GetCVar and GetCVar("nameplateShowFriendlyNPCs")
+  local names = M.UI.Names
+  MOTA:Print("NPC markers:", s.markerShow ~= false and "on" or "off", "· far NPCs:", M:Far(), "·", #M:List(), "visible to you ·",
+    "friendly NPC nameplates:", plates == "1" and (names and names.holding and "on, by the add-on while a marked NPC is near" or "on") or (plates == "0" and "off" or "unknown"),
+    "· /mota marker help says what the colours and choices mean")
 end)
 
 add("settings", "", "open the Ministry's settings in the game's options", function()

@@ -228,6 +228,14 @@ MOTA:On("ADDON_LOADED", function(self, _, name)
       dotsShare = false,   -- tell the guild where I stand, for their maps (Dots.lua): off until I say yes
       dotsShow = true,     -- guild members who share, as dots on my maps (UI/Dots.lua)
       dotsAsked = false,   -- the one-time question has been answered (UI/Dots.lua)
+      markerShow = true,   -- party quest markers over NPCs and the far arrow (NPCMarkers.lua)
+      markerFar = "arrow", -- how a far NPC is shown: "arrow", "strip", "both" or "off"
+      markerPlates = true, -- friendly NPC nameplates on (name only) near a marked NPC, and off after (UI/NPCPlates.lua)
+      markerLift = nil,    -- how far above the nameplate the marker stands (/mota marker lift)
+      markerSize = nil,    -- the marker's height (/mota marker size)
+      markerNameY = nil,   -- how high names stand on a name-only nameplate (/mota marker namey)
+      markerNameSize = nil, -- the names' font size there (/mota marker namesize; 16)
+      markerScale = nil,   -- the markers and those names together (/mota marker scale; 1)
     },
     guilds = {},  -- one book per guild, see CheckGuild
     window = {},  -- where the window was left, its size and page (UI/MainWindow.lua)

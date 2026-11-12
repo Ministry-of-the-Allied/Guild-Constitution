@@ -3557,7 +3557,7 @@ mark = len(cit.log)
 cit.slash("help")
 shown = [l for l in cit.log[mark:] if "/mota " in l]
 check("Commands: /mota help works for everyone and lists only what they can use",
-      len(shown) == 4 and all(any(f"/mota {n}" in l for l in shown) for n in ("help", "noconfidence", "settings", "dots")))
+      len(shown) == 5 and all(any(f"/mota {n}" in l for l in shown) for n in ("help", "noconfidence", "settings", "dots", "marker")))
 mark = len(adm.log)
 adm.slash("test from the Crown")
 check("Commands: the Crown can use them", Q(adm, 'return (M.Book:Count())') >= 1 and not adm.said(r"Crown alone"))
@@ -3586,8 +3586,8 @@ check("Admin: it docks to the main window's left side", pt[1] == "TOPRIGHT" and 
 check("Admin: it is its own window, not inside the main one", adm.lua.eval('MinistryOfTheAlliedAdmin.parent == UIParent') is True)
 names = {c.name for c in A.Commands.list.values()}
 have = {x.name for x in A.AdminControls.Controls(A.AdminControls).values()}
-check("Admin: a row for the announce button and one for every command",
-      len(A.AdminControls.Rows(A.AdminControls)) == 1 + len(A.Commands.list))
+check("Admin: a row for the announce button and one for every command (/mota marker: one per part, 9)",
+      len(A.AdminControls.Rows(A.AdminControls)) == 1 + len(A.Commands.list) - 1 + 9)
 check("Admin: every command can be run from the window", names <= have)
 
 # tooltips: the same words /mota help shows
@@ -3934,6 +3934,721 @@ dc.lua.execute('OPENMAP = false; OpenMapDB.worldmap.guild = true')
 Q(dc, 'M.db.settings.dotsShow = true; M.Dots:Changed()')
 check("OpenMap: not loaded, nothing of its is touched", Q(dc, 'return _G.OpenMapDB.worldmap.guild') is True)
 check("Dots: nothing in this section raised a Lua error", len(errors) == 0)
+
+print("== 19. Party quest markers over NPCs (11 Nov, reworked 12 Nov): the records, who sees them, the marker on the nameplate, the far arrow, the nameplates turned on near a marker")
+# Max (a Crown rank) marks NPCs; Bram (a citizen) sees them. Same straight-line world as section 18.
+clients[:] = []
+mk = Client("Max", guarded=True)
+clients.append(mk)
+run(1)
+bm = Client("Bram", guarded=True)
+clients.append(bm)
+NPC_LUA = '''
+  TARGET = nil
+  PLATES = {}
+  FACING = 0
+  INSTANCE = 0
+  COMBAT = false
+  SECRET = {}
+  function UnitExists(u) return u == "target" and TARGET ~= nil end
+  function UnitIsPlayer(u) return TARGET ~= nil and TARGET.player == true end
+  local realGUID, realName = UnitGUID, UnitName
+  function UnitGUID(u)
+    if u == "target" then return TARGET and TARGET.guid end
+    if PLATES[u] then return PLATES[u].guid end
+    return realGUID(u)
+  end
+  function UnitName(u) if u == "target" then return TARGET and TARGET.name end return realName(u) end
+  function UnitPosition() if POS.x == nil then return nil end return 1000 - 1000 * POS.y, 2000 - 2000 * POS.x, 0, INSTANCE end
+  function issecretvalue(v) return SECRET[v] == true end
+  function InCombatLockdown() return COMBAT end
+  C_NamePlate = {
+    GetNamePlateForUnit = function(u) return PLATES[u] and PLATES[u].frame end,
+    GetNamePlates = function() local t = {} for u, p in pairs(PLATES) do p.frame.namePlateUnitToken = u t[#t + 1] = p.frame end return t end,
+  }
+  function GetPlayerFacing() return FACING end
+  -- the game's CVars as the client keeps them (nil: a CVar this client doesn't know); SET_LOG counts the writes
+  -- (friendly NPC nameplates start on, as the player's own: the checks before 19b expect them left alone)
+  CVARS = { nameplateShowFriendlyNPCs = "1", nameplateMaxDistance = "41" }
+  SET_LOG = 0
+  C_CVar = {
+    GetCVar = function(n) return CVARS[n] end,
+    SetCVar = function(n, v)
+      assert(not COMBAT, "SetCVar in combat")
+      if CVARS[n] == nil then return false end
+      CVARS[n] = tostring(v) SET_LOG = SET_LOG + 1 return true
+    end,
+  }
+  -- a plate's unit: a friendly NPC unless the test says otherwise (hostile, a player)
+  function UnitIsFriend(a, u) return PLATES[u] ~= nil and not PLATES[u].hostile end
+  function UnitCanAttack(a, u) return PLATES[u] ~= nil and PLATES[u].hostile == true end
+  function UnitIsPlayer(u)
+    if PLATES[u] then return PLATES[u].guid:find("^Player") ~= nil end
+    return TARGET ~= nil and TARGET.player == true
+  end
+  function UnitSelectionColor(u) return 0, 1, 0, 1 end
+  -- WorldFrame, where the game's nameplates (and our names and markers on them) hang, under the interface
+  WorldFrame = CreateFrame("Frame", "WorldFrame")
+  -- the game's distance steps: 3 = within 10 yards, 4 = within 28 (a plate's NPC is 5 yards off unless set)
+  function CheckInteractDistance(u, i)
+    local y = PLATES[u] and (PLATES[u].yards or 5) or 99
+    return (i == 3 and y <= 10) or (i == 4 and y <= 28)
+  end
+  local npcName = UnitName
+  function UnitName(u) if PLATES[u] then return PLATES[u].name end return npcName(u) end
+  -- the tooltip's lines for a plate's unit: its name, then its <title> if it has one, then its level
+  C_TooltipInfo = { GetUnit = function(u)
+    local p = PLATES[u] if not p then return nil end
+    local lines = { { leftText = p.name } }
+    if p.title then lines[#lines + 1] = { leftText = p.title } end
+    lines[#lines + 1] = { leftText = "Level 30 Humanoid" }
+    return { lines = lines }
+  end }
+  -- each nameplate carries the game's own unit frame; another nameplate add-on (opts.other) hides it and
+  -- hangs its own frame on the plate
+  function AddPlate(unit, guid, opts)
+    opts = opts or {}
+    local frame = CreateFrame("Frame")
+    frame.UnitFrame = CreateFrame("Frame", nil, frame)
+    if opts.other then frame.UnitFrame:Hide() frame.other = CreateFrame("Frame", nil, frame) end
+    PLATES[unit] = { guid = guid, frame = frame, name = opts.name or "NPC", hostile = opts.hostile, title = opts.title }
+    mock_fire("NAME_PLATE_UNIT_ADDED", unit)
+  end
+  function RemovePlate(unit) mock_fire("NAME_PLATE_UNIT_REMOVED", unit) PLATES[unit] = nil end
+'''
+DUGHAN = "Creature-0-1465-0-2105-240-0000300001"
+GUARD = "Creature-0-1465-0-2105-68-0000300002"
+for c in (mk, bm):
+    c.lua.execute(MAPS_LUA)
+    c.lua.execute(NPC_LUA)
+    # the name-only nameplates are 19b's: until then the plates stay as the game draws them
+    Q(c, 'M.db.settings.markerPlates = false')
+run(10)
+SEP = "\x1f"
+kind_count = lambda c, k: sum(1 for m in c.wire if m.split(SEP)[1:2] == [k])
+
+# the creature ID inside a GUID
+check("Marker: the creature ID is the sixth part of a GUID",
+      Q(bm, 'return M.Markers:NpcId("%s")' % DUGHAN) == 240)
+check("Marker: a vehicle counts as an NPC too", Q(bm, 'return M.Markers:NpcId("Vehicle-0-1465-0-2105-9001-0000300001")') == 9001)
+check("Marker: a player, a pet, an object and rubbish are no NPC",
+      Q(bm, '''local K = M.Markers
+        return K:NpcId("Player-1465-0123ABCD") == nil and K:NpcId("Pet-0-1465-0-2105-416-0000300001") == nil
+          and K:NpcId("GameObject-0-1465-0-2105-1234-0000300001") == nil and K:NpcId("nonsense") == nil
+          and K:NpcId(nil) == nil and K:NpcId(42) == nil and K:NpcId("Creature-0-1-2-3-x-5") == nil''') is True)
+Q(bm, 'SECRET["Creature-0-1465-0-2105-77-00001"] = true')
+check("Marker: a GUID the game keeps secret is never read", Q(bm, 'return M.Markers:NpcId("Creature-0-1465-0-2105-77-00001")') is None)
+
+# the records' rules
+RULE = lambda who, d: Q(bm, 'return M.Book.rules["marker.set"]("%s", { d = %s }) == true' % (who, d))
+good = '{ npc = 240, p = "sh", map = 1429, x = 0.5, y = 0.3, name = "Marshal Dughan" }'
+check("Marker rules: the Crown's mark is accepted", RULE("Max", good) is True)
+check("Marker rules: a citizen's mark is refused", RULE("Bram", good) is False)
+for what, d in (("an NPC ID of zero", good.replace("npc = 240", "npc = 0")),
+                ("a fractional NPC ID", good.replace("npc = 240", "npc = 2.5")),
+                ("a text NPC ID", good.replace("npc = 240", 'npc = "240"')),
+                ("a party that doesn't exist", good.replace('"sh"', '"zz"')),
+                ("no party", good.replace('p = "sh", ', "")),
+                ("a place off the map", good.replace("x = 0.5", "x = 1.5")),
+                ("a place at (0, 0)", good.replace("x = 0.5, y = 0.3", "x = 0, y = 0")),
+                ("a map of zero", good.replace("map = 1429", "map = 0")),
+                ("a name that is far too long", good.replace("Marshal Dughan", "N" * 60))):
+    check(f"Marker rules: {what} is refused", RULE("Max", d) is False)
+check("Marker rules: for everyone is a party code too", RULE("Max", good.replace('"sh"', '"all"')) is True)
+check("Marker rules: a clear needs the Crown and an NPC ID",
+      Q(bm, 'local r = M.Book.rules["marker.clear"] return r("Max", { d = { npc = 240 } }) == true and r("Bram", { d = { npc = 240 } }) == false and r("Max", { d = {} }) == false') is True)
+
+# marking an NPC
+Q(mk, 'TARGET = nil')
+mk.slash("marker add sh")
+check("Marker add: no target says so and writes nothing", mk.said(r"Target an NPC first") and kind_count(mk, "RC") == 0)
+Q(mk, 'TARGET = { guid = "Player-1465-0123ABCD", name = "Someone", player = true }')
+mk.slash("marker add sh")
+check("Marker add: a player can't be marked", mk.said(r"a player, not an NPC"))
+Q(mk, 'TARGET = { guid = "%s", name = "Marshal Dughan" }' % DUGHAN)
+mk.slash("marker add zz")
+check("Marker add: an unknown party says which are allowed", mk.said(r"Say which party: sh, ex or all"))
+Q(mk, 'POS.x = nil')
+mk.slash("marker add sh")
+check("Marker add: where the game gives no position, it says so", mk.said(r"won't say where you are"))
+Q(mk, 'POS.x = 0.5; POS.y = 0.3')
+n0 = Q(mk, 'return (M.Book:Count())')
+mk.slash("marker add sh")
+run(2)
+check("Marker add: the Crown marks Marshal Dughan for the Silverhand",
+      Q(mk, 'return (M.Book:Count())') == n0 + 1 and mk.said(r"Marshal Dughan now carries a quest marker \(!\) for Silverhand"))
+check("Marker add: it is one record with the NPC, party, place and name",
+      Q(mk, '''local m = M.Markers:All()[1] return m.npc == 240 and m.p == "sh" and m.map == 1429 and m.x == 0.5 and m.y == 0.3 and m.name == "Marshal Dughan"''') is True)
+check("Marker add: Bram's game holds it too", Q(bm, 'return #M.Markers:All()') == 1)
+
+Q(bm, 'TARGET = { guid = "%s", name = "Marshal Dughan" }' % DUGHAN)
+w0 = len(bm.wire)
+bm.slash("marker add sh")
+check("Marker add: a citizen can't mark (told so, nothing written)",
+      bm.said(r"Only the Crown can mark") and Q(bm, 'return #M.Markers:All()') == 1 and len(bm.wire) == w0)
+bm.slash("marker clear")
+check("Marker clear: a citizen can't take a mark off", bm.said(r"Only the Crown can take") and Q(bm, 'return #M.Markers:All()') == 1)
+Q(bm, 'TARGET = nil')
+
+# who sees it
+check("Marker sees: a citizen with no party doesn't see a Silverhand marker", Q(bm, 'return M.Markers:For(240)') is None)
+check("Marker sees: the Crown sees every marker, to check them", Q(mk, 'return M.Markers:For(240) ~= nil') is True)
+Q(bm, 'M.Book:Write("party.join", { p = "ex" })')
+run(1)
+Q(mk, 'M.Book:Write("party.admit", { v = "Bram", p = "ex" })')
+run(1)
+check("Marker sees: an Exchange member doesn't see a Silverhand marker", Q(bm, 'return M.Party:Of("Bram") == "ex" and M.Markers:For(240) == nil') is True)
+Q(mk, 'TARGET = { guid = "%s", name = "Guard Thomas" }' % GUARD)
+mk.slash("marker add ex")
+run(1)
+check("Marker sees: ...but does see an Exchange one", Q(bm, 'local m = M.Markers:For(68) return m ~= nil and m.p == "ex"') is True)
+Q(mk, 'TARGET = { guid = "%s", name = "Marshal Dughan" }' % DUGHAN)
+mk.slash("marker add all")
+run(1)
+check("Marker sees: the newest record for an NPC wins (Dughan is now for everyone)",
+      Q(bm, 'local m = M.Markers:For(240) return m ~= nil and m.p == "all"') is True and Q(bm, 'return #M.Markers:All()') == 2)
+mk.slash("marker add sh")
+run(1)
+check("Marker sees: ...and back to Silverhand only, which an Exchange member no longer sees", Q(bm, 'return M.Markers:For(240) == nil') is True)
+
+# the seal over a nameplate
+Q(bm, 'AddPlate("nameplate1", "%s")' % DUGHAN)
+check("Seal: an NPC marked for another party gets no seal", Q(bm, 'return M.Markers.UI.plates.nameplate1 == nil') is True)
+Q(bm, 'AddPlate("nameplate2", "%s")' % GUARD)
+check("Seal: an Exchange marker gets a seal over its nameplate",
+      Q(bm, 'local p = M.Markers.UI.plates.nameplate2 return p ~= nil and p.seal.shown and p.npc == 68') is True)
+check("Marker: it stands on the top of the nameplate, 18 up, 44 tall and half as wide (nameplates the player turned on: not dressed)",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate2.seal local p = s.points[#s.points]
+        return p[1] == "BOTTOM" and p[2] == PLATES.nameplate2.frame and p[3] == "TOP" and p[5] == 18 and s.w == 22 and s.h == 44''') is True)
+check("Marker: an Exchange quest is the Exchange's \"!\" (its cell of marker.tga)",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate2.seal local c = s.tex.coords
+        return s.key == "AZEROTH_EXCHANGE" and c[1] == 2 / 8 and c[2] == 3 / 8 and c[3] == 0 and c[4] == 0.5 and s.tex.texture:find("marker.tga", 1, true) ~= nil''') is True)
+Q(bm, 'COMBAT = true')
+Q(bm, 'AddPlate("nameplate3", "%s")' % GUARD)
+check("Seal: a nameplate coming up in combat takes a seal as well (our frame, never the game's)",
+      Q(bm, 'return M.Markers.UI.plates.nameplate3 ~= nil and M.Markers.UI.plates.nameplate3.seal.shown') is True)
+Q(bm, 'COMBAT = false; RemovePlate("nameplate3")')
+check("Seal: when the nameplate goes, the seal goes", Q(bm, 'return M.Markers.UI.plates.nameplate3 == nil') is True)
+Q(bm, 'AddPlate("nameplate4", "Player-1465-0123ABCD")')
+check("Seal: a player's nameplate never gets one", Q(bm, 'return M.Markers.UI.plates.nameplate4 == nil') is True)
+Q(bm, 'RemovePlate("nameplate4")')
+Q(bm, 'M.db.settings.markerShow = false; M.Markers.UI:Rescan()')
+check("Seal: the switch off takes the seal away", Q(bm, 'return M.Markers.UI.plates.nameplate2 == nil') is True)
+Q(bm, 'M.db.settings.markerShow = true; M.Markers.UI:Rescan()')
+check("Seal: ...and on brings it back", Q(bm, 'return M.Markers.UI.plates.nameplate2 ~= nil') is True)
+Q(mk, 'TARGET = { guid = "%s", name = "Guard Thomas" }' % GUARD)
+mk.slash("marker clear")
+run(1)
+check("Seal: the Crown taking the mark off removes the seal at once, on Bram's screen",
+      Q(bm, 'return M.Markers.UI.plates.nameplate2 == nil and M.Markers:For(68) == nil') is True)
+check("Marker clear: the list no longer holds it", Q(bm, 'return #M.Markers:All() == 1'))
+mk.slash("marker clear")
+check("Marker clear: an NPC that isn't marked says so", mk.said(r"isn't marked"))
+
+# a new mark while the nameplate is already up
+Q(bm, 'RemovePlate("nameplate2")')
+Q(bm, 'AddPlate("nameplate5", "%s")' % GUARD)
+check("Seal: an unmarked NPC has none", Q(bm, 'return M.Markers.UI.plates.nameplate5 == nil') is True)
+mk.slash("marker add all")
+run(1)
+check("Marker: a mark written while its nameplate is up puts it on: a quest for everyone wears the Crown's purple, not Bram's Exchange red",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate5 return s ~= nil and s.seal.key == "CROWN" and s.seal.tex.coords[1] == 3 / 8''') is True)
+Q(bm, 'M.ApplySkin("SILVERHAND")')
+check("Marker: ...whatever skin the player wears",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate5 return s.seal.key == "CROWN"''') is True)
+Q(bm, 'M.ApplySkin("AZEROTH_EXCHANGE")')
+
+# the look of each skin, as a table
+LOOK = lambda skin_expr: Q(bm, '''local k, i = M.Markers.UI:Look({ p = "all", skin = "%s" })
+  return k .. " " .. string.format("%%02X%%02X%%02X", i.r * 255 + 0.5, i.g * 255 + 0.5, i.b * 255 + 0.5)''' % skin_expr)
+check("Look: Silverhand's words are the pale blue (its markers are the Ministry's design)", LOOK("SILVERHAND") == "SILVERHAND C9D6F5")
+check("Look: the Exchange's are its pale accent", LOOK("AZEROTH_EXCHANGE") == "AZEROTH_EXCHANGE F0C9BC")
+check("Look: the Crown's are its pale accent", LOOK("CROWN") == "CROWN E8C6DC")
+check("Look: the Ministry's are its pale blue", LOOK("UNREGISTERED") == "UNREGISTERED C9D6F5")
+check("Look: the parties' markers: Silverhand's, the Exchange's, and everyone's in the Crown's",
+      Q(bm, '''local U = M.Markers.UI return U:SkinOf({ p = "sh" }) .. U:SkinOf({ p = "ex" }) .. U:SkinOf({ p = "all" })''') == "SILVERHANDAZEROTH_EXCHANGECROWN")
+CELL = lambda kind, key: Q(bm, 'local l, r, t, b = M.Markers.UI:Cell("%s", "%s") return table.concat({ l, r, t, b }, ",")' % (kind, key))
+check("Look: the cells of marker.tga: the \"!\" in four looks, then the \"?\", then the arrows below",
+      CELL("bang", "UNREGISTERED") == "0,0.125,0,0.5" and CELL("bang", "CROWN") == "0.375,0.5,0,0.5"
+      and CELL("query", "SILVERHAND") == "0.625,0.75,0,0.5" and CELL("arrow", "AZEROTH_EXCHANGE") == "0.5,0.75,0.5,1")
+import struct as _st
+_tga = open(os.path.join(ADDON, "Media", "marker.tga"), "rb").read(18)
+check("Look: Media/marker.tga is the 512 x 256 sheet those cells are cut from", _st.unpack("<HH", _tga[12:16]) == (512, 256))
+
+# the test mark: on my own target, on my screen only
+Q(bm, 'RemovePlate("nameplate5")')
+Q(mk, 'TARGET = { guid = "%s", name = "Guard Thomas" }' % GUARD)
+mk.slash("marker clear")
+run(1)
+w0 = len(bm.wire)
+Q(bm, 'TARGET = { guid = "%s", name = "Guard Thomas" }' % GUARD)
+bm.slash("marker test crown")
+check("Test: /mota marker test marks my target and says so", bm.said(r"Test mark on Guard Thomas"))
+check("Test: ...nothing is written or sent", len(bm.wire) == w0 and Q(bm, 'return #M.Markers:All()') == 1)
+Q(bm, 'AddPlate("nameplate6", "%s")' % GUARD)
+check("Test: the test look shows on the nameplate in the look asked for (the Crown's)",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate6 return s ~= nil and s.seal.key == "CROWN"''') is True)
+bm.slash("marker test sh")
+check("Test: 'sh' shows Silverhand's", Q(bm, 'local s = M.Markers.UI.plates.nameplate6 return s ~= nil and s.seal.key == "SILVERHAND"') is True)
+bm.slash("marker test exchange ?")
+check("Test: 'exchange ?' shows the Exchange's hand-in \"?\"",
+      Q(bm, 'local s = M.Markers.UI.plates.nameplate6.seal return s.key == "AZEROTH_EXCHANGE" and s.tex.coords[1] == 6 / 8') is True)
+bm.slash("marker test ?")
+check("Test: '?' alone is the hand-in marker in the Crown's colours (as a quest for everyone)",
+      Q(bm, 'local s = M.Markers.UI.plates.nameplate6.seal return s.key == "CROWN" and s.tex.coords[1] == 7 / 8') is True)
+bm.slash("marker test bogus")
+check("Test: a word it doesn't know says what to try", bm.said(r"Try: sh, ex, crown"))
+bm.slash("marker test off")
+check("Test: off clears it and the seal goes", Q(bm, 'return M.Markers.UI.plates.nameplate6 == nil and next(M.Markers.test) == nil') is True)
+Q(bm, 'RemovePlate("nameplate6")')
+Q(bm, 'TARGET = nil')
+bm.slash("marker test")
+check("Test: with no target it says so", bm.said(r"Target an NPC first"))
+
+# lift and size
+Q(bm, 'TARGET = { guid = "%s", name = "Guard Thomas" }' % GUARD)
+bm.slash("marker test ex")
+Q(bm, 'AddPlate("nameplate7", "%s")' % GUARD)
+bm.slash("marker lift 30")
+bm.slash("marker size 60")
+check("Marker: /mota marker lift and size move and grow it at once",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate7.seal local p = s.points[#s.points] return p[5] == 30 and s.h == 60 and s.w == 30''') is True)
+bm.slash("marker lift 9999")
+check("Sizes: a lift past its range is turned down, saying the range, and nothing changes (Max, 12 Nov)",
+      Q(bm, 'local s = M.Markers.UI.plates.nameplate7.seal return s.points[#s.points][5]') == 30
+      and bm.said(r"Marker lift goes from -20 to 80; 9999 is outside it, so nothing changed"))
+bm.slash("marker size 1")
+check("Sizes: ...as is a size under its smallest (it used to be taken and drawn as 24)",
+      Q(bm, 'return M.Markers.UI.plates.nameplate7.seal.h') == 60 and bm.said(r"Marker size goes from 24 to 96; 1 is outside it"))
+bm.slash("marker size")
+check("Sizes: with no number, it says what it is, its value, its range and its default",
+      bm.said(r"Marker size \(the marker's height\): 60 now\. Give a number from 24 to 96, or 'default' \(44\)"))
+bm.slash("marker size 96")
+check("Sizes: the ends of the range are taken", Q(bm, 'return M.Markers.UI.plates.nameplate7.seal.h') == 96)
+bm.slash("marker scale 1.23")
+check("Sizes: scale goes in steps of 0.05", Q(bm, 'return M.Markers.UI.Setting("scale")') == 1.25 and bm.said(r"Marker scale set to 1.25 \(0.5 to 2.5\)"))
+bm.slash("marker scale default")
+check("Sizes: ...and default puts it back", Q(bm, 'return M.db.settings.markerScale == nil') is True)
+bm.slash("marker size 44")
+check("Sizes: setting the default number keeps nothing saved", Q(bm, 'return M.db.settings.markerSize == nil') is True)
+Q(bm, 'M.db.settings.markerLift = nil; M.db.settings.markerSize = nil')
+bm.slash("marker test off")
+Q(bm, 'RemovePlate("nameplate7"); TARGET = nil')
+
+# the bearing
+import math as _m
+
+
+def BEAR(*a):
+    s = Q(bm, 'local a, y = M.Markers.UI.Bearing(%s) return a .. "," .. y' % ", ".join(repr(x) for x in a))
+    return [float(v) for v in s.split(",")]
+
+
+a, y = BEAR(0, 0, 100, 0, 0)
+check("Bearing: an NPC 100 yards to the north, facing north, is straight ahead", abs(a) < 1e-9 and abs(y - 100) < 1e-6)
+a, y = BEAR(0, 0, 0, -100, 0)
+check("Bearing: an NPC to the east, facing north, is 90 degrees to the right", abs(a - _m.pi / 2) < 1e-9)
+a, y = BEAR(0, 0, 0, 100, 0)
+check("Bearing: an NPC to the west is 90 degrees to the left", abs(a + _m.pi / 2) < 1e-9)
+a, y = BEAR(0, 0, -100, 0, 0)
+check("Bearing: an NPC to the south is behind", abs(abs(a) - _m.pi) < 1e-9)
+a, y = BEAR(0, 0, 100, 0, _m.pi / 2)
+check("Bearing: facing west, an NPC to the north is on the right", abs(a - _m.pi / 2) < 1e-9)
+a, y = BEAR(0, 0, 0, 100, _m.pi / 2)
+check("Bearing: facing west, an NPC to the west is straight ahead", abs(a) < 1e-9)
+a, y = BEAR(0, 0, 300, 400, 0)
+check("Bearing: the distance is the straight line in yards", abs(y - 500) < 1e-9)
+
+Q(bm, 'RemovePlate("nameplate1")')
+# the far arrow. Bram stands at (0.5, 0.5): world (500, 1000). Dughan's spot (0.5, 0.3) is world (700, 1000): 200 yards north.
+Q(bm, 'M.db.settings.markerFar = "arrow"')
+Q(mk, 'TARGET = { guid = "%s", name = "Marshal Dughan" }' % DUGHAN)
+mk.slash("marker add all")
+run(1)
+Q(bm, 'POS.x = 0.5; POS.y = 0.5; FACING = 0')
+run(1)
+check("Arrow: a far marked NPC gets an arrow, 200 yards ahead",
+      Q(bm, 'local e = M.Markers.UI:FarList()[1] return e ~= nil and e.m.npc == 240 and math.abs(e.yards - 200) < 1e-6 and math.abs(e.angle) < 1e-9') is True)
+check("Arrow: it shows at the top of the ellipse, pointing up",
+      Q(bm, '''local a = M.Markers.UI.arrows[1] local p = a.points[#a.points]
+        return a.shown and math.abs(p[4]) < 1e-6 and p[5] > 40 and math.abs(a.tex.rotation) < 1e-9''') is True)
+check("Arrow: its words are the name and the distance", Q(bm, 'return M.Markers.UI.arrows[1].text:GetText()') == "Marshal Dughan  ·  200 yd")
+Q(bm, 'FACING = math.pi / 2')   # facing west: Dughan is to the right
+run(1)
+check("Arrow: turn to face west and it slides to the right and points right",
+      Q(bm, '''local a = M.Markers.UI.arrows[1] local p = a.points[#a.points]
+        return p[4] > 100 and math.abs(p[5] - 40) < 1e-6 and math.abs(a.tex.rotation + math.pi / 2) < 1e-9''') is True)
+Q(bm, 'FACING = 0; POS.y = 0.3')   # standing on the spot
+run(1)
+check("Arrow: standing on the spot, the arrow has done its work", Q(bm, 'return not M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'POS.y = 0.5')
+run(1)
+Q(bm, 'AddPlate("nameplate8", "%s")' % DUGHAN)
+run(1)
+check("Arrow: with its seal over the NPC's head, no arrow for it", Q(bm, 'return not M.Markers.UI.arrows[1].shown and M.Markers.UI.plates.nameplate8 ~= nil') is True)
+Q(bm, 'RemovePlate("nameplate8")')
+run(1)
+check("Arrow: ...and it comes back when the nameplate goes", Q(bm, 'return M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'INSTANCE = 1')
+run(1)
+check("Arrow: an NPC on another continent isn't pointed at", Q(bm, 'return not M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'INSTANCE = 0; POS.x = nil')
+run(1)
+check("Arrow: where the game gives no position (an instance), none", Q(bm, 'return not M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'POS.x = 0.5; FACING = nil')
+run(1)
+check("Arrow: with no facing from the game, none and no error", Q(bm, 'return not M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'FACING = 0')
+run(1)
+
+# only three arrows, the nearest. Three more NPCs, 50, 100 and 150 yards north of Bram (a spot's world first coordinate is 1000 - 1000 * y).
+Q(mk, 'M.Markers:Clear(240)')
+run(1)
+for npc, y in ((901, 0.45), (902, 0.4), (903, 0.35), (904, 0.3)):
+    Q(mk, 'TARGET = { guid = "Creature-0-1465-0-2105-%d-0000300009", name = "NPC %d" }' % (npc, npc))
+    Q(mk, 'POS.x = 0.5; POS.y = %f' % y)
+    mk.slash("marker add all")
+    run(1)
+far = Q(bm, 'local t = {} for i, e in ipairs(M.Markers.UI:FarList()) do t[#t + 1] = e.m.npc end return table.concat(t, ",")')
+check("Arrow: at most three, the nearest first (the 50, 100 and 150 yard ones)", far == "901,902,903")
+run(1)
+check("Arrow: ...and three arrows are drawn, no fourth",
+      Q(bm, 'local u = M.Markers.UI return u.arrows[1].shown and u.arrows[2].shown and u.arrows[3].shown and u.arrows[4] == nil') is True)
+
+# the compass strip
+Q(bm, 'M.db.settings.markerFar = "strip"')
+run(1)
+check("Strip: the arrows go and the compass strip shows",
+      Q(bm, 'local u = M.Markers.UI return u.strip ~= nil and u.strip.shown and not u.arrows[1].shown') is True)
+check("Strip: a pip for each of the three, the nearest straight ahead at the centre",
+      Q(bm, 'local u = M.Markers.UI local p = u.pips[1].points[#u.pips[1].points] return u.pips[1].shown and u.pips[2].shown and u.pips[3].shown and math.abs(p[4]) < 1e-6') is True)
+check("Strip: its line names the nearest and its distance", Q(bm, 'return M.Markers.UI.strip.text:GetText()') == "NPC 901  ·  50 yd")
+Q(bm, 'FACING = math.pi / 2')
+run(1)
+check("Strip: facing west the pips slide to the right edge, held there (a quarter turn is the edge)",
+      Q(bm, 'local u = M.Markers.UI local p = u.pips[1].points[#u.pips[1].points] return math.abs(p[4] - 180) < 1e-6') is True)
+Q(bm, 'FACING = math.pi')
+run(1)
+check("Strip: behind you, the pip sits at the edge, faded",
+      Q(bm, 'local u = M.Markers.UI return math.abs(math.abs(u.pips[1].points[#u.pips[1].points][4]) - 180) < 1e-6 and u.pips[1].alpha == 0.55') is True)
+Q(bm, 'FACING = 0; M.db.settings.markerFar = "off"')
+run(1)
+Q(bm, 'M.db.settings.markerFar = "both"')
+run(1)
+check("Both: the arrows and the compass strip show together",
+      Q(bm, 'local u = M.Markers.UI return u.strip.shown and u.pips[1].shown and u.arrows[1].shown and u.arrows[3].shown') is True)
+check("Both: the pips are small markers in the look of their NPC's marker (for everyone: the Crown's)",
+      Q(bm, 'local p = M.Markers.UI.pips[1] return p.key == "CROWN" and p.h == 22 and p.w == 11') is True)
+check("Both: the arrow is cut from the arrow cells, in the same look",
+      Q(bm, 'local a = M.Markers.UI.arrows[1] return a.key == "CROWN" and a.tex.coords[1] == 0.75 and a.tex.coords[3] == 0.5') is True)
+Q(bm, 'M.db.settings.markerFar = "off"')
+run(1)
+check("Off: neither arrows nor strip show", Q(bm, 'local u = M.Markers.UI return not u.strip.shown and not u.arrows[1].shown and not u.pips[1].shown') is True)
+Q(bm, 'M.db.settings.markerFar = "arrow"; M.db.settings.markerShow = false')
+run(1)
+check("Off: the main switch off takes the arrows away too", Q(bm, 'return not M.Markers.UI.arrows[1].shown') is True)
+Q(bm, 'M.db.settings.markerShow = true')
+run(1)
+
+# the Crown sees every party's markers
+check("Crown: the Crown's list holds every marked NPC", Q(mk, 'return #M.Markers:List() == 4') is True)
+
+# the Settings rows
+check("Settings: an NPC markers group holds the switch and the far choice",
+      Q(bm, '''local keys = {} for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do keys[r.key] = g.title end end
+        return keys.markerShow == "NPC markers" and keys.markerFar == "NPC markers" and keys.markerPlates == "NPC markers"''') is True)
+check("Settings: the reminder is on the rows: everyone's quests in Crown purple, and what Arrow and Strip are",
+      Q(bm, '''local t = {} for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do t[r.key] = r.small end end
+        return t.markerShow:find("Crown purple", 1, true) ~= nil and t.markerFar:find("Arrow", 1, true) ~= nil and t.markerFar:find("Strip", 1, true) ~= nil
+          and #t.markerShow <= 80 and #t.markerFar <= 80 and #t.markerPlates <= 80''') is True)
+check("Settings: Far markers cycles Arrow, Compass strip, Both, Off and round again",
+      Q(bm, '''local row for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do if r.key == "markerFar" then row = r end end end
+        M.db.settings.markerFar = "arrow"
+        local seen = { row.act.label() }
+        for i = 1, 4 do row.act.onClick({}) seen[#seen + 1] = row.act.label() end
+        return table.concat(seen, "|")''') == "Arrow|Compass strip|Both|Off|Arrow")
+Q(bm, 'M.db.settings.markerFar = "arrow"')
+
+# the status line and the list
+bm.slash("marker")
+check("Marker: /mota marker says what is on", bm.said(r"NPC markers: on"))
+mk.slash("marker list")
+check("Marker: /mota marker list lists the marked NPCs", mk.said(r"901 NPC 901 · for everyone"))
+bm.slash("marker help")
+check("Marker: /mota marker help gives the reminder (everyone's quests are the Crown's colour; Arrow against strip)",
+      bm.said(r"Quests for everyone always wear the Crown's dark purple") and bm.said(r"Arrow points round the middle of the screen") and bm.said(r"Compass strip is quieter"))
+# 19b. The friendly NPC nameplates, turned on near a marked NPC (12 Nov). Bram's markers 901 to 904 (for
+# everyone) stand 50, 100, 150 and 200 yards north of (0.5, 0.5); 901's spot is (0.5, 0.45), world first 550.
+# The game draws nameplates to 41 yards here (nameplateMaxDistance).
+NM = 'M.Markers.UI.Names'
+N901 = "Creature-0-1465-0-2105-901-0000300009"
+N902 = "Creature-0-1465-0-2105-902-0000300009"
+CV = lambda c: Q(c, 'return CVARS.nameplateShowFriendlyNPCs')
+HOLD = lambda c: Q(c, 'return %s.holding' % NM)
+Q(bm, 'M.db.settings.markerFar = "arrow"; M.db.settings.markerPlates = true; SET_LOG = 0; POS.x = 0.5; POS.y = 0.47')
+run(2)
+check("Nameplates: when the player shows friendly NPC nameplates already, the add-on writes nothing, even beside a marked NPC",
+      Q(bm, 'return SET_LOG') == 0 and HOLD(bm) is False and Q(bm, 'return M.db.npcPlates == nil') is True)
+Q(bm, 'AddPlate("nameplate20", "%s", { name = "NPC 901", title = "Engineering Supplier" })' % N901)
+check("Nameplates: ...but near a marked NPC their friendly NPC plates are dressed name-only all the same, so nobody can tell (Max, 12 Nov)",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate20.seal local p = s.points[#s.points]
+        return %s.dressing and PLATES.nameplate20.frame.UnitFrame.alpha == 0 and p[2] == %s.styled.nameplate20.label.text''' % (NM, NM)) is True)
+Q(bm, 'F20 = PLATES.nameplate20.frame.UnitFrame; RemovePlate("nameplate20")')
+Q(bm, 'POS.y = 0.9')
+run(2)
+Q(bm, 'AddPlate("nameplate27", "%s", { name = "Guard Thomas" })' % GUARD)
+check("Nameplates: ...and away from markers their nameplates are their own again (not dressed)",
+      Q(bm, 'return not %s.dressing and PLATES.nameplate27.frame.UnitFrame.alpha == 1 and %s.styled.nameplate27 == nil' % (NM, NM)) is True)
+Q(bm, 'RemovePlate("nameplate27")')
+Q(bm, 'CVARS.nameplateShowFriendlyNPCs = "0"; POS.y = 0.9')
+run(2)
+check("Nameplates: the player's own are off; far from every marked NPC the add-on leaves them off", CV(bm) == "0" and HOLD(bm) is False)
+Q(bm, 'POS.y = 0.5')
+run(1)
+check("Nameplates: ...still off 50 yards away (past the 41 the game draws them to)", CV(bm) == "0")
+Q(bm, 'POS.y = 0.47')
+run(1)
+check("Nameplates: 20 yards from a marked NPC the add-on turns them on, keeping the player's value",
+      CV(bm) == "1" and HOLD(bm) is True and Q(bm, 'return M.db.npcPlates.was') == "0")
+bm.slash("marker")
+check("Nameplates: /mota marker says the add-on has them on", bm.said(r"on, by the add-on while a marked NPC is near"))
+Q(bm, 'AddPlate("nameplate21", "%s", { name = "NPC 901", title = "Engineering Supplier" })' % N901)
+check("Name only: the marked NPC's plate: the game's frame see-through, our own name over the plate, as the game draws names (its font file, green, a shadow)",
+      Q(bm, '''local s = %s.styled.nameplate21 local l = s and s.label local p = l and l.points[#l.points]
+        return PLATES.nameplate21.frame.UnitFrame.alpha == 0 and l.shown and l.text:GetText() == "NPC 901"
+          and p[1] == "BOTTOM" and p[2] == PLATES.nameplate21.frame and p[3] == "BOTTOM" and p[5] == 0
+          and l.text.color[1] == 0 and l.text.color[2] == 1 and l.text.color[3] == 0
+          and l.text.fontPath:find("FRIZQT__", 1, true) ~= nil and l.text.fontSize == 16''' % NM) is True)
+bm.slash("marker namesize 13")
+check("Sizes: /mota marker namesize sets the names' font size at once",
+      Q(bm, 'local l = %s.styled.nameplate21.label return l.text.fontSize == 13 and l.title.fontSize == 13' % NM) is True
+      and bm.said(r"Marker namesize set to 13"))
+bm.slash("marker namesize 99")
+check("Sizes: a name size past its range is turned down, the size kept", Q(bm, 'return %s.styled.nameplate21.label.text.fontSize' % NM) == 13
+      and bm.said(r"Marker namesize goes from 8 to 32"))
+Q(bm, 'M.db.settings.markerNameSize = nil; M.Markers.UI:Rescan()')
+bm.slash("marker scale 1.5")
+check("Sizes: /mota marker scale grows the marker and the name together, in step",
+      Q(bm, '''local l = %s.styled.nameplate21.label local s = M.Markers.UI.plates.nameplate21.seal
+        return math.abs(l.scale - 1.5 * 23 / 35) < 1e-6 and math.abs(s.scale - l.scale) < 1e-9''' % NM) is True
+      and bm.said(r"Marker scale set to 1.5"))
+Q(bm, 'M.db.settings.markerScale = nil; local l = %s.styled.nameplate21.label; l.nWait = 0; l.scripts.OnUpdate(l, 0)' % NM)
+bm.slash("marker namey -6")
+check("Name only: /mota marker namey moves the names down (or up) on the plate",
+      Q(bm, 'local l = %s.styled.nameplate21.label return l.points[#l.points][5]' % NM) == -6 and bm.said(r"Marker namey set to -6 \(-40 to 80\)"))
+Q(bm, 'M.db.settings.markerNameY = nil; M.Markers.UI:Rescan()')
+bm.slash("marker probe")
+check("Probe: /mota marker probe lists each nameplate's scale (to learn how the game sizes them with distance)",
+      bm.said(r"NPC 901 · scale 1.00 · effective 1.00"))
+Q(bm, 'TARGET = { guid = "%s", name = "NPC 901" }' % N901)
+bm.slash("marker probe")
+check("Probe: ...and how far the game says the target is, step by step", bm.said(r"Target distance: within 10:"))
+Q(bm, 'TARGET = nil')
+check("Name only: its <title> sits under the name, as over an NPC's head",
+      Q(bm, '''local l = %s.styled.nameplate21.label local p = l.text.points[#l.text.points]
+        return l.title.shown and l.title:GetText() == "<Engineering Supplier>" and p[2] == l.title and p[3] == "TOP"''' % NM) is True)
+check("Name only: the marker stands on the name",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate21.seal local p = s.points[#s.points]
+        return p[1] == "BOTTOM" and p[2] == %s.styled.nameplate21.label.text and p[3] == "TOP" and p[5] == 2''' % NM) is True)
+bm.slash("marker lift 30")
+check("Name only: /mota marker lift moves the marker above the name as well",
+      Q(bm, 'local s = M.Markers.UI.plates.nameplate21.seal return s.points[#s.points][5]') == 14)
+Q(bm, 'M.db.settings.markerLift = nil; M.Markers.UI:Rescan()')
+Q(bm, 'AddPlate("nameplate22", "%s", { name = "Guard Thomas" })' % GUARD)
+check("Name only: an unmarked friendly NPC shows its name too (Max, 12 Nov), with no bar; no title line when the tooltip's second line is its level",
+      Q(bm, '''local l = %s.styled.nameplate22.label
+        return PLATES.nameplate22.frame.UnitFrame.alpha == 0 and l.shown and l.text:GetText() == "Guard Thomas" and not l.title.shown
+          and M.Markers.UI.plates.nameplate22 == nil''' % NM) is True)
+# smaller with distance (Max, 12 Nov): the game keeps nameplates one size on screen, so ours shrink
+check("Distance: the size for a distance: full up to 8 yards, then as a camera 15 yards back sees it, never under 0.45",
+      Q(bm, '''local f = %s.ScaleFor return f(5) == 1 and f(8) == 1 and math.abs(f(19) - 23 / 34) < 1e-9 and f(60) == 0.45''' % NM) is True)
+check("Distance: the marked NPC 20 yards off (exact, from where it was marked): its name and marker both at that size",
+      Q(bm, '''local l = %s.styled.nameplate21.label local s = M.Markers.UI.plates.nameplate21.seal
+        return math.abs(l.scale - 23 / 35) < 1e-6 and math.abs(s.scale - 23 / 35) < 1e-6''' % NM) is True)
+check("Distance: an unmarked NPC within 10 yards (the game's own check) is full size",
+      Q(bm, 'return %s.styled.nameplate22.label.scale' % NM) == 1)
+check("Distance: unmarked NPCs come in the game's three steps only: within 10, within 28, beyond (Max, 12 Nov)",
+      Q(bm, '''local N = %s local t = {}
+        for _, y in ipairs({ 3, 9, 12, 27, 33, 60 }) do PLATES.nameplate22.yards = y t[#t + 1] = N:Yards("nameplate22") end
+        return table.concat(t, ",")''' % NM) == "6,6,19,19,35,35")
+Q(bm, 'PLATES.nameplate22.yards = 20; local l = %s.styled.nameplate22.label; l.nWait = 0; l.scripts.OnUpdate(l, 0.05)' % NM)
+mid = Q(bm, 'return %s.styled.nameplate22.label.scale' % NM)
+check("Distance: walking it out past 10 yards, its name starts to glide down", 23 / 34 < mid < 1)
+Q(bm, 'local l = %s.styled.nameplate22.label for i = 1, 6 do l.scripts.OnUpdate(l, 0.05) end' % NM)
+half = Q(bm, 'return %s.styled.nameplate22.label.scale' % NM)
+check("Distance: ...still gliding a third of a second later (a slow glide, not a jump)", 23 / 34 + 0.05 < half < mid)
+Q(bm, 'local l = %s.styled.nameplate22.label for i = 1, 80 do l.scripts.OnUpdate(l, 0.05) end' % NM)
+check("Distance: ...and settles at the size for 10 to 28 yards",
+      abs(Q(bm, 'return %s.styled.nameplate22.label.scale' % NM) - 23 / 34) < 1e-6)
+Q(bm, 'COMBAT = true')
+check("Distance: in combat the game won't say for a friendly NPC: the size is kept as it is", Q(bm, 'return %s:Yards("nameplate22")' % NM) is None)
+Q(bm, 'COMBAT = false; PLATES.nameplate22.yards = 20')
+check("Under the interface: names and markers hang on WorldFrame with the game's nameplates, low, so windows cover them",
+      Q(bm, '''local l = %s.styled.nameplate21.label local s = M.Markers.UI.plates.nameplate21.seal
+        return l.parent == WorldFrame and s.parent == WorldFrame and l.strata == "LOW" and s.strata == "LOW"''' % NM) is True)
+Q(bm, 'UIParent.scale = 0.8; local l = %s.styled.nameplate21.label; l.nWait = 0; l.scripts.OnUpdate(l, 0)' % NM)
+check("Under the interface: ...at the size they'd have on the interface (WorldFrame doesn't follow the UI scale)",
+      Q(bm, '''local l = %s.styled.nameplate21.label local s = M.Markers.UI.plates.nameplate21.seal
+        return math.abs(l.scale - 0.8 * 23 / 35) < 1e-6 and math.abs(s.scale - 0.8 * 23 / 35) < 1e-6''' % NM) is True)
+Q(bm, 'UIParent.scale = 1; local l = %s.styled.nameplate21.label; l.nWait = 0; l.scripts.OnUpdate(l, 0)' % NM)
+Q(bm, 'PLATES.nameplate22.yards = 5; local l = %s.styled.nameplate22.label for i = 1, 60 do l.scripts.OnUpdate(l, 0.05) end' % NM)
+Q(bm, 'AddPlate("nameplate23", "Creature-0-1465-0-2105-500-0000300010", { hostile = true })')
+Q(bm, 'AddPlate("nameplate24", "Player-1465-0123ABCD")')
+check("Name only: an enemy's and a player's plates are never touched",
+      Q(bm, 'return PLATES.nameplate23.frame.UnitFrame.alpha == 1 and PLATES.nameplate24.frame.UnitFrame.alpha == 1 and %s.styled.nameplate23 == nil and %s.styled.nameplate24 == nil' % (NM, NM)) is True)
+Q(bm, 'AddPlate("nameplate25", "%s", { other = true, name = "NPC 902" })' % N902)
+check("Name only: a plate another nameplate add-on draws (ElvUI, Plater) is dressed the same: its frame see-through too, our name, the marker on it",
+      Q(bm, '''local s = M.Markers.UI.plates.nameplate25.seal local p = s.points[#s.points] local f = PLATES.nameplate25.frame
+        return f.other.alpha == 0 and f.UnitFrame.alpha == 0 and p[2] == %s.styled.nameplate25.label.text''' % NM) is True)
+Q(bm, 'PLATES.nameplate22.frame.UnitFrame:SetAlpha(1); PLATES.nameplate25.frame.other:SetAlpha(0.8)')
+check("Name only: if the game or another add-on lights a dressed frame again, it goes see-through at once",
+      Q(bm, 'return PLATES.nameplate22.frame.UnitFrame.alpha == 0 and PLATES.nameplate25.frame.other.alpha == 0') is True)
+Q(bm, 'F25 = PLATES.nameplate25.frame.other')
+Q(bm, 'F22 = PLATES.nameplate22.frame.UnitFrame; L22 = %s.styled.nameplate22.label; RemovePlate("nameplate22")' % NM)
+check("Name only: a plate that goes is given back as the game had it (the game reuses it)",
+      Q(bm, 'return F22.alpha == 1 and %s.styled.nameplate22 == nil' % NM) is True)
+check("Distance: a name given back is full size again and stops following",
+      Q(bm, 'return L22.scale == 1 and L22.scripts.OnUpdate == nil') is True)
+Q(bm, 'F22:SetAlpha(0.5)')
+check("Name only: ...and the frame, given back, is the game's to light again (the hook lets it be)", Q(bm, 'return F22.alpha') == 0.5)
+Q(bm, 'F21 = PLATES.nameplate21.frame.UnitFrame')
+for u in ("nameplate21", "nameplate23", "nameplate24", "nameplate25"):
+    Q(bm, 'RemovePlate("%s")' % u)
+Q(bm, 'COMBAT = true; POS.y = 0.9')
+run(2)
+check("Combat: walking away in combat changes nothing (the game won't take a CVar change in combat)", CV(bm) == "1" and HOLD(bm) is True)
+Q(bm, 'COMBAT = false; mock_fire("PLAYER_REGEN_ENABLED")')
+check("Combat: ...when it ends, the player's value goes back at once and the saved note is cleared",
+      CV(bm) == "0" and HOLD(bm) is False and Q(bm, 'return M.db.npcPlates == nil and next(%s.styled) == nil and F21.alpha == 1 and F25.alpha == 1' % NM) is True)
+Q(bm, 'COMBAT = true; POS.y = 0.47')
+run(2)
+check("Combat: arriving near a marked NPC in combat waits", CV(bm) == "0")
+Q(bm, 'COMBAT = false; mock_fire("PLAYER_REGEN_ENABLED")')
+check("Combat: ...and turns them on when combat ends", CV(bm) == "1")
+Q(bm, 'CVARS.nameplateShowFriendlyNPCs = "0"')
+run(2)
+check("Someone else: turned off by another add-on or the options near a marked NPC, the add-on turns it on again (it has the last word, Max 12 Nov)",
+      CV(bm) == "1" and HOLD(bm) is True and Q(bm, 'return M.db.npcPlates.was') == "0")
+Q(bm, 'COMBAT = true; CVARS.nameplateShowFriendlyNPCs = "0"')
+run(1)
+check("Someone else: ...but not in combat: it waits", CV(bm) == "0")
+Q(bm, 'COMBAT = false; mock_fire("PLAYER_REGEN_ENABLED")')
+check("Someone else: ...and takes it back when combat ends, the player's own value still kept", CV(bm) == "1" and Q(bm, 'return M.db.npcPlates.was') == "0")
+Q(bm, 'mock_fire("PLAYER_LOGOUT")')
+check("Logout: at logout (and so before a /reload) the player's value goes back", CV(bm) == "0" and Q(bm, 'return M.db.npcPlates == nil') is True)
+# a crash, or a /reload in combat: the saved variables still hold the note, the client still holds our "1"
+Q(bm, '%s.holding = false; CVARS.nameplateShowFriendlyNPCs = "1"; M.db.npcPlates = { was = "0" }; POS.y = 0.9' % NM)
+run(1)
+check("Crash: at the next login the add-on takes the hold up again and, with no marked NPC near, puts the player's value back",
+      CV(bm) == "0" and HOLD(bm) is False and Q(bm, 'return M.db.npcPlates == nil') is True)
+Q(bm, 'SET_LOG = 0; CVARS.nameplateShowFriendlyNPCs = "0"; M.db.npcPlates = { was = "1" }')
+run(1)
+check("Crash: if the game didn't keep our \"1\", the note is dropped and nothing is written", CV(bm) == "0" and Q(bm, 'return SET_LOG == 0 and M.db.npcPlates == nil') is True)
+Q(bm, 'POS.y = 0.47')
+run(1)
+Q(bm, 'M.db.settings.markerPlates = false')
+Q(bm, '''for _, g in ipairs(M.SettingsPage.GROUPS) do for _, r in ipairs(g.rows) do if r.key == "markerPlates" then r.changed() end end end''')
+check("Setting: 'Nameplates near a marker' off puts the player's value back and leaves them alone", CV(bm) == "0" and HOLD(bm) is False)
+run(2)
+check("Setting: ...and stays off beside the NPC", CV(bm) == "0")
+Q(bm, 'M.db.settings.markerPlates = true; M.db.settings.markerShow = false')
+run(1)
+check("Setting: with quest markers off altogether, nothing is turned on either", CV(bm) == "0")
+Q(bm, 'M.db.settings.markerShow = true; CVARS.nameplateShowFriendlyNPCs = nil')
+run(1)
+check("Client: a client without the CVar: nothing written, no error", HOLD(bm) is False and len(errors) == 0)
+Q(bm, 'CVARS.nameplateShowFriendlyNPCs = "0"; POS.y = 0.9')
+run(1)
+Q(bm, 'INSTANCE = 0; POS.x = nil')
+run(1)
+check("Client: no position (an instance): never turned on", CV(bm) == "0")
+Q(bm, 'POS.x = 0.5; POS.y = 0.5')
+run(1)
+
+# the hand-in marker: a "?" in the record
+check("Marker rules: a hand-in (q = \"in\") is accepted, anything else in q refused",
+      Q(bm, '''local r = M.Book.rules["marker.set"] local d = { npc = 240, p = "sh", map = 1429, x = 0.5, y = 0.3 }
+        local ok1 = r("Max", { d = d }) d.q = "in" local ok2 = r("Max", { d = d }) d.q = "?" local ok3 = r("Max", { d = d })
+        return ok1 == true and ok2 == true and ok3 == false''') is True)
+Q(mk, 'TARGET = { guid = "Creature-0-1465-0-2105-905-0000300011", name = "NPC 905" }; POS.x = 0.5; POS.y = 0.6')
+mk.slash("marker add all ?")
+run(1)
+check("Hand-in: /mota marker add all ? writes a hand-in marker", mk.said(r"NPC 905 now carries a hand-in marker \(\?\) for everyone")
+      and Q(bm, 'local m = M.Markers:For(905) return m ~= nil and m.q == "in"') is True)
+mk.slash("marker add all hello")
+check("Hand-in: an unknown word after the party says what is allowed", mk.said(r"Add \? \(or in\) for a quest to hand in"))
+Q(bm, 'CVARS.nameplateShowFriendlyNPCs = "1"')
+Q(bm, 'AddPlate("nameplate26", "Creature-0-1465-0-2105-905-0000300011", { name = "NPC 905" })')
+check("Hand-in: its nameplate gets the Crown's \"?\"",
+      Q(bm, 'local s = M.Markers.UI.plates.nameplate26.seal return s.key == "CROWN" and s.tex.coords[1] == 7 / 8') is True)
+Q(bm, 'RemovePlate("nameplate26")')
+mk.slash("marker list")
+check("Hand-in: /mota marker list says which are hand-ins", mk.said(r"905 NPC 905 · for everyone · hand-in \(\?\)"))
+# one copy of an NPC with many (Max, 12 Nov: marking one Stormwind Guard marked every guard)
+GUARD_A = "Creature-0-1465-0-2105-68-0000300002"
+GUARD_B = "Creature-0-1465-0-2105-68-0000300099"
+check("Copies: a mark's copy (the GUID's spawn part) must be hex, at most 16",
+      Q(bm, '''local r = M.Book.rules["marker.set"] local d = { npc = 68, p = "all", map = 1429, x = 0.5, y = 0.5 }
+        d.g = "0000300002" local a = r("Max", { d = d }) d.g = "xyz" local b = r("Max", { d = d }) d.g = string.rep("0", 17)
+        return a == true and b == false and r("Max", { d = d }) == false''') is True)
+Q(mk, 'TARGET = { guid = "%s", name = "Stormwind Guard" }; POS.x = 0.5; POS.y = 0.5' % GUARD_A)
+mk.slash("marker add all")
+run(1)
+check("Copies: the mark keeps which copy was targeted", Q(bm, 'local m = M.Markers:For(68) return m and m.g') == "0000300002")
+Q(bm, 'M.db.npcMany = nil; AddPlate("nameplate30", "%s", { name = "Stormwind Guard" })' % GUARD_A)
+Q(bm, 'AddPlate("nameplate31", "%s", { name = "Stormwind Guard" })' % GUARD_B)
+check("Copies: with two guards in view, only the one marked carries the marker",
+      Q(bm, 'local P = M.Markers.UI.plates return P.nameplate30 ~= nil and P.nameplate31 == nil') is True)
+check("Copies: ...and the add-on remembers that guards come in copies (saved)", Q(bm, 'return M.db.npcMany[68]') is True)
+Q(bm, 'RemovePlate("nameplate30"); RemovePlate("nameplate31")')
+Q(bm, 'AddPlate("nameplate32", "%s", { name = "Stormwind Guard" })' % GUARD_B)
+check("Copies: another guard alone in view still gets no marker", Q(bm, 'return M.Markers.UI.plates.nameplate32 == nil') is True)
+Q(bm, 'RemovePlate("nameplate32")')
+Q(bm, 'AddPlate("nameplate33", "Creature-0-1465-0-2105-905-0000399999", { name = "NPC 905" })')
+check("Copies: an NPC never seen twice keeps its mark when its GUID changes (a server restart or respawn)",
+      Q(bm, 'return M.Markers.UI.plates.nameplate33 ~= nil') is True)
+Q(bm, 'RemovePlate("nameplate33")')
+# the Admin Controls' NPC markers section (Max, 12 Nov)
+Q(mk, 'M.UI:ShowAdmin(true)')
+ADM = '''local function ctl(sub, label)
+    for _, c in pairs(M.AdminControls:Controls()) do
+      if c.name == "marker" and c.sub == sub and (label == nil or c.label == label) then return c end
+    end
+  end'''
+check("Admin: /mota marker has a section of its own, a row per part",
+      Q(mk, ADM + ''' local subs = {}
+        for _, c in pairs(M.AdminControls:Controls()) do if c.name == "marker" then subs[c.sub] = true end end
+        return subs[""] and subs.test and subs.add and subs.clear and subs.scale and subs.namesize and subs.size and subs.lift and subs.namey''') is True)
+Q(mk, 'TARGET = { guid = "%s", name = "NPC 901" }; M.Markers.test = {}; M.Markers.lastTest = nil' % N901)
+Q(mk, ADM + ' local c = ctl("test", "Crown") c.button.scripts.OnClick(c.button)')
+check("Admin: Crown under the test row puts a test mark in the Crown's look on the target",
+      Q(mk, 'local m = M.Markers.test[901] return m ~= nil and m.skin == "CROWN"') is True)
+check("Admin: ...and the last test button says Off",
+      Q(mk, ADM + ' local b for _, c in pairs(M.AdminControls:Controls()) do if c.name == "marker" and c.sub == "test" and (c.label == "Off" or c.label == "On") then b = c.button end end return b.labelText') == "Off")
+TOG = ADM + ' local b for _, c in pairs(M.AdminControls:Controls()) do if c.name == "marker" and c.sub == "test" and (c.label == "Off" or c.label == "On") then b = c.button end end'
+Q(mk, TOG + ' b.scripts.OnClick(b)')
+check("Admin: Off takes the test mark away and the button becomes On",
+      Q(mk, TOG + ' return not M.Markers:Testing() and b.labelText == "On"') is True)
+Q(mk, 'TARGET = nil')
+Q(mk, TOG + ' b.scripts.OnClick(b)')
+check("Admin: On brings the same mark back, no target needed, and says Off again",
+      Q(mk, TOG + ' local m = M.Markers.test[901] return m ~= nil and m.skin == "CROWN" and b.labelText == "Off"') is True)
+for i in range(3):
+    Q(mk, TOG + ' b.scripts.OnClick(b)')
+check("Admin: ...flicked off and on as fast as wanted", Q(mk, 'return not M.Markers:Testing()') is True)
+Q(mk, 'M.Markers.lastTest = nil')
+mk.slash("marker test on")
+check("Test: /mota marker test on with nothing to bring back says so", mk.said(r"No test mark to bring back yet"))
+Q(mk, ADM + ' local c = ctl("scale", "1.5") c.button.scripts.OnClick(c.button)')
+check("Admin: the scale row's 1.5 sets the markers' and names' scale", Q(mk, 'return M.db.settings.markerScale') == 1.5)
+Q(mk, ADM + ' local c = ctl("scale", "Default") c.button.scripts.OnClick(c.button)')
+check("Admin: ...and Default puts it back", Q(mk, 'return M.db.settings.markerScale == nil') is True and mk.said(r"scale back to its default"))
+check("Admin: each size row shows its range under its name",
+      Q(mk, ADM + ''' local c = ctl("size", "Default") local row = c.row
+        for _, rg in ipairs(row.regions) do if rg.GetText and rg:GetText() == "24 to 96" then return true end end return false''') is True)
+Q(mk, 'M.UI:HideAdmin()')
+check("Nameplates: nothing in 19b raised a Lua error", len(errors) == 0)
+check("Marker: nothing in this section raised a Lua error", len(errors) == 0)
 
 print()
 print("Lua errors:", len(errors))
