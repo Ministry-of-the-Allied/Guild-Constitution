@@ -213,8 +213,14 @@ add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank be
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits|bank|map]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of", function(arg)
-  if arg == "limits" then
+add("probe", "[limits|bank|map|gossip [nohide|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either)", function(arg)
+  local what, extra = arg:lower():match("^(%S*)%s*(.-)$")
+  if what == "gossip" then
+    if extra ~= "" and extra ~= "off" and extra ~= "nohide" then
+      return MOTA:Print("Use /mota probe gossip, /mota probe gossip nohide (control run, we do not hide the window) or /mota probe gossip off.")
+    end
+    MOTA.Probe:Gossip(extra ~= "" and extra or nil)
+  elseif arg == "limits" then
     MOTA.Probe:Limits()
   elseif arg == "map" then
     MOTA.Probe:Map()

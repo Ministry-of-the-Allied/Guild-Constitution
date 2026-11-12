@@ -4650,6 +4650,336 @@ Q(mk, 'M.UI:HideAdmin()')
 check("Nameplates: nothing in 19b raised a Lua error", len(errors) == 0)
 check("Marker: nothing in this section raised a Lua error", len(errors) == 0)
 
+print("== 20. The gossip probe: /mota probe gossip (Crown-only, off by default, hears a picked option)")
+# A pretend client with the gossip functions; the Crown (mk) runs the probe, a citizen (bm) is refused.
+GOSSIP_LUA = '''
+  GOSSIP_NPC = "Creature-0-1465-0-2105-4242-00001A2B3C"
+  PICKED = {}
+  GossipFrame = CreateFrame("Frame", "GossipFrame", UIParent)
+  GossipFrame:Show()
+  function HideUIPanel(f) f:Hide() end
+  Enum = Enum or {}
+  Enum.PlayerInteractionType = { Gossip = 3, Banker = 8 }
+  local realGUID = UnitGUID
+  function UnitGUID(u) if u == "npc" then return GOSSIP_NPC end return realGUID(u) end
+  C_GossipInfo = {
+    GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 },
+                                     { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end,
+    GetAvailableQuests = function() return { { questID = 5001, title = "A Small Errand" } } end,
+    GetActiveQuests = function() return { { questID = 5002, title = "Bring Word" } } end,
+    SelectOption = function(id, text, confirmed) PICKED[#PICKED + 1] = id end,
+    CloseGossip = function() end,
+  }
+'''
+bm.slash("probe gossip")
+check("Gossip probe: a citizen is refused (the probe stays Crown-only)", bm.log[-1].endswith("Crown alone."))
+check("Gossip probe: ...and it is in the Crown's help but not a citizen's",
+      Q(mk, 'return M.Commands.Allowed("probe")') is True and Q(bm, 'return M.Commands.Allowed("probe")') is False
+      and any(("gossip [nohide|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
+mk.slash("probe gossip")
+check("Gossip probe: a client without the gossip functions says so, without errors",
+      mk.said(r"missing: .*C_GossipInfo\.SelectOption") and len(errors) == 0)
+mk.slash("probe gossip off")
+Q(mk, GOSSIP_LUA)
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW")')
+check("Gossip probe: off by default, GOSSIP_SHOW is not reported", not mk.said(r"Gossip probe"))
+mk.slash("probe gossip")
+check("Gossip probe: on, every function found and the hook made",
+      mk.said(r"every gossip function is present") and mk.said(r"Hook on C_GossipInfo\.SelectOption: .*yes") and mk.said(r"events registered: 5 of 5"))
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW")')
+check("Gossip probe: GOSSIP_SHOW gives the NPC ID from the GUID", mk.said(r"GOSSIP_SHOW, NPC .* ID 4242 \(Creature-0-1465-0-2105-4242-00001A2B3C via npc\)"))
+check("Gossip probe: ...the options with ID, name, flags and status",
+      mk.said(r'option 111 "Tell me of the Ministry" flags 0 status 0') and mk.said(r'option 222 "I seek work" flags 1 status 0'))
+check("Gossip probe: ...and the available and active quests",
+      mk.said(r"quest to take 5001 A Small Errand") and mk.said(r"quest in progress 5002 Bring Word"))
+mk.log.clear()
+Q(mk, 'C_GossipInfo.SelectOption(222, nil, false)')
+Q(mk, 'mock_advance(0.2)')
+check("Gossip probe: the picked option's ID and name are reported", mk.said(r'option 222 "I seek work" picked'))
+check("Gossip probe: the game's own SelectOption still ran", Q(mk, 'return PICKED[1]') == 222)
+check("Gossip probe: our hide is named plainly, with tried and changed", mk.said(r"our hide: tried / changed the window: .*yes")
+      and Q(mk, 'return GossipFrame:IsShown()') is False)
+check("Gossip probe: the pick's route is on one line", mk.said(r"route: SelectOption$"))
+check("Gossip probe: the window is sampled after the pick, and who closed it is named",
+      mk.said(r"window after pick: closed at 0\.2 s by: our hide"))
+Q(mk, 'mock_fire("GOSSIP_CONFIRM", 222, "Are you sure?", 0); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 8); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 8); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: confirm, interaction show/hide (named) and close are reported",
+      mk.said(r"GOSSIP_CONFIRM 222") and mk.said(r"interaction opened 8 \(Banker\)") and mk.said(r"interaction closed 8") and mk.said(r"GOSSIP_CLOSED"))
+check("Gossip probe: the summary is saved in MOTADB.probe.gossip",
+      Q(mk, 'local g = M.db.probe.gossip return g.npc.npcID == 4242 and #g.npc.options == 2 and g.picks[1].optionID == 222 and g.picks[1].tried == true and g.picks[1].changed == true and g.selectOptionHooked == true and g.confirmSeen == true and g.closedSeen == true and #g.interactions == 2') is True)
+Q(mk, 'M.db.probe.gossip.control = { [222] = { closedByGame = false } }')  # as a nohide run on option 222 would have left it
+mk.slash("probe gossip off")
+check("Gossip probe: off prints the verdict from our hide results, and saves it",
+      mk.said(r"can we close the gossip window after a pick: .*yes.* \(1 pick\)") and Q(mk, 'return M.db.probe.gossip.verdict') == "yes"
+      and mk.said(r"verdict: yes, option 222: our hide closed it, and the nohide control stayed open")
+      and mk.said(r"option 222: nohide control: stayed open"))
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); C_GossipInfo.SelectOption(111); mock_advance(11)')
+check("Gossip probe: off stops it (nothing reported, window left alone)", not mk.said(r"Gossip probe") and Q(mk, 'return GossipFrame:IsShown()') is True)
+mk.slash("probe gossip")
+check("Gossip probe: turned on again, the hook isn't doubled", Q(mk, 'return M.Probe.gossipHooked') is True)
+Q(mk, 'mock_fire("GOSSIP_SHOW"); PICKED = {}; C_GossipInfo.SelectOption(111); mock_advance(0.3)')
+check("Gossip probe: ...one pick is one report", sum(1 for l in mk.log if "picked" in l) == 1 and Q(mk, 'return #PICKED') == 1)
+# 20b. The fallback: option buttons, other entry points, and the chain log.
+Q(mk, '''
+  BTNS = {}
+  for i, d in ipairs({ { gossipOptionID = 111, name = "Tell me of the Ministry" }, { gossipOptionID = 222, name = "I seek work" } }) do
+    local b = CreateFrame("Button", nil, UIParent)
+    b.data = d
+    function b:GetElementData() return { info = self.data } end
+    BTNS[i] = b
+  end
+  GossipFrame.GreetingPanel = { ScrollBox = { ForEachFrame = function(self, fn) for _, b in ipairs(BTNS) do fn(b) end end } }
+  C_GossipInfo.SelectOptionByIndex = function(i) end
+  C_GossipInfo.SelectActiveQuest = function(q) end
+  C_GossipInfo.SelectAvailableQuest = function(q) end
+  function SelectGossipOption(i) end
+  function CLICK(b) b:GetScript("PreClick")(b); b:GetScript("OnClick")(b) end
+''')
+mk.slash("probe gossip off")
+mk.log.clear()
+mk.slash("probe gossip")
+check("Gossip probe: other entry points are wrapped and reported by name",
+      mk.said(r"Other entry points hooked: .*SelectActiveQuest=yes.*SelectGossipOption=yes.*SelectOptionByIndex=yes") and Q(mk, 'return M.db.probe.gossip.entryPoints.SelectAvailableQuest') is True)
+check("Gossip probe: the open gossip window's buttons were hooked on start",
+      mk.said(r"option buttons seen: 2 .* ScrollBox found: yes .* newly hooked scripts: 4"))
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_advance(0.1)')
+check("Gossip probe: GOSSIP_SHOW hooks buttons lazily, never twice",
+      mk.said(r"option buttons seen: 2 .* newly hooked scripts: 0") and Q(mk, 'return M.db.probe.gossip.buttons.hookedScripts') == 4)
+mk.log.clear()
+# The game's real route: our button hook first, then C_GossipInfo.SelectOptionByIndex with an index that is not the option ID.
+Q(mk, 'GossipFrame:Show(); CLICK(BTNS[2]); C_GossipInfo.SelectOptionByIndex(3); mock_advance(0.3)')
+check("Gossip probe: a button click names the option ID and name from the button",
+      mk.said(r'option 222 "I seek work" picked') and sum(1 for l in mk.log if "picked" in l) == 1)
+check("Gossip probe: ...PreClick, OnClick and SelectOptionByIndex are one pick on one route line, 'index 3' shown",
+      mk.said(r"route: button \+ SelectOptionByIndex \(index 3\)") and sum(1 for l in mk.log if "route:" in l) == 1
+      and Q(mk, 'return #M.db.probe.gossip.picks') == 1 and not mk.said(r"not in the last list"))
+check("Gossip probe: ...our hide printed once, as tried / changed",
+      sum(1 for l in mk.log if "our hide:" in l) == 1 and mk.said(r"our hide: tried / changed the window: .*yes"))
+check("Gossip probe: ...saved per pick as tried and changed, with the index and both routes",
+      Q(mk, 'local p = M.db.probe.gossip.picks[1] return p.optionID == 222 and p.index == 3 and p.routes[1] == "button" and p.routes[2] == "SelectOptionByIndex" and p.shownBefore == true and p.tried == true and p.changed == true') is True)
+Q(mk, 'mock_advance(2)')
+mk.log.clear()
+Q(mk, 'C_GossipInfo.SelectOptionByIndex(1); C_GossipInfo.SelectActiveQuest(5002); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.3)')
+check("Gossip probe: an index pick with no button is shown as an index only, never 'not in the last list'",
+      mk.said(r"option index 1 picked") and mk.said(r"route: SelectOptionByIndex \(index 1\)") and not mk.said(r"not in the last list"))
+check("Gossip probe: quest entry points are tagged by name",
+      mk.said(r"quest 5002 picked") and mk.said(r"route: SelectActiveQuest") and mk.said(r"quest 5001 picked") and mk.said(r"route: SelectAvailableQuest"))
+Q(mk, 'mock_advance(2); SelectGossipOption(2); mock_advance(0.3)')
+check("Gossip probe: SelectGossipOption is an index route too", mk.said(r"option index 2 picked") and mk.said(r"route: SelectGossipOption \(index 2\)"))
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: the chain is printed as one line on GOSSIP_CLOSED, one pick one step with merged routes",
+      mk.said(r"chain: SHOW\(2\)@0\.0 > pick button\+SelectOptionByIndex 222@0\.1 > pick SelectOptionByIndex index 1@\d+\.\d > .*pick SelectActiveQuest quest 5002@.*pick SelectGossipOption index 2@.* > SHOW\(2\)@.* > CLOSED@\d+\.\d"))
+check("Gossip probe: chains are saved (kept to the last 10)",
+      Q(mk, 'local c = M.db.probe.gossip.chains return #c >= 1 and c[#c].closed == true and c[#c].steps[1].s == "SHOW(2)" and type(c[#c].start) == "number"') is True)
+Q(mk, 'for i = 1, 14 do mock_fire("GOSSIP_SHOW"); mock_fire("GOSSIP_CLOSED") end')
+check("Gossip probe: ...never more than 10", Q(mk, 'return #M.db.probe.gossip.chains') == 10)
+
+# Separate conversations are separate chains; interactions are named in chains, unknown ones by number.
+Q(mk, 'Enum.PlayerInteractionType = { Gossip = 3, Merchant = 5, TaxiNode = 6, Banker = 8 }')
+mk.slash("probe gossip off")
+mk.slash("probe gossip")
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[1]); C_GossipInfo.SelectOptionByIndex(1); mock_advance(1)')
+Q(mk, 'mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 20); mock_advance(4); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 20); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 0)')
+check("Gossip probe: interactions print the number with the name, an unknown one just the number",
+      mk.said(r"interaction opened 20$") and mk.said(r"interaction closed 0$"))
+Q(mk, 'mock_advance(40); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 5)')
+check("Gossip probe: a known interaction is shown as number and name", mk.said(r"interaction opened 5 \(Merchant\)"))
+check("Gossip probe: an interaction-0 hide alone does not print the chain yet", not mk.said(r"chain:"))
+mk.log.clear()
+Q(mk, 'mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 5); mock_fire("GOSSIP_SHOW")')
+check("Gossip probe: the next GOSSIP_SHOW after an interaction-0 hide flushes the old chain and starts a new one",
+      mk.said(r"chain: SHOW\(2\)@0\.0 > pick button\+SelectOptionByIndex 111@0\.1 > INT\+20@1\.1 > INT-20@5\.1 > INT-0@5\.1 > INT\+Merchant@45\.1 > INT-Merchant@45\.1$")
+      and Q(mk, 'local c = M.db.probe.gossip.chains return #c == 2 and #c[2].steps == 1 and c[2].steps[1].s == "SHOW(2)"') is True)
+Q(mk, 'mock_fire("GOSSIP_CLOSED"); mock_fire("GOSSIP_SHOW"); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: a CLOSED chain is printed on close and the next conversation is its own chain",
+      mk.said(r"chain: SHOW\(2\)@0\.0 > CLOSED@0\.0$") and Q(mk, 'return #M.db.probe.gossip.chains') == 3)
+Q(mk, 'mock_advance(20)')
+# A flight master: SHOW with no options, then a taxi interaction.
+Q(mk, 'C_GossipInfo.GetOptions = function() return {} end')
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 6); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 6); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: a flight master (no options, then TaxiNode) is one chain with INT+TaxiNode",
+      mk.said(r"chain: SHOW\(0\)@0\.0 > INT\+TaxiNode@0\.0 > INT-TaxiNode@0\.0 > CLOSED@0\.0$"))
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+
+# Who closed the window: our hide blocked, so the game or the player does it.
+Q(mk, 'M.db.probe.gossip.control = { [111] = { closedByGame = false }, [222] = { closedByGame = false } }')  # both options stayed open in a nohide run
+Q(mk, 'function HideUIPanel(f) if HIDE_BLOCKED then return end f:Hide() end; HIDE_BLOCKED = true')
+mk.slash("probe gossip off")
+mk.slash("probe gossip")
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[1]); C_GossipInfo.SelectOptionByIndex(1); mock_advance(0.5)')
+check("Gossip probe: our hide that changed nothing says so", mk.said(r"our hide: tried / changed the window: .*no") and Q(mk, 'return GossipFrame:IsShown()') is True)
+Q(mk, 'GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); mock_advance(1)')
+check("Gossip probe: closed by the game (CLOSED with no hide of ours) is named",
+      mk.said(r"window after pick: open at 0\.2 s, closed at 1 s by: game"))
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); C_GossipInfo.SelectOptionByIndex(2); mock_advance(10)')
+check("Gossip probe: a window left alone for 10 s is reported as still open",
+      mk.said(r"window after pick: open at 0\.2 s, open at 1 s, open at 3 s, still open at 10 s"))
+Q(mk, 'mock_advance(5); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: closed later with no further pick is put down to you",
+      mk.said(r"after the pick with no further pick, by: you") and Q(mk, 'local p = M.db.probe.gossip.picks return p[#p].closedBy') == "you")
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: verdict 'no' when our hide never changed the window",
+      mk.said(r"can we close the gossip window after a pick: .*no.* \(2 picks\)") and Q(mk, 'return M.db.probe.gossip.verdict') == "no")
+mk.slash("probe gossip")
+Q(mk, 'HIDE_BLOCKED = false; GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[1]); mock_advance(2); HIDE_BLOCKED = true; GossipFrame:Show(); CLICK(BTNS[2]); mock_advance(2)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: verdict 'unclear' when our hide worked once and not twice",
+      mk.said(r"can we close the gossip window after a pick: .*unclear.* \(2 picks\)") and Q(mk, 'return M.db.probe.gossip.verdict') == "unclear")
+mk.slash("probe gossip")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); mock_advance(0.3)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: verdict 'no' again on a single pick",
+      mk.said(r"can we close the gossip window after a pick: .*no.* \(1 pick\)") and Q(mk, 'return M.db.probe.gossip.verdict') == "no")
+Q(mk, 'HIDE_BLOCKED = false')
+mk.slash("probe gossip")
+mk.slash("probe gossip off")
+check("Gossip probe: verdict 'unclear' with no picks", mk.said(r"can we close the gossip window after a pick: .*unclear.* \(0 picks\)"))
+
+# 20c. The control run: /mota probe gossip nohide never hides the window, so who closed it is the game's doing
+# (or nobody's), a game reshow is followed, and the verdict needs a nohide control that stayed open.
+Q(mk, 'HIDE_BLOCKED = false; M.db.probe.gossip.control = {}')
+mk.slash("probe gossip")
+check("Gossip probe: a normal start names its mode, hide", mk.said(r"mode: hide \(normal run") and Q(mk, 'return M.db.probe.gossip.mode') == "hide")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); mock_advance(2)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: a hide pick with no nohide control is 'unclear', named by option, and so is the overall verdict",
+      mk.said(r"verdict: unclear, no nohide control for option 222 yet") and mk.said(r"can we close the gossip window after a pick: .*unclear.* \(1 pick\)")
+      and Q(mk, 'return M.db.probe.gossip.verdict') == "unclear" and Q(mk, 'return M.db.probe.gossip.picks[1].mode') == "hide")
+Q(mk, 'GossipFrame:Show()')
+mk.log.clear()
+mk.slash("probe gossip nohide")
+check("Gossip probe: nohide says plainly it is a control run, and saves the mode",
+      mk.said(r"mode: nohide, control run: we do NOT hide the window") and Q(mk, 'return M.db.probe.gossip.mode') == "nohide"
+      and mk.said(r"leave the windows alone for 30 s"))
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1)')
+mk.log.clear()
+Q(mk, 'CLICK(BTNS[2]); C_GossipInfo.SelectOptionByIndex(3); mock_advance(0.3)')
+check("Gossip probe: nohide picks are found as before (button + index route) and our hide is not tried",
+      mk.said(r'option 222 "I seek work" picked') and mk.said(r"route: button \+ SelectOptionByIndex \(index 3\)")
+      and mk.said(r"our hide: not tried \(control run: we do NOT hide the window\)") and not mk.said(r"tried / changed")
+      and Q(mk, 'return GossipFrame:IsShown()') is True
+      and Q(mk, 'local p = M.db.probe.gossip.picks[1] return p.mode == "nohide" and p.tried == nil and p.shownBefore == true') is True)
+Q(mk, 'mock_advance(30)')
+check("Gossip probe: nohide, a window left alone is 'still open at N s' (10 s, then a 30 s follow-up), never 'our hide'",
+      mk.said(r"window after pick: open at 0\.2 s, open at 1 s, open at 3 s, still open at 10 s$") and mk.said(r"window after pick: still open at 30 s$")
+      and not mk.said(r"by: our hide") and Q(mk, 'return GossipFrame:IsShown()') is True)
+check("Gossip probe: ...the control for the option is saved as stayed open",
+      mk.said(r"nohide control for option 222: the window stayed open") and Q(mk, 'return M.db.probe.gossip.control[222].closedByGame') is False)
+# The innkeeper: the game closes the window itself.
+Q(mk, 'mock_advance(1); GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1)')
+mk.log.clear()
+Q(mk, 'CLICK(BTNS[1]); mock_advance(0.3); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); mock_advance(1)')
+check("Gossip probe: nohide, a close with no hide of ours is credited to the game",
+      mk.said(r"window after pick: open at 0\.2 s, closed at 1 s by: game") and not mk.said(r"by: our hide"))
+check("Gossip probe: ...and saved as the option's control, 'the game closed the window'",
+      mk.said(r"nohide control for option 111: the game closed the window") and Q(mk, 'return M.db.probe.gossip.control[111].closedByGame') is True)
+# The guard: the game closes it, then shows gossip again with no options, which stays open until closed by hand.
+Q(mk, 'mock_advance(5); C_GossipInfo.GetOptions = function() return {} end')
+mk.log.clear()
+Q(mk, 'mock_fire("GOSSIP_SHOW"); GossipFrame:Show()')
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+Q(mk, 'mock_advance(0.1); CLICK(BTNS[2]); mock_advance(0.15); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); C_GossipInfo.GetOptions = function() return {} end; mock_fire("GOSSIP_SHOW"); GossipFrame:Show(); mock_advance(0.1)')
+check("Gossip probe: the first window's line stops when the game shows gossip again, closed by the game",
+      mk.said(r"window after pick: closed at 0\.\d s by: game \(the game showed gossip again\)") and not mk.said(r"by: our hide"))
+Q(mk, 'mock_advance(10)')
+check("Gossip probe: a reshown window with no options is its own line, still open at 10 s",
+      mk.said(r"game reshowed gossip \(0 options\), still open at 10 s$"))
+Q(mk, 'mock_advance(17.4); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED")')
+check("Gossip probe: ...closed by hand later is put down to you, with the time since it appeared",
+      mk.said(r"reshown window closed 27\.\d s after it appeared, by: you")
+      and Q(mk, 'local p = M.db.probe.gossip.picks p = p[#p] return p.reshow.options == 0 and p.reshow.closedBy == "you" and p.reshow.tenOpen == true and p.reshown == true') is True)
+# A reshown window the game itself closes soon after.
+Q(mk, 'mock_advance(5); GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1)')
+mk.log.clear()
+Q(mk, 'CLICK(BTNS[1]); mock_advance(0.1); mock_fire("GOSSIP_SHOW"); GossipFrame:Show(); mock_advance(0.5); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); mock_advance(1)')
+check("Gossip probe: a reshown window closed by the game says so", mk.said(r"game reshowed gossip \(0 options\), closed at 1 s by: game"))
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: nohide off gives no verdict on our hide, only the control results per option",
+      mk.said(r"control run: we did NOT hide the window, so there is no verdict") and not mk.said(r"can we close the gossip window")
+      and mk.said(r"option 111: nohide control: game closed it") and mk.said(r"option 222: nohide control: game closed it")  # the guard run: the latest result per option wins
+      and Q(mk, 'return M.db.probe.gossip.verdict') is None)
+# A hide run that reshows: the hide closes it at once, the game opens an empty window that stays.
+Q(mk, 'M.db.probe.gossip.control = { [111] = { closedByGame = true }, [222] = { closedByGame = false } }')
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+mk.slash("probe gossip")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); mock_advance(0.05); mock_fire("GOSSIP_CLOSED"); C_GossipInfo.GetOptions = function() return {} end; mock_fire("GOSSIP_SHOW"); GossipFrame:Show(); mock_advance(0.2)')
+mk.log.clear()
+Q(mk, 'mock_advance(10)')
+check("Gossip probe: in hide mode the reshow is followed too", mk.said(r"game reshowed gossip \(0 options\), still open at 10 s"))
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+Q(mk, 'mock_advance(30); GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[1]); mock_advance(2)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: hide verdict, per pick: yes where the control stayed open, unclear where the game closes it itself",
+      mk.said(r"verdict: yes, option 222: our hide closed it") and mk.said(r"verdict: unclear, the game closes option 111 itself")
+      and mk.said(r"can we close the gossip window after a pick: .*unclear.* \(2 picks\)") and Q(mk, 'return M.db.probe.gossip.verdict') == "unclear"
+      and mk.said(r"option 111: nohide control: game closed it") and mk.said(r"option 222: nohide control: stayed open"))
+# The rewrite guard (Ironforge Guard "The Inn"): nohide pick, the game reshows with 0 options at ~1.5 s, no close,
+# the window stays up until the user closes it ~108 s later. The control must still be saved, as stayed open + rewritten.
+Q(mk, 'M.db.probe.gossip.control[222] = nil; GossipFrame:Hide()')
+mk.slash("probe gossip nohide")
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); mock_advance(1.4); C_GossipInfo.GetOptions = function() return {} end; mock_fire("GOSSIP_SHOW"); GossipFrame:Show(); mock_advance(1); GossipFrame:Show()')
+Q(mk, 'mock_advance(106); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); mock_advance(1)')
+check("Gossip probe: a nohide pick the game rewrites (reshow, no close) saves the control as stayed open + rewritten",
+      mk.said(r"no close seen before the game showed gossip again") and mk.said(r"nohide control for option 222: the window stayed open \(the game rewrote it with 0 options\)")
+      and Q(mk, 'local c = M.db.probe.gossip.control[222] return c.closedByGame == false and c.rewritten == true and c.options == 0 and c.name == "I seek work" and type(c.at) == "number"') is True)
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: ...and the control summary line says the game rewrote it",
+      mk.said(r"option 222: nohide control: stayed open \(game rewrote it with 0 options\)"))
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+mk.slash("probe gossip")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.1); CLICK(BTNS[2]); mock_advance(0.05); C_GossipInfo.GetOptions = function() return {} end; mock_fire("GOSSIP_SHOW"); GossipFrame:Show(); mock_advance(0.2)')
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: a hide that closed the window at 0.2 s is 'yes' against a rewritten control, noting the reshow",
+      mk.said(r"verdict: yes, option 222: our hide closed a window the game leaves open \(the game then reshowed it with 0 options\)")
+      and Q(mk, 'return M.db.probe.gossip.verdict') == "yes")
+Q(mk, 'C_GossipInfo.GetOptions = function() return { { gossipOptionID = 111, name = "Tell me of the Ministry", flags = 0, status = 0 }, { gossipOptionID = 222, name = "I seek work", flags = 1, status = 0 } } end')
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); CLICK(BTNS[1]); C_GossipInfo.SelectOptionByIndex(1); C_GossipInfo.SelectActiveQuest(1); mock_fire("GOSSIP_SHOW"); mock_fire("GOSSIP_CLOSED"); mock_fire("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", 0); mock_advance(20)')
+check("Gossip probe: off, the button and entry-point hooks and the window samples stay silent",
+      not mk.said(r"Gossip probe") and not mk.said(r"chain:") and not mk.said(r"window after pick"))
+
+# 20d. Every run is kept in MOTADB.probe.gossipRuns (up to 20)
+Q(mk, 'M.db.probe.gossipRuns = nil; M.db.probe.gossip = nil')
+Q(mk, 'M.db.probe.gossip = { control = { [222] = { closedByGame = false } } }')
+mk.log.clear()
+mk.slash("probe gossip")
+check("Gossip probe: a start says which run is saved", mk.said(r"run 1 saved \(earlier runs kept in MOTADB\.probe\.gossipRuns\)"))
+mk.slash("probe gossip off")
+mk.log.clear()
+mk.slash("probe gossip nohide")
+check("Gossip probe: the second start of another mode keeps the first run",
+      Q(mk, 'local r = M.db.probe.gossipRuns return #r == 2 and r[1].mode == "hide" and r[2].mode == "nohide" and r[1].run == 1 and r[2].run == 2 and type(r[2].startTime) == "number" and M.db.probe.gossip == r[2] and M.db.probe.gossip.run == 2') is True)
+mk.log.clear()
+mk.slash("probe gossip off")
+check("Gossip probe: off keeps both runs and says so",
+      mk.said(r"Run 2 saved") and Q(mk, 'local r = M.db.probe.gossipRuns return #r == 2 and r[1].mode == "hide" and r[2].mode == "nohide"') is True)
+check("Gossip probe: controls persist across runs", Q(mk, 'return M.db.probe.gossip.control[222].closedByGame') is False)
+for _ in range(20):
+    mk.slash("probe gossip")
+    mk.slash("probe gossip off")
+check("Gossip probe: the 21st run drops the oldest, 20 kept",
+      Q(mk, 'local r = M.db.probe.gossipRuns return #r == 20 and r[1].run == 3 and r[20].run == 22 and r[20] == M.db.probe.gossip') is True)
+check("Gossip probe: controls still persist after many runs", Q(mk, 'return M.db.probe.gossip.control[222].closedByGame') is False)
+check("Gossip probe: nothing in this section raised a Lua error", len(errors) == 0)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:
