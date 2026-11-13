@@ -5035,7 +5035,7 @@ QUEST_LUA = '''
 '''
 bm.slash("probe quest")
 check("Quest probe: a citizen is refused (the probe stays Crown-only)", bm.log[-1].endswith("Crown alone."))
-check("Quest probe: ...and it is in the Crown's usage", any(("quest [nohide|fade|page|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
+check("Quest probe: ...and it is in the Crown's usage", any(("quest [nohide|fade|page|button|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
 mk.log.clear()
 mk.slash("probe quest bogus")
 check("Quest probe: a wrong word says how to use it", mk.said(r"Use /mota probe quest, /mota probe quest fade"))
@@ -5050,7 +5050,7 @@ check("Quest probe: off by default, a quest page is not reported and not touched
 Q(mk, 'QUEST_ALIVE = false; QuestFrame:Hide()')
 mk.slash("probe quest")
 check("Quest probe: on, every function found, events registered, the pick hooks named",
-      mk.said(r"every quest function is present") and mk.said(r"Events registered: 10 of 10")
+      mk.said(r"every quest function is present") and mk.said(r"Events registered: 12 of 12")
       and mk.said(r"C_GossipInfo\.SelectActiveQuest=yes") and mk.said(r"C_GossipInfo\.SelectAvailableQuest=yes")
       and mk.said(r"mode: hide \(normal run") and Q(mk, 'return M.db.probe.quest.mode') == "hide" and Q(mk, 'return M.db.probe.quest.run') == 2)  # run 1 was the start with no quest functions
 # Hide mode: the page is closed, and the game ends the conversation with it (as its own OnHide does).
@@ -5295,6 +5295,151 @@ check("Quest picks: fade mode does not install the wrappers",
 mk.slash("probe quest off")
 Q(mk, 'debugstack = nil; CALLER = nil')
 check("Quest picks: nothing in this section raised a Lua error", len(errors) == 0)
+
+print("== 20i. Quest probe button mode: our own entry in the gossip window; combat and blocked actions noted")
+Q(mk, '''
+  QuestFrame:Hide(); QuestFrame:SetAlpha(1); QUEST_ALIVE = false; COMBAT = false
+  ACC2, DEC2, CLS2 = 0, 0, 0
+  local oa, od, oc = AcceptQuest, DeclineQuest, CloseQuest
+  AcceptQuest = function(...) ACC2 = ACC2 + 1; if oa then return oa(...) end end
+  DeclineQuest = function(...) DEC2 = DEC2 + 1; if od then return od(...) end end
+  CloseQuest = function(...) CLS2 = CLS2 + 1; if oc then return oc(...) end end
+  -- a gossip list like the game's: a data provider of rows, shown as buttons (rebuilt when rows are added)
+  BBTNS = {}
+  BOX = {}
+  function BOX:ForEachFrame(fn) for _, b in ipairs(BBTNS) do fn(b) end end
+  function BOX:GetDataProvider() return self.dp end
+  function REBUILD()
+    BBTNS = {}
+    for i, row in ipairs(BOX.dp.rows) do
+      local b = CreateFrame("Button", nil, GossipFrame)
+      b.row = row
+      function b:GetElementData() return self.row end
+      BBTNS[i] = b
+    end
+  end
+  function BOX:SetDataProvider(dp) self.dp = dp; dp.onChange = REBUILD; REBUILD() end
+  function NEWDP(rows)
+    local dp = { rows = rows }
+    function dp:GetSize() return #self.rows end
+    function dp:Find(i) return self.rows[i] end
+    function dp:Insert(e) self.rows[#self.rows + 1] = e; if self.onChange then self.onChange(self) end end
+    return dp
+  end
+  function QROW() return { buttonType = 3, info = { questID = 5001, title = "A Small Errand", isComplete = false } } end
+  function OROW() return { buttonType = 1, info = { gossipOptionID = 111, name = "Tell me of the Ministry" } } end
+  GossipFrame.GreetingPanel = { ScrollBox = BOX }
+''')
+mk.log.clear()
+mk.slash("probe quest button")
+check("Button mode: start says it is research that adds our own test entry, and that nothing real is accepted",
+      mk.said(r"mode: button, RESEARCH") and mk.said(r"Nothing real is accepted") and Q(mk, 'return M.db.probe.quest.mode') == "button")
+check("Button mode: ...the hook on the list's data and the option-click hook are made; no AcceptQuest wrapper",
+      mk.said(r"hook on the gossip list's data .*: yes .* hook on option clicks: yes") and Q(mk, 'return M.Probe.questAcceptWrapper') is None)
+check("Button mode: ...and it tells the player what to look for", mk.said(r"Look for .\[probe\] Our own test quest"))
+# The game builds the list (an available quest and an option), then says GOSSIP_SHOW.
+mk.log.clear()
+Q(mk, 'GossipFrame:Show(); BOX:SetDataProvider(NEWDP({ QROW(), OROW() })); mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("Button mode: our row is added from the list's SetDataProvider hook, as a copy of the quest row",
+      Q(mk, 'local i = M.db.probe.quest.button.inject return i.inserted == true and i.by == "SetDataProvider hook" and i.rowKind == "quest" and i.rowsBefore == 2 and i.rowsAfter == 3 and i.attempts == 1') is True)
+check("Button mode: ...it carries our made-up ID and label, and the game's own rows are untouched",
+      Q(mk, 'local r = BOX.dp.rows return r[3].info.questID == 99999901 and r[3].info.title == "[probe] Our own test quest" and r[1].info.questID == 5001 and r[1].info.title == "A Small Errand" and #r == 3') is True)
+check("Button mode: ...the row is seen among the window's buttons, and the overlay button is placed under the window",
+      Q(mk, 'local b = M.db.probe.quest.button return b.inject.rowSeen == true and b.overlay.placed == true and b.overlay.visible == true') is True
+      and Q(mk, 'return MOTAQuestProbeEntry:IsShown()') is True)
+check("Button mode: ...and it reports both", mk.said(r"our entry: overlay button placed: yes .* row added to the list: yes .* row seen among the window's buttons: yes"))
+# The player clicks our row: the game's click handler would call SelectAvailableQuest with our ID.
+mk.log.clear()
+Q(mk, 'CLICK(BBTNS[3]); C_GossipInfo.SelectAvailableQuest(99999901); mock_advance(0.1)')
+check("Button mode: a click on our row is counted by every route (PreClick/OnClick and the quest pick)",
+      Q(mk, 'local i = M.db.probe.quest.button.inject return i.clicks == 3 and i.routes["inject-row"] == 2 and i.routes["inject-quest"] == 1') is True)
+check("Button mode: ...and opens our TEST page once, not the game's page",
+      Q(mk, 'local n = 0 for _, p in ipairs(M.db.probe.quest.pages) do if p.fake then n = n + 1 end end return n') == 1
+      and Q(mk, 'local f = M.Probe.questOwn return f:IsShown() and f.title:GetText() == "A test quest (probe)"') is True
+      and mk.said(r"our own TEST page is up") and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and Q(mk, 'return M.Probe.questFaded') is None)
+mk.log.clear()
+Q(mk, 'mock_advance(2.1)')
+check("Button mode: 2 s after the click it says whether the gossip window is still open and what the game did",
+      mk.said(r"2 s after the click: gossip window still open: yes .* game's reaction: nothing")
+      and Q(mk, 'return M.db.probe.quest.pages[1].gossipShownAfter') is True)
+Q(mk, 'M.Probe.questOwn.accept.scripts.OnClick(M.Probe.questOwn.accept)')
+check("Button mode: Accept on the test page only closes it: nothing is accepted, declined or closed in the game",
+      Q(mk, 'return ACC2') == 0 and Q(mk, 'return DEC2') == 0 and Q(mk, 'return CLS2') == 0
+      and Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return M.db.probe.quest.pages[1].ownAction') == "accept")
+Q(mk, 'mock_advance(1); M.Probe.questBtnOverlay.scripts.OnClick(M.Probe.questBtnOverlay)')
+check("Button mode: a click on the overlay button opens a second test page and counts on the overlay",
+      Q(mk, 'local o = M.db.probe.quest.button.overlay return o.clicks == 1 and o.routes.overlay == 1') is True
+      and Q(mk, 'return M.Probe.questOwn:IsShown()') is True and Q(mk, 'return #M.db.probe.quest.pages') == 2)
+Q(mk, 'M.Probe.questOwn.close.scripts.OnClick(M.Probe.questOwn.close)')
+# Combat: a quest pick made while fighting is counted and marked in the steps.
+Q(mk, 'COMBAT = true; C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.1); COMBAT = false')
+check("Button mode: a quest pick made in combat is counted and marked [combat] in the steps",
+      Q(mk, 'return M.db.probe.quest.picksInCombat') == 1
+      and Q(mk, 'local found = false for _, s in ipairs(M.db.probe.quest.steps) do if s.s:find("pick SelectAvailableQuest quest 5001 %[combat%]") then found = true end end return found') is True)
+# Taint: the game blocking an action is noted, ours loudly and anyone else's quietly.
+mk.log.clear()
+Q(mk, 'mock_fire("ADDON_ACTION_BLOCKED", "MinistryOfTheAllied", "SetAlpha()"); mock_fire("ADDON_ACTION_FORBIDDEN", "OtherAddon", "Foo()")')
+check("Button mode: an action the game blocked from us is said aloud; one from another add-on is only counted",
+      mk.said(r"the game BLOCKED an action of ours: SetAlpha\(\)") and not mk.said(r"OtherAddon")
+      and Q(mk, 'local r = M.db.probe.quest return r.actionBlockedOurs == 1 and r.actionBlockedOthers == 1 and #r.actionBlocked == 2') is True)
+# Closing the gossip window takes our test page and overlay away with it.
+Q(mk, 'mock_advance(1); M.Probe.questBtnOverlay.scripts.OnClick(M.Probe.questBtnOverlay); mock_advance(0.1)')
+Q(mk, 'GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED")')
+check("Button mode: closing the gossip window closes our test page and hides the overlay",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return M.Probe.questBtnOverlay:IsShown()') is False
+      and Q(mk, 'return M.db.probe.quest.pages[3].ownEndedBy') == "the gossip window closed")
+mk.log.clear()
+mk.slash("probe quest off")
+check("Button mode: off gives the verdict yes, with the overlay fallback, and both counts",
+      mk.said(r"can we add our own entry to the gossip window's list and react to its click: yes \(fallback overlay button: yes\)")
+      and mk.said(r"row added to the window's list: yes \(quest row, by SetDataProvider hook\), seen among the buttons yes, clicked 3 times")
+      and mk.said(r"overlay button under the window: placed yes, visible yes, clicked 2 times"))
+check("Button mode: ...and the combat and taint lines",
+      mk.said(r"quest picks made in combat: 1 . pages opened in combat: 0")
+      and mk.said(r"actions the game blocked \(taint\): from us 1, from others 1 \(MinistryOfTheAllied:SetAlpha\(\), OtherAddon:Foo\(\)\)")
+      and Q(mk, 'return M.db.probe.quest.verdict') == "yes")
+# An NPC with only an option row: the copy is an option row and travels through SelectOption.
+mk.slash("probe quest button")
+Q(mk, 'GossipFrame:Show(); BOX:SetDataProvider(NEWDP({ OROW() })); mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("Button mode: with only an option row the copy is an option row (made-up option ID)",
+      Q(mk, 'local i = M.db.probe.quest.button.inject return i.inserted == true and i.rowKind == "option" and i.rowSeen == true') is True
+      and Q(mk, 'return BOX.dp.rows[2].info.gossipOptionID') == 99999902 and Q(mk, 'return BOX.dp.rows[1].info.gossipOptionID') == 111)
+Q(mk, 'CLICK(BBTNS[2]); C_GossipInfo.SelectOption(99999902); mock_advance(0.1)')
+check("Button mode: ...its click arrives through SelectOption with our ID and opens the test page",
+      Q(mk, 'local i = M.db.probe.quest.button.inject return i.routes["inject-option"] == 1 and i.routes["inject-row"] == 2') is True
+      and Q(mk, 'return M.Probe.questOwn:IsShown()') is True)
+Q(mk, 'M.Probe.questOwn.decline.scripts.OnClick(M.Probe.questOwn.decline)')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Button mode: ...and the verdict is yes", mk.said(r"react to its click: yes") and Q(mk, 'return DEC2') == 0)
+# A list with nothing to copy: the insert fails and says why.
+mk.slash("probe quest button")
+Q(mk, 'GossipFrame:Show(); BOX:SetDataProvider(NEWDP({})); mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("Button mode: nothing to copy: the insert fails, says why, and no row is seen",
+      Q(mk, 'local i = M.db.probe.quest.button.inject return i.inserted == false and i.attempts >= 2 and i.rowSeen == false') is True
+      and "no existing quest or option row" in str(Q(mk, 'return M.db.probe.quest.button.inject.error'))
+      and mk.said(r"row added to the list: no \(.*no existing quest or option row"))
+mk.log.clear()
+mk.slash("probe quest off")
+check("Button mode: ...the verdict is no", mk.said(r"react to its click: no \(fallback overlay button: unclear\)") and Q(mk, 'return M.db.probe.quest.verdict') == "no")
+# A run with no gossip window at all.
+mk.slash("probe quest button")
+mk.log.clear()
+mk.slash("probe quest off")
+check("Button mode: a run where nothing was clicked or opened is unclear and says what to do",
+      mk.said(r"react to its click: unclear, no gossip window was opened") and Q(mk, 'return M.db.probe.quest.verdict') == "unclear")
+# Combat is noted in the other modes too.
+mk.slash("probe quest fade")
+Q(mk, 'COMBAT = true; QuestFrame:Hide(); OPEN2("QUEST_DETAIL"); mock_advance(0.3); COMBAT = false')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Combat: a quest page that opens in combat is marked, counted, and printed at the end (any mode)",
+      mk.said(r"this page opened IN COMBAT") and mk.said(r"pages opened in combat: 1")
+      and Q(mk, 'return M.db.probe.quest.pages[1].combat') is True)
+Q(mk, 'COMBAT = false; QUEST_ALIVE = false; QuestFrame:Hide(); QuestFrame:SetAlpha(1)')
+check("Button mode: the usage text and the help name it",
+      any(("page|button|off" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
+check("Button mode: nothing in this section raised a Lua error", len(errors) == 0)
 
 print()
 print("Lua errors:", len(errors))

@@ -8,7 +8,8 @@
 -- /mota probe bank    what the game lets us see of the guild bank (open it first)
 -- /mota probe map     what the world map is made of (stand in Stormwind City)
 -- /mota probe gossip  [nohide|off] can we see a gossip option being picked and open our own page (19.1)
--- /mota probe quest   [nohide|fade|page|off] can the game's quest page be hidden so our own could take its place (19.1)
+-- /mota probe quest   [nohide|fade|page|button|off] can the game's quest page be hidden so our own could take its place,
+--                     and can we add our own entry to the gossip window (19.1)
 --
 -- Each probe also saves its results in the add-on's saved file (written on logout
 -- or /reload), so they can be read straight from
@@ -986,6 +987,12 @@ end
 --           own calls pass). Accept on it REALLY accepts the quest.
 --           Do not run it together with `/mota probe gossip`: that probe hooks the same functions with
 --           hooksecurefunc, and its hooks would see the blocked calls.
+--   button  RESEARCH: can we add our own entry to the gossip window? Two tries at once. (1) "inject": a copy of one of the
+--           window's own rows (a quest row if the NPC has one, else an option row) is added to its list under a made-up
+--           ID and label, so it would sit in the list like the game's own entries. (2) "overlay": our own button is placed
+--           just under the gossip window. Clicking either opens a TEST page of ours (nothing real is accepted).
+-- Every mode also notes whether quest picks and pages happened in combat, and every action the game blocks
+-- (ADDON_ACTION_BLOCKED / ADDON_ACTION_FORBIDDEN: taint), so the combat and taint questions are answered by any run.
 -- Except in page mode, it never accepts, declines, completes or abandons a quest. Hide mode ends the
 -- conversation (the game's own close); talk to the NPC again to get the page back.
 -- Each page's quest data is read on arrival, and again at 0.2/1/3 s, to learn whether
@@ -994,7 +1001,19 @@ end
 
 local QUEST_EVENTS = { "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "QUEST_GREETING", "QUEST_FINISHED",
   "QUEST_ACCEPTED", "GOSSIP_SHOW", "GOSSIP_CLOSED",
-  "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }
+  "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE",
+  "ADDON_ACTION_BLOCKED", "ADDON_ACTION_FORBIDDEN" }
+-- Made-up IDs and label for the button mode's test entry (far above any real quest or option ID).
+local FAKE_QUEST_ID = 99999901
+local FAKE_OPTION_ID = 99999902
+local FAKE_LABEL = "[probe] Our own test quest"
+local FAKE_PAGE = {
+  title = "A test quest (probe)",
+  body = "This is not a real quest. You are looking at a page of ours, opened from an entry we added to the gossip window. "
+    .. "Nothing can be accepted here: Accept, Decline and Close only close this page.",
+  objective = "Objective: tell Max whether this entry looked like it belonged in the list.",
+  rewards = "Rewards: none (a test page)",
+}
 local QUEST_PAGE_EVENTS = { QUEST_DETAIL = "detail", QUEST_PROGRESS = "progress", QUEST_COMPLETE = "complete",
   QUEST_GREETING = "greeting" }
 local QUEST_APIS = { "QuestFrame", "HideUIPanel", "GetQuestID", "GetTitleText", "GetQuestText", "GetObjectiveText",
@@ -1049,10 +1068,17 @@ end
 
 local function questRound1(x) return math.floor(x * 10 + 0.5) / 10 end
 
+local function inCombat()
+  local f = rawget(_G, "InCombatLockdown")
+  if type(f) ~= "function" then return false end
+  local ok, v = pcall(f)
+  return ok and v and true or false
+end
+
 function Probe:QuestStep(text)
   local r = self.questRun
   if not r then return end
-  r.steps[#r.steps + 1] = { t = math.floor((GetTime() - r.t0) * 100 + 0.5) / 100, s = text }
+  r.steps[#r.steps + 1] = { t = math.floor((GetTime() - r.t0) * 100 + 0.5) / 100, s = text .. (inCombat() and " [combat]" or "") }
   while #r.steps > QUEST_STEP_KEEP do table.remove(r.steps, 1) end
 end
 
@@ -1304,7 +1330,9 @@ end
 
 function Probe:QuestOwnShow(page)
   local f = self:QuestOwnFrame()
-  local frame = rawget(_G, "QuestFrame")
+  local fake = page.fake
+  -- A test page (button mode) opens over the gossip window; the real page over the game's quest page.
+  local frame = rawget(_G, fake and "GossipFrame" or "QuestFrame")
   f:ClearAllPoints()
   if type(frame) == "table" then
     local w, h = frame.GetWidth and frame:GetWidth(), frame.GetHeight and frame:GetHeight()
@@ -1314,17 +1342,30 @@ function Probe:QuestOwnShow(page)
     f:SetSize(384, 512)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
-  f.title:SetText(safeString(callGlobal("GetTitleText")) or "")
-  f.body:SetText(safeString(callGlobal("GetQuestText")) or "")
-  f.objective:SetText(safeString(callGlobal("GetObjectiveText")) or "")
-  f.rewards:SetText(("Rewards: %s item%s, choice of %s, %s"):format(tostring(callGlobal("GetNumQuestRewards") or 0),
-    (callGlobal("GetNumQuestRewards") or 0) == 1 and "" or "s", tostring(callGlobal("GetNumQuestChoices") or 0),
-    moneyText(callGlobal("GetRewardMoney"))))
+  if fake then
+    f.title:SetText(fake.title)
+    f.body:SetText(fake.body)
+    f.objective:SetText(fake.objective)
+    f.rewards:SetText(fake.rewards)
+    f.tag:SetText("TEST page (Ministry of the Allied probe): not a real quest, nothing can be accepted.")
+  else
+    f.title:SetText(safeString(callGlobal("GetTitleText")) or "")
+    f.body:SetText(safeString(callGlobal("GetQuestText")) or "")
+    f.objective:SetText(safeString(callGlobal("GetObjectiveText")) or "")
+    f.rewards:SetText(("Rewards: %s item%s, choice of %s, %s"):format(tostring(callGlobal("GetNumQuestRewards") or 0),
+      (callGlobal("GetNumQuestRewards") or 0) == 1 and "" or "s", tostring(callGlobal("GetNumQuestChoices") or 0),
+      moneyText(callGlobal("GetRewardMoney"))))
+    f.tag:SetText("PROTOTYPE page (Ministry of the Allied probe). The game's own page is invisible behind this one.")
+  end
   self.questOwnPage = page
   page.ownShown, page.ownShownAt = true, GetTime()
   f:Show()
   self:QuestStep("own page shown")
-  P(MOTA:Color("leaf", "Quest probe") .. ": our own page is up (the game's page is invisible behind it). Accept really accepts the quest.")
+  if fake then
+    P(MOTA:Color("leaf", "Quest probe") .. ": our own TEST page is up (opened from our entry in the gossip window). Nothing real can be accepted on it.")
+  else
+    P(MOTA:Color("leaf", "Quest probe") .. ": our own page is up (the game's page is invisible behind it). Accept really accepts the quest.")
+  end
 end
 
 -- One of our page's buttons (or Escape). Never anything but the game's own functions.
@@ -1336,6 +1377,11 @@ function Probe:QuestOwnClick(action)
   self.questOwnPage = nil
   self:QuestStep("own page: " .. action)
   P(tag .. ": our page: " .. action .. " clicked")
+  if page.fake then
+    -- A test page has no quest behind it: every button only closes it. The gossip window is left alone.
+    if self.questOwn and self.questOwn.IsShown and self.questOwn:IsShown() then self.questOwn:Hide() end
+    return
+  end
   if action == "accept" then
     local fn = self.questRealAccept or rawget(_G, "AcceptQuest")
     self.questOwnAccept = true
@@ -1384,6 +1430,7 @@ function Probe:QuestPagePrint(page)
   P("  data on arrival: readable: " .. yesno(d.readable) .. " · text " .. tostring(d.textLen) .. " chars · objectives "
     .. tostring(d.objectiveLen) .. " chars · rewards " .. tostring(d.rewards) .. " + choices " .. tostring(d.choices))
   if page.pickedVia then P("  picked from the gossip window by: " .. page.pickedVia .. (page.pickedID and (" (quest " .. tostring(page.pickedID) .. ")") or "")) end
+  if page.combat then P("  this page opened IN COMBAT") end
   if page.frameFound == false then
     P("  No QuestFrame in this client.")
   elseif page.tried then
@@ -1424,6 +1471,10 @@ function Probe:QuestPageOpened(event)
   local now = GetTime()
   local page = { at = GetServerTime(), t = now, kind = QUEST_PAGE_EVENTS[event], event = event, mode = self.questMode,
     samples = {}, data = readQuestData() }
+  if inCombat() then
+    page.combat = true
+    r.pagesInCombat = (r.pagesInCombat or 0) + 1
+  end
   local pick = self.questLastPick
   if pick and now - pick.t <= QUEST_PICK_WITHIN then page.pickedVia, page.pickedID = pick.via, pick.id end
   keep(r.pages, page)
@@ -1529,6 +1580,22 @@ function Probe:QuestEvent(event, ...)
     P(tag .. ": QUEST_ACCEPTED" .. (pg and (" (" .. pg.acceptedBy .. ")") or ""))
   elseif event == "GOSSIP_SHOW" or event == "GOSSIP_CLOSED" then
     self:QuestStep(event == "GOSSIP_SHOW" and "GOSSIP_SHOW" or "GOSSIP_CLOSED")
+    if self.questMode == "button" then
+      if event == "GOSSIP_SHOW" then self:QuestButtonShow() else self:QuestButtonClosed() end
+    end
+  elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+    -- The game refused an action because add-on code was in the way (taint). Worth knowing whose it was.
+    local addon, func = ...
+    local r = self.questRun
+    if r then
+      local ours = addon == "MinistryOfTheAllied"
+      r.actionBlocked = r.actionBlocked or {}
+      keep(r.actionBlocked, { at = GetServerTime(), event = event, addon = safeString(addon), func = safeString(func),
+        combat = inCombat() or nil })
+      if ours then r.actionBlockedOurs = (r.actionBlockedOurs or 0) + 1 else r.actionBlockedOthers = (r.actionBlockedOthers or 0) + 1 end
+      self:QuestStep("GAME BLOCKED " .. tostring(func) .. " (" .. tostring(addon) .. ")")
+      if ours then P(tag .. ": the game BLOCKED an action of ours: " .. tostring(func) .. " (" .. event .. ")") end
+    end
   else
     local kind = ...
     local name = interactionName(kind)
@@ -1549,6 +1616,13 @@ function Probe:QuestHookEntryPoints(r)
         local ok, err = pcall(function()
           self.questLastPick = { t = GetTime(), via = fname, id = byID and arg1 or nil }
           self:QuestStep("pick " .. fname .. (byID and (" quest " .. tostring(arg1)) or (" index " .. tostring(arg1))))
+          local run = self.questRun -- not `r`: the hook is made once, in whichever run came first
+          if run and inCombat() then run.picksInCombat = (run.picksInCombat or 0) + 1 end
+          -- Button mode: the game's click handler on our injected quest row came here with our made-up ID.
+          if byID and arg1 == FAKE_QUEST_ID then
+            self:QuestButtonClicked("inject-quest")
+            return
+          end
           if fname == "SelectAvailableQuest" then self:QuestArm() end
         end)
         if not ok then P("Quest probe error:", safeString(err)) end
@@ -1593,6 +1667,7 @@ end
 function Probe:QuestVerdict()
   local r = self.questRun
   if r.mode == "page" then return self:QuestPageVerdict() end
+  if r.mode == "button" then return self:QuestButtonVerdict() end
   local lines, n, yes, no = {}, 0, 0, 0
   local lastAt = QUEST_SAMPLE_AT[#QUEST_SAMPLE_AT]
   if r.mode ~= "nohide" then
@@ -1633,6 +1708,279 @@ function Probe:QuestVerdict()
     :format(word, n, n == 1 and "" or "s"), lines
 end
 
+---------------------------------------------------------------------------
+-- Button mode: can we add our own entry to the gossip window?
+---------------------------------------------------------------------------
+
+function Probe:QuestButtonResults()
+  local r = self.questRun
+  r.button = r.button or { overlay = { clicks = 0, routes = {} }, inject = { clicks = 0, attempts = 0, routes = {} } }
+  return r.button
+end
+
+local function frameRect(f)
+  if type(f) ~= "table" or type(f.GetRect) ~= "function" then return nil end
+  local ok, l, b, w, h = pcall(f.GetRect, f)
+  if not ok or type(l) ~= "number" then return nil end
+  return { math.floor(l + 0.5), math.floor(b + 0.5), math.floor((w or 0) + 0.5), math.floor((h or 0) + 0.5) }
+end
+
+local function sortedKeys(t, cap)
+  local keys = {}
+  if type(t) ~= "table" then return keys end
+  for k in pairs(t) do keys[#keys + 1] = tostring(k) end
+  table.sort(keys)
+  while #keys > (cap or 24) do table.remove(keys) end
+  return keys
+end
+
+-- (2) overlay: our own button just under the gossip window. Never overlaps the list, so it only shows whether a
+-- button of ours is visible and clickable next to the window.
+function Probe:QuestButtonOverlay()
+  local res = self:QuestButtonResults().overlay
+  local gf = rawget(_G, "GossipFrame")
+  if type(gf) ~= "table" or type(gf.IsShown) ~= "function" then res.error = "no GossipFrame"; return end
+  local b = self.questBtnOverlay
+  if not b then
+    b = CreateFrame("Button", "MOTAQuestProbeEntry", gf, "UIPanelButtonTemplate")
+    b:SetSize(260, 24)
+    b:SetText("[probe] Our own button: test quest")
+    b:SetScript("OnClick", function()
+      local ok, err = pcall(self.QuestButtonClicked, self, "overlay")
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end)
+    self.questBtnOverlay = b
+  end
+  b:ClearAllPoints()
+  b:SetPoint("TOP", gf, "BOTTOM", 0, -6)
+  b:Show()
+  res.placed, res.error = true, nil
+  local ok, vis = pcall(b.IsVisible, b)
+  res.visible = ok and vis and true or false
+  res.rect, res.windowRect = frameRect(b), frameRect(gf)
+end
+
+-- (1) inject: add a copy of one of the window's own rows to its list. A quest row is the best template (our entry then
+-- travels like a quest pick, SelectAvailableQuest with our made-up ID); else an option row (SelectOption).
+function Probe:QuestButtonInject(dp, by)
+  local res = self:QuestButtonResults().inject
+  self.questInjected = self.questInjected or setmetatable({}, { __mode = "k" })
+  if self.questInjected[dp] then return end
+  res.attempts = res.attempts + 1
+  local ok, err = pcall(function()
+    if type(dp.GetSize) ~= "function" or type(dp.Find) ~= "function" or type(dp.Insert) ~= "function" then
+      error("the data provider has no GetSize/Find/Insert")
+    end
+    local size = dp:GetSize()
+    res.rowsBefore = size
+    local tQuest, tOption
+    for i = 1, size do
+      local e = dp:Find(i)
+      if type(e) == "table" and type(e.info) == "table" then
+        if e.info.questID ~= nil and not tQuest then tQuest = e end
+        if e.info.gossipOptionID ~= nil and not tOption then tOption = e end
+      end
+    end
+    local template = tQuest or tOption
+    if not template then error("no existing quest or option row to copy (" .. tostring(size) .. " rows)") end
+    res.elementKeys, res.infoKeys = sortedKeys(template), sortedKeys(template.info)
+    local copy, info = {}, {}
+    for k, v in pairs(template) do copy[k] = v end
+    for k, v in pairs(template.info) do info[k] = v end
+    if tQuest then info.questID, info.title = FAKE_QUEST_ID, FAKE_LABEL else info.gossipOptionID, info.name = FAKE_OPTION_ID, FAKE_LABEL end
+    copy.info = info
+    dp:Insert(copy)
+    res.rowKind = tQuest and "quest" or "option"
+    res.rowsAfter = dp:GetSize()
+  end)
+  if ok then
+    self.questInjected[dp] = true
+    res.inserted, res.by, res.error = true, by, nil
+  else
+    res.inserted, res.error = res.inserted or false, safeString(err)
+  end
+end
+
+-- The game rebuilds the list's data on every update, which throws our row away: put it back each time.
+function Probe:QuestButtonHookBox()
+  if self.questBoxHooked then return true end
+  local gf = rawget(_G, "GossipFrame")
+  local panel = type(gf) == "table" and gf.GreetingPanel or nil
+  local box = type(panel) == "table" and panel.ScrollBox or nil
+  if type(box) ~= "table" or type(box.SetDataProvider) ~= "function" then return false end
+  self.questBoxHooked = pcall(hooksecurefunc, box, "SetDataProvider", function(_, dp)
+    if not self.questOn or self.questMode ~= "button" or type(dp) ~= "table" then return end
+    local ok, err = pcall(self.QuestButtonInject, self, dp, "SetDataProvider hook")
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+  return self.questBoxHooked == true
+end
+
+-- The game's click handler on an injected option row calls SelectOption with our made-up ID.
+function Probe:QuestButtonHookOption()
+  if self.questOptionHooked then return true end
+  if not (C_GossipInfo and type(C_GossipInfo.SelectOption) == "function") then return false end
+  self.questOptionHooked = pcall(hooksecurefunc, C_GossipInfo, "SelectOption", function(optionID)
+    if not self.questOn or self.questMode ~= "button" or optionID ~= FAKE_OPTION_ID then return end
+    local ok, err = pcall(self.QuestButtonClicked, self, "inject-option")
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+  return self.questOptionHooked == true
+end
+
+-- Gossip window opened (or its list was rebuilt): place our overlay, make sure our row is in the list, then look.
+function Probe:QuestButtonShow()
+  if not self.questOn or self.questMode ~= "button" then return end
+  self:QuestButtonHookBox()
+  self:QuestButtonHookOption()
+  if not (C_Timer and C_Timer.After) then return end
+  pcall(C_Timer.After, 0, function()
+    if not self.questOn or self.questMode ~= "button" then return end
+    local ok, err = pcall(function()
+      self:QuestButtonOverlay()
+      -- Fallback for a window the hook missed (or one that was already open): add the row from here.
+      local gf = rawget(_G, "GossipFrame")
+      local panel = type(gf) == "table" and gf.GreetingPanel or nil
+      local box = type(panel) == "table" and panel.ScrollBox or nil
+      if type(box) == "table" and type(box.GetDataProvider) == "function" then
+        local okd, dp = pcall(box.GetDataProvider, box)
+        if okd and type(dp) == "table" then self:QuestButtonInject(dp, "timer") end
+      else
+        self:QuestButtonResults().inject.error = self:QuestButtonResults().inject.error or "no gossip ScrollBox with a data provider"
+      end
+    end)
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+  -- A moment later the buttons exist: is our row among them, and hook its clicks.
+  pcall(C_Timer.After, 0.4, function()
+    if not self.questOn or self.questMode ~= "button" then return end
+    local ok, err = pcall(function()
+      local res = self:QuestButtonResults().inject
+      local list = gossipButtons()
+      res.rowSeen = false
+      self.questRowHooked = self.questRowHooked or setmetatable({}, { __mode = "k" })
+      for _, btn in ipairs(list) do
+        -- our row: by the made-up ID in the row's own data, else by the label the button shows
+        local isOurs = false
+        if type(btn.GetElementData) == "function" then
+          local okd, d = pcall(btn.GetElementData, btn)
+          local info = okd and type(d) == "table" and (type(d.info) == "table" and d.info or d) or nil
+          if info and (info.questID == FAKE_QUEST_ID or info.gossipOptionID == FAKE_OPTION_ID) then isOurs = true end
+        end
+        if not isOurs then
+          local _, name = buttonOption(btn)
+          isOurs = type(name) == "string" and name:find(FAKE_LABEL, 1, true) ~= nil
+        end
+        if isOurs then
+          res.rowSeen = true
+          res.rowRect = frameRect(btn)
+          if not self.questRowHooked[btn] and type(btn.HookScript) == "function" then
+            self.questRowHooked[btn] = true
+            for _, script in ipairs({ "PreClick", "OnClick" }) do
+              pcall(btn.HookScript, btn, script, function()
+                if not self.questOn or self.questMode ~= "button" then return end
+                local ok2, err2 = pcall(self.QuestButtonClicked, self, "inject-row")
+                if not ok2 then P("Quest probe error:", safeString(err2)) end
+              end)
+            end
+          end
+        end
+      end
+      local tag = MOTA:Color("leaf", "Quest probe")
+      local ov = self:QuestButtonResults().overlay
+      P(tag .. ": our entry: overlay button placed: " .. yesno(ov.placed) .. (ov.error and (" (" .. ov.error .. ")") or "")
+        .. " · row added to the list: " .. yesno(res.inserted) .. (res.error and (" (" .. res.error .. ")") or "")
+        .. " · row seen among the window's buttons: " .. yesno(res.rowSeen))
+    end)
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+end
+
+function Probe:QuestButtonClosed()
+  local b = self.questBtnOverlay
+  if b and b.Hide then pcall(b.Hide, b) end
+  local pg = self.questOwnPage
+  if pg and pg.fake then
+    pg.ownEndedBy = "the gossip window closed"
+    self:QuestOwnHide()
+  end
+end
+
+-- One of our entries was clicked (route: overlay, inject-row, inject-quest or inject-option). The first click in a
+-- short moment opens the test page; the other routes of the same click only count.
+function Probe:QuestButtonClicked(route)
+  if not self.questOn or self.questMode ~= "button" then return end
+  local r = self.questRun
+  local res = self:QuestButtonResults()
+  local part = route == "overlay" and res.overlay or res.inject
+  part.clicks = part.clicks + 1
+  part.routes[route] = (part.routes[route] or 0) + 1
+  self:QuestStep("our entry clicked (" .. route .. ")")
+  local now = GetTime()
+  if self.questFakeAt and now - self.questFakeAt < 0.5 then return end
+  self.questFakeAt = now
+  local tag = MOTA:Color("leaf", "Quest probe")
+  P(tag .. ": our entry was clicked (" .. route .. ")")
+  local page = { at = GetServerTime(), t = now, kind = "detail", event = "button", mode = "button", samples = {}, fake = FAKE_PAGE,
+    via = route, printed = true, data = { id = FAKE_QUEST_ID, title = FAKE_PAGE.title, readable = true } }
+  if inCombat() then page.combat = true; r.pagesInCombat = (r.pagesInCombat or 0) + 1 end
+  keep(r.pages, page)
+  local ok, err = pcall(self.QuestOwnShow, self, page)
+  if not ok then page.error = safeString(err); P("Quest probe error:", page.error) end
+  if C_Timer and C_Timer.After then
+    -- What did the game do about the click? (It was told about a quest or option it has never heard of.)
+    pcall(C_Timer.After, 2, function()
+      if not self.questOn then return end
+      local gf = rawget(_G, "GossipFrame")
+      page.gossipShownAfter = (type(gf) == "table" and type(gf.IsShown) == "function" and gf:IsShown()) and true or false
+      local t0 = now - r.t0
+      local seen = {}
+      for _, st in ipairs(r.steps) do
+        if st.t >= t0 - 0.01 and (st.s:find("^GOSSIP_CLOSED") or st.s:find("^QUEST_") or st.s:find("^INT") or st.s:find("^GAME BLOCKED")) then
+          seen[#seen + 1] = st.s
+        end
+      end
+      page.gameReaction = #seen > 0 and table.concat(seen, ", ") or "nothing"
+      P(tag .. ": 2 s after the click: gossip window still open: " .. yesno(page.gossipShownAfter)
+        .. " · game's reaction: " .. page.gameReaction)
+    end)
+  end
+end
+
+-- "can we add our own entry to the gossip window": the injected row is the answer, the overlay a fallback.
+-- yes = row added, seen among the window's buttons, and a click on it reached us and opened our test page.
+function Probe:QuestButtonVerdict()
+  local r = self.questRun
+  local b = r.button or { overlay = { clicks = 0, routes = {} }, inject = { clicks = 0, attempts = 0, routes = {} } }
+  local ov, inj = b.overlay, b.inject
+  local lines = {}
+  local function routes(t)
+    local out = {}
+    for k, c in pairs(t or {}) do out[#out + 1] = k .. " x" .. c end
+    table.sort(out)
+    return #out > 0 and (" (" .. table.concat(out, ", ") .. ")") or ""
+  end
+  lines[#lines + 1] = ("overlay button under the window: placed %s, visible %s, clicked %d time%s%s"):format(
+    ov.placed and "yes" or "no", ov.visible and "yes" or "no", ov.clicks, ov.clicks == 1 and "" or "s", routes(ov.routes))
+  lines[#lines + 1] = ("row added to the window's list: %s%s, seen among the buttons %s, clicked %d time%s%s"):format(
+    inj.inserted and ("yes (" .. tostring(inj.rowKind) .. " row, by " .. tostring(inj.by) .. ")") or "no",
+    inj.error and (", last error: " .. inj.error) or "", inj.rowSeen and "yes" or "no",
+    inj.clicks, inj.clicks == 1 and "" or "s", routes(inj.routes))
+  local opened = false
+  for _, p in ipairs(r.pages) do if p.fake and p.ownShown then opened = true end end
+  local word
+  if inj.inserted and inj.rowSeen and inj.clicks > 0 and opened then word = "yes"
+  elseif inj.attempts > 0 and not inj.inserted then word = "no"
+  elseif inj.inserted and not inj.rowSeen then word = "no"
+  else word = "unclear" end
+  r.verdict, r.verdictPages = word, #r.pages
+  r.overlayVerdict = (ov.clicks > 0 and opened) and "yes" or ((not ov.placed) and "no" or "unclear")
+  local why = word == "unclear" and (inj.inserted and ", but the row was never clicked (click it)" or ", no gossip window was opened")
+    or ""
+  return ("can we add our own entry to the gossip window's list and react to its click: %s%s (fallback overlay button: %s)")
+    :format(word, why, r.overlayVerdict), lines
+end
+
 function Probe:QuestOff()
   local tag = MOTA:Color("leaf", "Quest probe")
   local r = self.questRun
@@ -1640,11 +1988,19 @@ function Probe:QuestOff()
   self:QuestRestore("probe off")
   self:QuestUnwrapAccept()
   self:QuestUnwrapSelects()
+  local ob = self.questBtnOverlay
+  if ob and ob.Hide then pcall(ob.Hide, ob) end
   if r then
     for _, p in ipairs(r.pages) do
       if not p.printed then self:QuestPagePrint(p) end
     end
     P("  " .. self:QuestChainLine())
+    -- Combat and taint, whichever mode ran.
+    P(tag .. ": quest picks made in combat: " .. (r.picksInCombat or 0) .. " · pages opened in combat: " .. (r.pagesInCombat or 0))
+    local names = {}
+    for _, a in ipairs(r.actionBlocked or {}) do names[#names + 1] = tostring(a.addon) .. ":" .. tostring(a.func) end
+    P(tag .. ": actions the game blocked (taint): from us " .. (r.actionBlockedOurs or 0) .. ", from others " .. (r.actionBlockedOthers or 0)
+      .. (#names > 0 and (" (" .. table.concat(names, ", ") .. ")") or ""))
     if r.mode == "nohide" then
       P(tag .. ": control run: we did NOT touch the quest page, so there is no verdict.")
       for _, p in ipairs(r.pages) do
@@ -1693,7 +2049,7 @@ function Probe:Quest(arg)
   self:QuestRestore("a new run started")
   self:QuestUnwrapAccept()
   self:QuestUnwrapSelects()
-  local mode = (arg == "nohide" or arg == "fade" or arg == "page") and arg or "hide"
+  local mode = (arg == "nohide" or arg == "fade" or arg == "page" or arg == "button") and arg or "hide"
   MOTA.db.probe = MOTA.db.probe or {}
   local probe = MOTA.db.probe
   probe.questRuns = probe.questRuns or {}
@@ -1710,6 +2066,7 @@ function Probe:Quest(arg)
   P(tag .. ": mode: " .. (mode == "nohide" and "nohide, control run: we do NOT touch the quest page"
     or mode == "fade" and ("fade: the quest page goes invisible for " .. QUEST_FADE_FOR .. " s, then comes back (do not click while it is invisible)")
     or mode == "page" and "page, PROTOTYPE: the game's quest page is made invisible and our own page is shown instead, with Accept, Decline and Close. Accept REALLY accepts the quest. Other add-ons' auto-accept is blocked while it is up, and other add-ons cannot pick a quest for you (only your own click picks one)."
+    or mode == "button" and "button, RESEARCH: we add our own test entry to the gossip window (a copy of one of its rows, plus a button under it). Clicking it opens a test page of ours. Nothing real is accepted."
     or "hide (normal run: the quest page is closed right after it opens; the quest is not accepted or declined)"))
   local missing = {}
   for _, name in ipairs(QUEST_APIS) do
@@ -1757,10 +2114,23 @@ function Probe:Quest(arg)
     r.selectWrapped = self:QuestWrapSelects()
     P(tag .. ": quest-pick wrappers (stop other add-ons picking a quest for you): " .. r.selectWrapped)
   end
+  if mode == "button" then
+    r.boxHooked = self:QuestButtonHookBox()
+    r.optionHooked = self:QuestButtonHookOption()
+    P(tag .. ": hook on the gossip list's data (adds our row each time the list is rebuilt):", yesno(r.boxHooked),
+      "· hook on option clicks:", yesno(r.optionHooked))
+    -- A gossip window that is already open.
+    local gf = rawget(_G, "GossipFrame")
+    if type(gf) == "table" and type(gf.IsShown) == "function" and gf:IsShown() then self:QuestButtonShow() end
+  end
   local eps = {}
   for label, on in pairs(r.entryPoints) do eps[#eps + 1] = label .. "=" .. (on and "yes" or "no") end
   table.sort(eps)
   P("Watching quest pages. Events registered:", heard .. " of " .. #QUEST_EVENTS, "· quest pick hooks:", table.concat(eps, ", "))
+  if mode == "button" then
+    return P("Talk to an NPC that has a quest to take or at least one gossip option (the row is a copy of one of those). Look for \"" .. FAKE_LABEL
+      .. "\" in its list and a button under the window, click each (one at a time, closing the test page between), and say whether the entry looked like it belonged. `/mota probe quest off` stops it. Results save on /reload.")
+  end
   P("Talk to an NPC with a quest and click it" .. (mode == "nohide" and ", then leave the windows alone for 30 s" or "")
     .. (mode == "page" and ". Our page should appear: accept it only if you want the quest" or ". Never accept it")
     .. ". `/mota probe quest off` stops it. Results save on /reload.")
