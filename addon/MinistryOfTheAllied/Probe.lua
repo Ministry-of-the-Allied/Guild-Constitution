@@ -8,7 +8,7 @@
 -- /mota probe bank    what the game lets us see of the guild bank (open it first)
 -- /mota probe map     what the world map is made of (stand in Stormwind City)
 -- /mota probe gossip  [nohide|off] can we see a gossip option being picked and open our own page (19.1)
--- /mota probe quest   [nohide|fade|off] can the game's quest page be hidden so our own could take its place (19.1)
+-- /mota probe quest   [nohide|fade|page|off] can the game's quest page be hidden so our own could take its place (19.1)
 --
 -- Each probe also saves its results in the add-on's saved file (written on logout
 -- or /reload), so they can be read straight from
@@ -978,7 +978,15 @@ end
 --   fade    makes the page invisible (alpha 0) for 4 s, then puts it back: the
 --           conversation should stay alive, so our page could still accept.
 --   nohide  the control run: the quest page is never touched.
--- It never accepts, declines, completes or abandons a quest. Hide mode ends the
+--   page    PROTOTYPE of the quest engine: the page is faded the moment the quest is picked (and again the
+--           instant the game shows it), and our own page is shown over it with Accept, Decline and Close.
+--           While it is up AcceptQuest is wrapped so other add-ons' auto-accept is blocked (only our
+--           Accept button gets through), and SelectAvailableQuest (both forms) is wrapped so other add-ons
+--           cannot auto-select a quest for the player (only the player's own click, from the game's UI, or our
+--           own calls pass). Accept on it REALLY accepts the quest.
+--           Do not run it together with `/mota probe gossip`: that probe hooks the same functions with
+--           hooksecurefunc, and its hooks would see the blocked calls.
+-- Except in page mode, it never accepts, declines, completes or abandons a quest. Hide mode ends the
 -- conversation (the game's own close); talk to the NPC again to get the page back.
 -- Each page's quest data is read on arrival, and again at 0.2/1/3 s, to learn whether
 -- it stays readable once the page is hidden.
@@ -990,7 +998,10 @@ local QUEST_EVENTS = { "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "QUES
 local QUEST_PAGE_EVENTS = { QUEST_DETAIL = "detail", QUEST_PROGRESS = "progress", QUEST_COMPLETE = "complete",
   QUEST_GREETING = "greeting" }
 local QUEST_APIS = { "QuestFrame", "HideUIPanel", "GetQuestID", "GetTitleText", "GetQuestText", "GetObjectiveText",
-  "C_GossipInfo.SelectAvailableQuest", "C_GossipInfo.SelectActiveQuest" }
+  "AcceptQuest", "DeclineQuest", "CloseQuest", "C_GossipInfo.SelectAvailableQuest", "C_GossipInfo.SelectActiveQuest" }
+-- Add-ons known to auto-accept quests or replace the quest page (the list is not complete).
+local AUTOQUEST_ADDONS = { "Leatrix_Plus", "QuickQuest", "Immersion", "DialogueUI", "Questie", "EllesmereUIQuestTracker" }
+local QUEST_ARM_FOR = 3 -- seconds a page faded on a quest pick waits for the game's page before it is put back
 -- { table, function, byID }: which ways a quest pick can travel (the game's quest-list NPCs pass an index).
 local QUEST_ENTRY_POINTS = {
   { "C_GossipInfo", "SelectAvailableQuest", true },
@@ -1052,6 +1063,23 @@ function Probe:QuestChainLine()
   return "events: " .. (#parts > 0 and table.concat(parts, " > ") or "none")
 end
 
+-- Makes the game's quest page invisible (alpha 0) with the frame still shown. Done as early as it can
+-- be (on the quest pick, and again the instant the frame is shown) so the page never gets drawn.
+-- `by` says which of those got there first: "pick", "OnShow" or "event" (late: the page may have flashed).
+function Probe:QuestFade(by)
+  if self.questFaded then return self.questFaded end
+  local frame = rawget(_G, "QuestFrame")
+  if type(frame) ~= "table" or type(frame.SetAlpha) ~= "function" then return nil end
+  local alpha = 1
+  if type(frame.GetAlpha) == "function" then
+    local ok, a = pcall(frame.GetAlpha, frame)
+    if ok and type(a) == "number" and a > 0.01 then alpha = a end
+  end
+  if not pcall(frame.SetAlpha, frame, 0) then return nil end
+  self.questFaded = { alpha = alpha, by = by, at = GetTime() }
+  return self.questFaded
+end
+
 -- Puts a faded quest page back to full view.
 function Probe:QuestRestore(why)
   local f = self.questFaded
@@ -1059,8 +1087,282 @@ function Probe:QuestRestore(why)
   self.questFaded = nil
   local frame = rawget(_G, "QuestFrame")
   if type(frame) == "table" and type(frame.SetAlpha) == "function" then pcall(frame.SetAlpha, frame, f.alpha or 1) end
-  f.page.restoredBy = why
+  if f.page then f.page.restoredBy = why end
   if self.questOn then P(MOTA:Color("leaf", "Quest probe") .. ": quest page back in full view (" .. why .. ")") end
+end
+
+-- A quest pick in a fade or page run: the page is coming, so it is faded before it can show.
+function Probe:QuestArm()
+  if self.questMode ~= "fade" and self.questMode ~= "page" then return end
+  local f = self:QuestFade("pick")
+  if not f then return end
+  self:QuestStep("armed: page faded on the pick")
+  if C_Timer and C_Timer.After then
+    pcall(C_Timer.After, QUEST_ARM_FOR, function()
+      if self.questFaded == f and not f.page then
+        self:QuestRestore("no quest page opened within " .. QUEST_ARM_FOR .. " s")
+      end
+    end)
+  end
+end
+
+-- The game's own frame being shown is the earliest moment there is, so fade it right there.
+function Probe:QuestHookFrame()
+  if self.questFrameHooked then return true end
+  local frame = rawget(_G, "QuestFrame")
+  if type(frame) ~= "table" or type(frame.HookScript) ~= "function" then return false end
+  self.questFrameHooked = pcall(frame.HookScript, frame, "OnShow", function()
+    if not self.questOn or (self.questMode ~= "fade" and self.questMode ~= "page") then return end
+    local ok, err = pcall(function()
+      local had = self.questFaded ~= nil
+      if self:QuestFade("OnShow") and not had then self:QuestStep("QuestFrame shown, faded at once") end
+    end)
+    if not ok then P("Quest probe error:", safeString(err)) end
+  end)
+  return self.questFrameHooked == true
+end
+
+-- While one of our pages is up, nobody else may accept the quest: other add-ons that auto-accept do it
+-- from QUEST_DETAIL by calling AcceptQuest. Only our own page's Accept button is let through.
+function Probe:QuestBlocking()
+  return self.questOn == true and self.questMode == "page" and (self.questFaded ~= nil or self.questOwnPage ~= nil)
+end
+
+-- Which other add-on is calling? Reads the call stack for AddOns\<name>\ and returns the first name that is
+-- neither ours nor the game's own UI (AddOns\Blizzard_*). nil = the game's UI, or no way to tell: such a
+-- call is never blocked in the quest-pick wrappers, so the player's own click always works.
+local function questCallerAddon()
+  if type(debugstack) ~= "function" then return nil end
+  local ok, stack = pcall(debugstack, 1, 12, 0)
+  if not ok or type(stack) ~= "string" then return nil end
+  for name in stack:gmatch("[Aa]dd[Oo]ns[\\/]([^\\/%]\"':]+)") do
+    if name ~= "MinistryOfTheAllied" and name:sub(1, 9) ~= "Blizzard_" then return name end
+  end
+  return nil
+end
+
+function Probe:QuestAcceptBlocked(src)
+  local r = self.questRun
+  if not r then return end
+  r.acceptBlocked = (r.acceptBlocked or 0) + 1
+  r.blockedFrom = r.blockedFrom or {}
+  r.blockedFrom[src] = (r.blockedFrom[src] or 0) + 1
+  local pg = self.questPage
+  if pg then pg.blocked = (pg.blocked or 0) + 1 end
+  self:QuestStep("AcceptQuest blocked (" .. src .. ")")
+  P(MOTA:Color("leaf", "Quest probe") .. ": AcceptQuest called by " .. src .. " while our page is up: BLOCKED")
+end
+
+function Probe:QuestWrapAccept()
+  if self.questAcceptWrapper and rawget(_G, "AcceptQuest") == self.questAcceptWrapper then return true end
+  local real = rawget(_G, "AcceptQuest")
+  if type(real) ~= "function" then return false end
+  self.questRealAccept = real
+  local probe = self
+  local function wrapper(...)
+    if probe:QuestBlocking() and not probe.questOwnAccept then
+      local src = questCallerAddon() or "unknown"
+      pcall(probe.QuestAcceptBlocked, probe, src)
+      return
+    end
+    return real(...)
+  end
+  self.questAcceptWrapper = wrapper
+  _G.AcceptQuest = wrapper
+  return true
+end
+
+-- Quest picks: add-ons such as auto-quest ones call SelectAvailableQuest the instant gossip opens, which
+-- would reopen our page after Decline. In page mode a pick made by another add-on is blocked (not run at
+-- all); the player's own click (game UI) and our own calls pass. The wrapper sits outside the pick hooks.
+function Probe:QuestSelectBlocked(label, src, arg)
+  local r = self.questRun
+  if not r then return end
+  r.selectBlocked = (r.selectBlocked or 0) + 1
+  r.selectBlockedFrom = r.selectBlockedFrom or {}
+  r.selectBlockedFrom[src] = (r.selectBlockedFrom[src] or 0) + 1
+  self:QuestStep("pick blocked (" .. src .. ")")
+  local fname = tostring(label):match("([%w_]+)$") or tostring(label)
+  local what = ""
+  if label:find("C_GossipInfo", 1, true) then what = " (quest " .. tostring(arg) .. ")"
+  else what = " (index " .. tostring(arg) .. ")" end
+  P(MOTA:Color("leaf", "Quest probe") .. ": " .. fname .. " called by " .. src
+    .. " (auto-select): BLOCKED, nobody picks a quest for the player in this mode" .. what)
+end
+
+function Probe:QuestWrapSelects()
+  self.questSelectWrapped = self.questSelectWrapped or {}
+  local probe, n = self, 0
+  for _, ep in ipairs({ { "C_GossipInfo", "SelectAvailableQuest" }, { "_G", "SelectAvailableQuest" } }) do
+    local tname, fname = ep[1], ep[2]
+    local label = tname .. "." .. fname
+    local tbl = tname == "_G" and _G or rawget(_G, tname)
+    if self.questSelectWrapped[label] then
+      n = n + 1
+    elseif type(tbl) == "table" and type(rawget(tbl, fname)) == "function" then
+      local real = tbl[fname]
+      local wrapper
+      wrapper = function(...)
+        if probe.questOn and probe.questMode == "page" then
+          local src = questCallerAddon()
+          if src then
+            pcall(probe.QuestSelectBlocked, probe, label, src, ...)
+            return
+          end
+        end
+        return real(...)
+      end
+      tbl[fname] = wrapper
+      self.questSelectWrapped[label] = { tbl, fname, real, wrapper }
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function Probe:QuestUnwrapSelects()
+  for label, e in pairs(self.questSelectWrapped or {}) do
+    local tbl, fname, real, wrapper = e[1], e[2], e[3], e[4]
+    if tbl[fname] == wrapper then tbl[fname] = real end
+    self.questSelectWrapped[label] = nil
+  end
+end
+
+function Probe:QuestUnwrapAccept()
+  if self.questAcceptWrapper and rawget(_G, "AcceptQuest") == self.questAcceptWrapper and self.questRealAccept then
+    _G.AcceptQuest = self.questRealAccept
+  end
+  -- If another add-on wrapped AcceptQuest after us our wrapper stays in its chain, but it only passes calls on once the probe is off.
+  self.questAcceptWrapper = nil
+end
+
+-- Our own prototype page (page mode): shown over the game's faded page, anchored to it.
+function Probe:QuestOwnFrame()
+  if self.questOwn then return self.questOwn end
+  local f = CreateFrame("Frame", "MOTAQuestProbePage", UIParent)
+  f:SetFrameStrata("DIALOG")
+  f:SetSize(384, 512)
+  f:EnableMouse(true)
+  local bg = f:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  bg:SetColorTexture(0.06, 0.05, 0.08, 0.97)
+  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -16)
+  f.title:SetWidth(352)
+  f.title:SetJustifyH("LEFT")
+  f.body = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  f.body:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -56)
+  f.body:SetWidth(352)
+  f.body:SetJustifyH("LEFT")
+  f.body:SetWordWrap(true)
+  f.objective = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  f.objective:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -300)
+  f.objective:SetWidth(352)
+  f.objective:SetJustifyH("LEFT")
+  f.objective:SetWordWrap(true)
+  f.rewards = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.rewards:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -400)
+  f.rewards:SetWidth(352)
+  f.rewards:SetJustifyH("LEFT")
+  f.tag = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  f.tag:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 48)
+  f.tag:SetWidth(352)
+  f.tag:SetJustifyH("LEFT")
+  f.tag:SetText("PROTOTYPE page (Ministry of the Allied probe). The game's own page is invisible behind this one.")
+  local function button(label, x, action)
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetSize(110, 24)
+    b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, 16)
+    b:SetText(label)
+    b:SetScript("OnClick", function()
+      local ok, err = pcall(self.QuestOwnClick, self, action)
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end)
+    return b
+  end
+  f.accept = button("Accept", 16, "accept")
+  f.decline = button("Decline", 137, "decline")
+  f.close = button("Close", 258, "close")
+  -- Escape closes it like the game's own page: the conversation ends, nothing is accepted or declined.
+  f:SetScript("OnHide", function()
+    if self.questOwnPage then
+      local ok, err = pcall(self.QuestOwnClick, self, "escape")
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end
+  end)
+  if type(rawget(_G, "UISpecialFrames")) == "table" then table.insert(UISpecialFrames, "MOTAQuestProbePage") end
+  f:Hide()
+  self.questOwn = f
+  return f
+end
+
+local function moneyText(copper)
+  copper = tonumber(copper) or 0
+  if copper <= 0 then return "no money" end
+  return ("%dg %ds %dc"):format(math.floor(copper / 10000), math.floor(copper % 10000 / 100), copper % 100)
+end
+
+function Probe:QuestOwnShow(page)
+  local f = self:QuestOwnFrame()
+  local frame = rawget(_G, "QuestFrame")
+  f:ClearAllPoints()
+  if type(frame) == "table" then
+    local w, h = frame.GetWidth and frame:GetWidth(), frame.GetHeight and frame:GetHeight()
+    if type(w) == "number" and type(h) == "number" and w > 100 and h > 100 then f:SetSize(w, h) else f:SetSize(384, 512) end
+    f:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+  else
+    f:SetSize(384, 512)
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  end
+  f.title:SetText(safeString(callGlobal("GetTitleText")) or "")
+  f.body:SetText(safeString(callGlobal("GetQuestText")) or "")
+  f.objective:SetText(safeString(callGlobal("GetObjectiveText")) or "")
+  f.rewards:SetText(("Rewards: %s item%s, choice of %s, %s"):format(tostring(callGlobal("GetNumQuestRewards") or 0),
+    (callGlobal("GetNumQuestRewards") or 0) == 1 and "" or "s", tostring(callGlobal("GetNumQuestChoices") or 0),
+    moneyText(callGlobal("GetRewardMoney"))))
+  self.questOwnPage = page
+  page.ownShown, page.ownShownAt = true, GetTime()
+  f:Show()
+  self:QuestStep("own page shown")
+  P(MOTA:Color("leaf", "Quest probe") .. ": our own page is up (the game's page is invisible behind it). Accept really accepts the quest.")
+end
+
+-- One of our page's buttons (or Escape). Never anything but the game's own functions.
+function Probe:QuestOwnClick(action)
+  local page = self.questOwnPage
+  if not page or page.ownAction then return end
+  local tag = MOTA:Color("leaf", "Quest probe")
+  page.ownAction, page.ownActionAt = action, GetTime()
+  self.questOwnPage = nil
+  self:QuestStep("own page: " .. action)
+  P(tag .. ": our page: " .. action .. " clicked")
+  if action == "accept" then
+    local fn = self.questRealAccept or rawget(_G, "AcceptQuest")
+    self.questOwnAccept = true
+    local ok, err = pcall(fn)
+    self.questOwnAccept = false
+    if not ok then page.acceptError = safeString(err) end
+    if C_Timer and C_Timer.After then
+      pcall(C_Timer.After, 2, function()
+        if not self.questOn then return end
+        page.acceptWorked = page.acceptedAt ~= nil
+        P(tag .. ": accept through our page: " .. (page.acceptWorked and "worked (QUEST_ACCEPTED came)"
+          or ("did not work (no QUEST_ACCEPTED within 2 s" .. (page.acceptError and (", error: " .. page.acceptError) or "") .. ")")))
+      end)
+    end
+  elseif action == "decline" then
+    callGlobal("DeclineQuest")
+  else
+    callGlobal("CloseQuest")
+  end
+  if self.questOwn and self.questOwn.IsShown and self.questOwn:IsShown() then self.questOwn:Hide() end
+  -- The game ends its own page (QUEST_FINISHED) and that puts it back. If it never does, put it back anyway so nobody is stuck.
+  if C_Timer and C_Timer.After then
+    local f = self.questFaded
+    pcall(C_Timer.After, 1.5, function()
+      if f and self.questFaded == f then self:QuestRestore("our page's " .. action .. " did not end the conversation") end
+    end)
+  end
 end
 
 local function questSampleText(page)
@@ -1088,13 +1390,22 @@ function Probe:QuestPagePrint(page)
     P("  our hide: tried / changed the page: " .. yesno(page.changed)
       .. (page.hideError and (" (error: " .. page.hideError .. ")") or "")
       .. " · frame shown before: " .. yesno(page.shownBefore) .. ", after: " .. yesno(page.shownAfter))
+  elseif page.skipped then
+    P("  not a quest offer page: the game's page was left alone")
   elseif page.faded then
-    P("  our fade: page made invisible (alpha " .. tostring(page.alphaAfter) .. ") for " .. QUEST_FADE_FOR .. " s"
+    P("  our fade: page made invisible (alpha " .. tostring(page.alphaAfter) .. ")"
+      .. (page.fadedBy and (" · applied by: " .. page.fadedBy
+        .. (page.fadedBy == "event" and " (late, the game's page may have flashed)" or "")) or "")
+      .. (page.mode == "fade" and (" for " .. QUEST_FADE_FOR .. " s") or "")
       .. (page.restoredBy and (", then put back (" .. page.restoredBy .. ")") or ""))
   elseif page.mode == "nohide" then
     P("  our hide: not tried (control run: we do NOT touch the quest page)")
   else
     P("  our hide: not tried")
+  end
+  if page.mode == "page" and not page.skipped then
+    P("  our own page: " .. (page.ownShown and "shown" or "not shown") .. (page.ownAction and (" · clicked: " .. page.ownAction) or "")
+      .. (page.blocked and (" · AcceptQuest calls blocked: " .. page.blocked) or ""))
   end
   P("  frame after: " .. questSampleText(page))
   local last = page.samples[#page.samples]
@@ -1117,38 +1428,57 @@ function Probe:QuestPageOpened(event)
   if pick and now - pick.t <= QUEST_PICK_WITHIN then page.pickedVia, page.pickedID = pick.via, pick.id end
   keep(r.pages, page)
   self.questPage = page
+
+  -- Fade and page runs: the page is invisible from here at the latest (usually it already is: the pick or the frame's
+  -- OnShow got there first). Page runs only take over a quest offer (QUEST_DETAIL); any other page is left alone.
+  local mode = self.questMode
+  if mode == "fade" or mode == "page" then
+    if mode == "page" and page.kind ~= "detail" then
+      page.skipped = true
+      self:QuestRestore("not a quest offer page")
+    else
+      local f = self.questFaded or self:QuestFade("event")
+      if f then
+        f.page = page
+        page.faded, page.fadedBy, page.alphaBefore = true, f.by, f.alpha
+        if mode == "fade" and C_Timer and C_Timer.After then
+          -- Put back whether or not the probe is still on, so the page is never left invisible.
+          pcall(C_Timer.After, QUEST_FADE_FOR, function()
+            if self.questFaded == f then self:QuestRestore("after " .. QUEST_FADE_FOR .. " s") end
+          end)
+        end
+        if mode == "page" then
+          local ok, err = pcall(self.QuestOwnShow, self, page)
+          if not ok then
+            P("Quest probe error:", safeString(err))
+            self:QuestRestore("our page could not be shown")
+          end
+        end
+      else
+        page.hideError = "could not fade the quest page"
+      end
+    end
+  end
   if not (C_Timer and C_Timer.After) then return end
-  -- The game's own handler may show the frame after this event: act a moment later.
+  -- The game's own handler may show the frame after this event: look at it a moment later.
   pcall(C_Timer.After, 0, function()
     if not self.questOn then return end
     local ok, err = pcall(function()
       local shown, alpha = questFrameState()
-      page.frameFound, page.shownBefore, page.alphaBefore = shown ~= nil, shown, alpha
+      page.frameFound, page.shownBefore = shown ~= nil, shown
+      page.alphaBefore = page.alphaBefore or alpha
       local frame = rawget(_G, "QuestFrame")
-      if shown == nil or page.mode == "nohide" then return end
-      if page.mode == "hide" then
-        if rawget(_G, "HideUIPanel") then
-          local hok, herr = pcall(HideUIPanel, frame)
-          page.tried = true
-          if not hok then page.hideError = safeString(herr) end
-          local after = questFrameState()
-          page.shownAfter = after
-          page.changed = (hok and shown and not after) and true or false
-        end
-      elseif page.mode == "fade" and type(frame.SetAlpha) == "function" then
-        self:QuestRestore("a new page opened")
-        local fok, ferr = pcall(frame.SetAlpha, frame, 0)
-        page.faded = fok
-        if not fok then page.hideError = safeString(ferr) end
+      if shown == nil then return end
+      if page.mode == "hide" and rawget(_G, "HideUIPanel") then
+        local hok, herr = pcall(HideUIPanel, frame)
+        page.tried = true
+        if not hok then page.hideError = safeString(herr) end
+        local after = questFrameState()
+        page.shownAfter = after
+        page.changed = (hok and shown and not after) and true or false
+      elseif page.faded then
         local after, aAlpha = questFrameState()
         page.shownAfter, page.alphaAfter = after, aAlpha
-        if fok then
-          self.questFaded = { alpha = alpha or 1, page = page }
-          -- Put back whether or not the probe is still on, so the page is never left invisible.
-          pcall(C_Timer.After, QUEST_FADE_FOR, function()
-            if self.questFaded and self.questFaded.page == page then self:QuestRestore("after " .. QUEST_FADE_FOR .. " s") end
-          end)
-        end
       end
     end)
     if not ok then P("Quest probe error:", safeString(err)) end
@@ -1167,6 +1497,12 @@ function Probe:QuestPageOpened(event)
   end
 end
 
+function Probe:QuestOwnHide()
+  self.questOwnPage = nil
+  local f = self.questOwn
+  if f and f.IsShown and f:IsShown() then f:Hide() end
+end
+
 function Probe:QuestEvent(event, ...)
   local tag = MOTA:Color("leaf", "Quest probe")
   if QUEST_PAGE_EVENTS[event] then
@@ -1178,10 +1514,19 @@ function Probe:QuestEvent(event, ...)
     if pg and not pg.finishedAt then pg.finishedAt = questRound1(GetTime() - pg.t) end
     self:QuestStep("QUEST_FINISHED")
     P(tag .. ": QUEST_FINISHED")
+    if self.questOwnPage then
+      self.questOwnPage.ownEndedBy = "QUEST_FINISHED"
+      self:QuestOwnHide()
+    end
     self:QuestRestore("the conversation ended")
   elseif event == "QUEST_ACCEPTED" then
+    local pg = self.questPage
+    if pg then
+      pg.acceptedAt = GetTime()
+      pg.acceptedBy = (pg.ownAction == "accept") and "our page" or "not our page"
+    end
     self:QuestStep("QUEST_ACCEPTED")
-    P(tag .. ": QUEST_ACCEPTED (by you: this probe never accepts)")
+    P(tag .. ": QUEST_ACCEPTED" .. (pg and (" (" .. pg.acceptedBy .. ")") or ""))
   elseif event == "GOSSIP_SHOW" or event == "GOSSIP_CLOSED" then
     self:QuestStep(event == "GOSSIP_SHOW" and "GOSSIP_SHOW" or "GOSSIP_CLOSED")
   else
@@ -1204,6 +1549,7 @@ function Probe:QuestHookEntryPoints(r)
         local ok, err = pcall(function()
           self.questLastPick = { t = GetTime(), via = fname, id = byID and arg1 or nil }
           self:QuestStep("pick " .. fname .. (byID and (" quest " .. tostring(arg1)) or (" index " .. tostring(arg1))))
+          if fname == "SelectAvailableQuest" then self:QuestArm() end
         end)
         if not ok then P("Quest probe error:", safeString(err)) end
       end)
@@ -1212,10 +1558,41 @@ function Probe:QuestHookEntryPoints(r)
   end
 end
 
+-- Page runs: "can our own page replace the game's quest page and accept the quest", from the pages
+-- our page was shown for. yes = Accept was clicked on it and the game confirmed (QUEST_ACCEPTED).
+function Probe:QuestPageVerdict()
+  local r = self.questRun
+  local lines, n, yes, no = {}, 0, 0, 0
+  for _, p in ipairs(r.pages) do
+    if p.ownShown then
+      n = n + 1
+      local name = "page " .. tostring(p.data.id) .. (p.data.title and p.data.title ~= "" and (' "' .. p.data.title .. '"') or "")
+      local v, text
+      if p.ownAction == "accept" and p.acceptedAt then
+        v, text = "yes", ("verdict: yes, %s: Accept on our page was confirmed by the game (QUEST_ACCEPTED)"):format(name)
+      elseif p.ownAction == "accept" then
+        v, text = "no", ("verdict: no, %s: Accept was clicked on our page but the game never confirmed it (no QUEST_ACCEPTED)"):format(name)
+      elseif p.ownAction then
+        v, text = "unclear", ("verdict: unclear, %s: our page was shown and %s was clicked, so accepting through it was not tried"):format(name, p.ownAction)
+      else
+        v, text = "unclear", ("verdict: unclear, %s: our page was shown but no button was clicked (%s)"):format(name, p.ownEndedBy or "left open")
+      end
+      p.verdict = v
+      if v == "yes" then yes = yes + 1 elseif v == "no" then no = no + 1 end
+      lines[#lines + 1] = text
+    end
+  end
+  local word = (n == 0 and "unclear") or (yes == n and "yes") or (no == n and "no") or "unclear"
+  r.verdict, r.verdictPages = word, n
+  return ("can our own page replace the game's quest page and accept the quest: %s (%d page%s)")
+    :format(word, n, n == 1 and "" or "s"), lines
+end
+
 -- "can the game's quest page be hidden while the conversation stays alive", from our own
 -- hide or fade attempts. Returns the overall line and one line per page we acted on.
 function Probe:QuestVerdict()
   local r = self.questRun
+  if r.mode == "page" then return self:QuestPageVerdict() end
   local lines, n, yes, no = {}, 0, 0, 0
   local lastAt = QUEST_SAMPLE_AT[#QUEST_SAMPLE_AT]
   if r.mode ~= "nohide" then
@@ -1259,7 +1636,10 @@ end
 function Probe:QuestOff()
   local tag = MOTA:Color("leaf", "Quest probe")
   local r = self.questRun
+  self:QuestOwnHide()
   self:QuestRestore("probe off")
+  self:QuestUnwrapAccept()
+  self:QuestUnwrapSelects()
   if r then
     for _, p in ipairs(r.pages) do
       if not p.printed then self:QuestPagePrint(p) end
@@ -1276,6 +1656,18 @@ function Probe:QuestOff()
       end
       r.verdict, r.verdictPages = nil, nil
     else
+      if r.mode == "page" then
+        local from = {}
+        for src, c in pairs(r.blockedFrom or {}) do from[#from + 1] = src .. " x" .. c end
+        table.sort(from)
+        P(tag .. ": AcceptQuest calls by other add-ons blocked while our page was up: " .. (r.acceptBlocked or 0)
+          .. (#from > 0 and (" (" .. table.concat(from, ", ") .. ")") or ""))
+        local sfrom = {}
+        for src, c in pairs(r.selectBlockedFrom or {}) do sfrom[#sfrom + 1] = src .. " x" .. c end
+        table.sort(sfrom)
+        P(tag .. ": quest picks by other add-ons blocked: " .. (r.selectBlocked or 0)
+          .. (#sfrom > 0 and (" (" .. table.concat(sfrom, ", ") .. ")") or ""))
+      end
       local line, lines = self:QuestVerdict()
       for _, l in ipairs(lines) do P(tag .. ": " .. l) end
       P(tag .. ": " .. line)
@@ -1297,8 +1689,11 @@ function Probe:Quest(arg)
       .. (qr and qr.run and (" Run " .. qr.run .. " saved.") or ""))
   end
 
+  self:QuestOwnHide()
   self:QuestRestore("a new run started")
-  local mode = (arg == "nohide" or arg == "fade") and arg or "hide"
+  self:QuestUnwrapAccept()
+  self:QuestUnwrapSelects()
+  local mode = (arg == "nohide" or arg == "fade" or arg == "page") and arg or "hide"
   MOTA.db.probe = MOTA.db.probe or {}
   local probe = MOTA.db.probe
   probe.questRuns = probe.questRuns or {}
@@ -1314,6 +1709,7 @@ function Probe:Quest(arg)
   P(tag .. ": run " .. r.run .. " saved (earlier runs kept in MOTADB.probe.questRuns)")
   P(tag .. ": mode: " .. (mode == "nohide" and "nohide, control run: we do NOT touch the quest page"
     or mode == "fade" and ("fade: the quest page goes invisible for " .. QUEST_FADE_FOR .. " s, then comes back (do not click while it is invisible)")
+    or mode == "page" and "page, PROTOTYPE: the game's quest page is made invisible and our own page is shown instead, with Accept, Decline and Close. Accept REALLY accepts the quest. Other add-ons' auto-accept is blocked while it is up, and other add-ons cannot pick a quest for you (only your own click picks one)."
     or "hide (normal run: the quest page is closed right after it opens; the quest is not accepted or declined)"))
   local missing = {}
   for _, name in ipairs(QUEST_APIS) do
@@ -1324,6 +1720,25 @@ function Probe:Quest(arg)
   P(tag .. ":", #missing == 0 and "every quest function is present" or ("missing: " .. table.concat(missing, ", ")))
 
   self.questOn = true
+  if mode == "fade" or mode == "page" then
+    r.frameHooked = self:QuestHookFrame()
+    P(tag .. ": hook on the game's quest frame (fades it the instant it shows):", yesno(r.frameHooked))
+  end
+  if mode == "page" then
+    r.acceptWrapped = self:QuestWrapAccept()
+    P(tag .. ": AcceptQuest wrapper (blocks other add-ons' auto-accept while our page is up):", yesno(r.acceptWrapped))
+    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or rawget(_G, "IsAddOnLoaded")
+    local found = {}
+    if type(isLoaded) == "function" then
+      for _, name in ipairs(AUTOQUEST_ADDONS) do
+        local ok, loaded = pcall(isLoaded, name)
+        if ok and loaded then found[#found + 1] = name end
+      end
+    end
+    r.autoQuestAddons = found
+    P(tag .. ": known quest add-ons loaded (they can auto-accept or replace the quest page; the list is not complete):",
+      #found > 0 and table.concat(found, ", ") or "none")
+  end
   if not self.questWatch then
     self.questWatch = CreateFrame("Frame")
     self.questWatch:SetScript("OnEvent", function(_, event, ...)
@@ -1338,12 +1753,17 @@ function Probe:Quest(arg)
     if r.events[event] then heard = heard + 1 end
   end
   self:QuestHookEntryPoints(r)
+  if mode == "page" then
+    r.selectWrapped = self:QuestWrapSelects()
+    P(tag .. ": quest-pick wrappers (stop other add-ons picking a quest for you): " .. r.selectWrapped)
+  end
   local eps = {}
   for label, on in pairs(r.entryPoints) do eps[#eps + 1] = label .. "=" .. (on and "yes" or "no") end
   table.sort(eps)
   P("Watching quest pages. Events registered:", heard .. " of " .. #QUEST_EVENTS, "· quest pick hooks:", table.concat(eps, ", "))
   P("Talk to an NPC with a quest and click it" .. (mode == "nohide" and ", then leave the windows alone for 30 s" or "")
-    .. ". Never accept it. `/mota probe quest off` stops it. Results save on /reload.")
+    .. (mode == "page" and ". Our page should appear: accept it only if you want the quest" or ". Never accept it")
+    .. ". `/mota probe quest off` stops it. Results save on /reload.")
 end
 
 ---------------------------------------------------------------------------

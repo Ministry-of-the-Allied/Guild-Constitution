@@ -5026,12 +5026,16 @@ QUEST_LUA = '''
   function GetNumQuestRewards() return 1 end
   function GetNumQuestChoices() return 0 end
   function GetRewardMoney() return 100 end
+  ACCEPTS, DECLINES, CLOSES = 0, 0, 0
+  function AcceptQuest() ACCEPTS = ACCEPTS + 1 end
+  function DeclineQuest() DECLINES = DECLINES + 1 end
+  function CloseQuest() CLOSES = CLOSES + 1 end
   -- the game opens its quest page: the data is readable, the frame shown
   function OPEN_PAGE(event) QUEST_ALIVE = true; QuestFrame:SetAlpha(1); QuestFrame:Show(); mock_fire(event or "QUEST_DETAIL") end
 '''
 bm.slash("probe quest")
 check("Quest probe: a citizen is refused (the probe stays Crown-only)", bm.log[-1].endswith("Crown alone."))
-check("Quest probe: ...and it is in the Crown's usage", any(("quest [nohide|fade|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
+check("Quest probe: ...and it is in the Crown's usage", any(("quest [nohide|fade|page|off]" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
 mk.log.clear()
 mk.slash("probe quest bogus")
 check("Quest probe: a wrong word says how to use it", mk.said(r"Use /mota probe quest, /mota probe quest fade"))
@@ -5080,7 +5084,7 @@ mk.log.clear()
 Q(mk, 'mock_advance(4)')
 check("Quest probe: ...and puts it back to full view after 4 s", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"quest page back in full view \(after 4 s\)"))
 check("Quest probe: ...the page report says fade, frame shown, data readable, conversation alive",
-      mk.said(r"our fade: page made invisible \(alpha 0\) for 4 s") and mk.said(r"frame after: shown at 0\.2 s \(alpha 0\), shown at 1 s \(alpha 0\), shown at 3 s \(alpha 0\)")
+      mk.said(r"our fade: page made invisible \(alpha 0\) .+ applied by: OnShow for 4 s") and mk.said(r"frame after: shown at 0\.2 s \(alpha 0\), shown at 1 s \(alpha 0\), shown at 3 s \(alpha 0\)")
       and mk.said(r"the conversation is still alive at 3 s .+ quest data readable: yes"))
 mk.log.clear()
 mk.slash("probe quest off")
@@ -5121,6 +5125,176 @@ for _ in range(20):
     mk.slash("probe quest off")
 check("Quest probe: the 21st run drops the oldest, 20 kept", Q(mk, 'local r = M.db.probe.questRuns return #r == 20 and r[20] == M.db.probe.quest and r[20].run == 26') is True)
 check("Quest probe: nothing in this section raised a Lua error", len(errors) == 0)
+
+print("== 20g. The quest prototype page: /mota probe quest page (faded early, our own page, other add-ons' auto-accept blocked)")
+Q(mk, '''
+  REAL_ACCEPT = AcceptQuest
+  ACCEPTS, DECLINES, CLOSES = 0, 0, 0
+  QuestFrame:Hide(); QUEST_ALIVE = false
+  -- another add-on that auto-accepts quests, as they all do: AcceptQuest() from QUEST_DETAIL
+  AUTO = CreateFrame("Frame")
+  AUTO:RegisterEvent("QUEST_DETAIL")
+  AUTO:SetScript("OnEvent", function() AcceptQuest() end)
+  C_AddOns = C_AddOns or {}
+  C_AddOns.IsAddOnLoaded = function(n) return n == "QuickQuest" end
+  -- the game shows its page without resetting alpha (so a page faded on the pick stays faded)
+  function OPEN2(event) QUEST_ALIVE = true; QuestFrame:Show(); mock_fire(event or "QUEST_DETAIL") end
+''')
+mk.log.clear()
+mk.slash("probe quest page")
+check("Quest page: start says it is a prototype whose Accept really accepts, and that other add-ons' auto-accept is blocked",
+      mk.said(r"mode: page, PROTOTYPE") and mk.said(r"Accept REALLY accepts the quest") and mk.said(r"auto-accept is blocked") and Q(mk, 'return M.db.probe.quest.mode') == "page")
+check("Quest page: ...the frame hook and the AcceptQuest wrapper are made, and known quest add-ons named",
+      mk.said(r"hook on the game's quest frame .*: yes") and mk.said(r"AcceptQuest wrapper .*: yes")
+      and mk.said(r"known quest add-ons loaded .*: QuickQuest") and Q(mk, 'return AcceptQuest ~= REAL_ACCEPT') is True)
+# The game shows its page: it is invisible at that very moment (no tick later), and the other add-on's auto-accept is stopped.
+Q(mk, 'QuestFrame:SetAlpha(1); QuestFrame:Show()')
+check("Quest page: the game's frame is faded the instant it is shown (OnShow), before any event, and stays shown",
+      Q(mk, 'return QuestFrame:GetAlpha()') == 0 and Q(mk, 'return QuestFrame:IsShown()') is True)
+mk.log.clear()
+Q(mk, 'QUEST_ALIVE = true; mock_fire("QUEST_DETAIL"); mock_advance(0.3)')
+check("Quest page: another add-on's auto-accept is blocked while our page is up, and named",
+      Q(mk, 'return ACCEPTS') == 0 and mk.said(r"AcceptQuest called by unknown while our page is up: BLOCKED")
+      and Q(mk, 'return M.db.probe.quest.acceptBlocked') == 1)
+check("Quest page: our own page is shown with the title, text and rewards read from the game",
+      Q(mk, 'local f = M.Probe.questOwn return f ~= nil and f:IsShown() and f.title:GetText() == "A Small Errand" and f.body:GetText() == "Take this to the Ministry." and f.objective:GetText() == "Deliver it."') is True
+      and Q(mk, 'return M.Probe.questOwn.rewards:GetText()') == "Rewards: 1 item, choice of 0, 0g 1s 0c"
+      and mk.said(r"our own page is up"))
+check("Quest page: ...the game's page is still faded behind it",
+      Q(mk, 'return QuestFrame:GetAlpha()') == 0 and Q(mk, 'local p = M.db.probe.quest.pages[1] return p.fadedBy == "OnShow" and p.ownShown == true and p.faded == true') is True)
+# Accept on our page is the one AcceptQuest that is let through.
+mk.log.clear()
+Q(mk, 'M.Probe.questOwn.accept.scripts.OnClick(M.Probe.questOwn.accept); mock_fire("QUEST_ACCEPTED", 5001)')
+Q(mk, 'QUEST_ALIVE = false; QuestFrame:Hide(); mock_fire("QUEST_FINISHED"); mock_advance(2.1)')
+check("Quest page: Accept on our page calls the game's AcceptQuest once, and the game's QUEST_ACCEPTED is credited to our page",
+      Q(mk, 'return ACCEPTS') == 1 and mk.said(r"our page: accept clicked") and mk.said(r"QUEST_ACCEPTED \(our page\)")
+      and mk.said(r"accept through our page: worked \(QUEST_ACCEPTED came\)"))
+check("Quest page: ...our page closes and the game's page is put back when the conversation ends",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"back in full view \(the conversation ended\)"))
+Q(mk, 'AcceptQuest()')
+check("Quest page: nothing is blocked once our page is gone", Q(mk, 'return ACCEPTS') == 2)
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest page: off prints how many auto-accepts were blocked and the verdict, yes, saved",
+      mk.said(r"AcceptQuest calls by other add-ons blocked while our page was up: 1") and mk.said(r'verdict: yes, page 5001 "A Small Errand": Accept on our page was confirmed by the game \(QUEST_ACCEPTED\)')
+      and mk.said(r"can our own page replace the game's quest page and accept the quest: yes \(1 page\)") and Q(mk, 'return M.db.probe.quest.verdict') == "yes")
+check("Quest page: ...and the AcceptQuest wrapper is taken off again", Q(mk, 'return AcceptQuest == REAL_ACCEPT') is True)
+# A quest pick fades the page before it exists; with no page after 3 s it is put back.
+mk.slash("probe quest page")
+mk.log.clear()
+Q(mk, 'QuestFrame:Hide(); QuestFrame:SetAlpha(1); C_GossipInfo.SelectAvailableQuest(5001)')
+check("Quest page: a quest pick fades the game's page at once, before it is shown", Q(mk, 'return QuestFrame:GetAlpha()') == 0 and Q(mk, 'return M.Probe.questFaded.by') == "pick")
+Q(mk, 'mock_advance(3.1)')
+check("Quest page: ...and with no page after 3 s it is put back", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"back in full view \(no quest page opened within 3 s\)"))
+# Pick, then the page: faded by the pick. Decline goes to the game's DeclineQuest.
+Q(mk, 'C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.24); OPEN2("QUEST_DETAIL"); mock_advance(0.3)')
+check("Quest page: a page opened after a pick is faded by the pick (nothing was ever shown), and our page is up",
+      Q(mk, 'local p = M.db.probe.quest.pages[1] return p.fadedBy == "pick" and p.ownShown == true and QuestFrame:GetAlpha() == 0 and M.Probe.questOwn:IsShown()') is True)
+mk.log.clear()
+Q(mk, 'M.Probe.questOwn.decline.scripts.OnClick(M.Probe.questOwn.decline); QUEST_ALIVE = false; QuestFrame:Hide(); mock_fire("QUEST_FINISHED")')
+check("Quest page: Decline calls the game's DeclineQuest, closes our page and puts the game's page back",
+      Q(mk, 'return DECLINES') == 1 and Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"our page: decline clicked"))
+# Escape on our page closes the conversation like the game's own page; a page that never ends is put back anyway.
+Q(mk, 'mock_advance(5); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.24); OPEN2("QUEST_DETAIL"); mock_advance(0.3)')
+mk.log.clear()
+Q(mk, 'M.Probe.questOwn:Hide(); mock_advance(1.6)')
+check("Quest page: Escape on our page is a close (CloseQuest), nothing accepted or declined, and the game's page is put back if the conversation stays",
+      Q(mk, 'return CLOSES') == 1 and Q(mk, 'return ACCEPTS') == 2 and Q(mk, 'return DECLINES') == 1 and mk.said(r"our page: escape clicked")
+      and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"back in full view \(our page's escape did not end the conversation\)"))
+# A page that is not a quest offer is left alone.
+Q(mk, 'QuestFrame:Hide(); mock_advance(5)')
+mk.log.clear()
+Q(mk, 'QuestFrame:SetAlpha(1); QuestFrame:Show(); QUEST_ALIVE = true; mock_fire("QUEST_PROGRESS"); mock_advance(0.3)')
+check("Quest page: a progress page is not taken over: the game's page is put back and our page stays down",
+      Q(mk, 'return QuestFrame:GetAlpha()') == 1 and Q(mk, 'return M.Probe.questOwn:IsShown()') is False and mk.said(r"back in full view \(not a quest offer page\)"))
+# Accept that the game never confirms is a 'no'.
+Q(mk, 'QuestFrame:Hide(); QUEST_ALIVE = false; mock_advance(5)')
+Q(mk, 'C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.24); OPEN2("QUEST_DETAIL"); mock_advance(0.3)')
+mk.log.clear()
+Q(mk, 'M.Probe.questOwn.accept.scripts.OnClick(M.Probe.questOwn.accept); mock_advance(2.1)')
+check("Quest page: an Accept the game never confirms says so", mk.said(r"accept through our page: did not work \(no QUEST_ACCEPTED within 2 s") and Q(mk, 'return ACCEPTS') == 3)
+Q(mk, 'mock_advance(2); QuestFrame:Hide(); mock_fire("QUEST_FINISHED")')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest page: off gives 'unclear' over pages where decline/escape were used and 'no' for the unconfirmed accept overall",
+      mk.said(r"verdict: no, page 5001 .*: Accept was clicked on our page but the game never confirmed it") and mk.said(r"verdict: unclear, page 5001 .*: our page was shown and decline was clicked")
+      and mk.said(r"verdict: unclear, page 5001 .*: our page was shown and escape was clicked")
+      and mk.said(r"can our own page replace the game's quest page and accept the quest: unclear \(3 pages\)") and Q(mk, 'return M.db.probe.quest.verdict') == "unclear")
+Q(mk, 'QuestFrame:SetAlpha(1); QuestFrame:Hide(); QuestFrame:Show(); QUEST_ALIVE = true; mock_fire("QUEST_DETAIL"); AcceptQuest(); mock_advance(5)')
+check("Quest page: off leaves the game's page and AcceptQuest alone", Q(mk, 'return QuestFrame:GetAlpha()') == 1 and Q(mk, 'return M.Probe.questOwn:IsShown()') is False
+      and Q(mk, 'return AcceptQuest == REAL_ACCEPT') is True)
+check("Quest page: nothing in this section raised a Lua error", len(errors) == 0)
+
+print("== 20h. The quest prototype page: other add-ons cannot pick a quest for the player (no decline loop)")
+Q(mk, '''
+  QuestFrame:Hide(); QuestFrame:SetAlpha(1); QUEST_ALIVE = false
+  PICKS, PICKS2 = 0, 0
+  -- count real executions on top of whatever is there (an earlier section's pick hook must stay in the chain)
+  local oldC, oldG = C_GossipInfo.SelectAvailableQuest, rawget(_G, "SelectAvailableQuest")
+  C_GossipInfo.SelectAvailableQuest = function(id) PICKS = PICKS + 1; if oldC then return oldC(id) end end
+  SelectAvailableQuest = function(i) PICKS2 = PICKS2 + 1; if oldG then return oldG(i) end end
+  CALLER = "AutoQuest"
+  function debugstack() return 'Interface\\\\AddOns\\\\' .. CALLER .. '\\\\main.lua:10: in function <...>\\n[C]: ?' end
+  ACCEPTS, DECLINES = 0, 0
+''')
+# a first start and stop puts the probe's own pick hooks in place (they stay for good); the originals to compare with are taken after that
+mk.slash("probe quest page")
+mk.slash("probe quest off")
+Q(mk, 'ORIG_C, ORIG_G = C_GossipInfo.SelectAvailableQuest, SelectAvailableQuest; PICKS, PICKS2 = 0, 0')
+mk.log.clear()
+mk.slash("probe quest page")
+check("Quest picks: start prints the quest-pick wrappers line with 2, and both functions are wrapped",
+      mk.said(r"quest-pick wrappers \(stop other add-ons picking a quest for you\): 2") and Q(mk, 'return M.db.probe.quest.selectWrapped') == 2
+      and Q(mk, 'return C_GossipInfo.SelectAvailableQuest ~= ORIG_C and SelectAvailableQuest ~= ORIG_G') is True
+      and mk.said(r"other add-ons cannot pick a quest for you"))
+mk.log.clear()
+Q(mk, 'CALLER = "AutoQuest"; C_GossipInfo.SelectAvailableQuest(5001)')
+check("Quest picks: C_GossipInfo.SelectAvailableQuest by another add-on is blocked, named, not run, and does not fade the page",
+      Q(mk, 'return PICKS') == 0 and mk.said(r"SelectAvailableQuest called by AutoQuest \(auto-select\): BLOCKED, nobody picks a quest for the player in this mode \(quest 5001\)")
+      and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and Q(mk, 'return M.Probe.questFaded') is None
+      and Q(mk, 'return M.db.probe.quest.selectBlocked') == 1)
+mk.log.clear()
+Q(mk, 'SelectAvailableQuest(2)')
+check("Quest picks: the global SelectAvailableQuest by another add-on is blocked the same way (index 2)",
+      Q(mk, 'return PICKS2') == 0 and mk.said(r"SelectAvailableQuest called by AutoQuest .*BLOCKED.*\(index 2\)")
+      and Q(mk, 'return M.db.probe.quest.selectBlocked') == 2 and Q(mk, 'return QuestFrame:GetAlpha()') == 1)
+Q(mk, 'CALLER = "MinistryOfTheAllied"; C_GossipInfo.SelectAvailableQuest(5001)')
+check("Quest picks: a call from our own add-on passes through (and arms the fade)",
+      Q(mk, 'return PICKS') == 1 and Q(mk, 'return M.Probe.questFaded.by') == "pick")
+Q(mk, 'M.Probe:QuestRestore("test"); QuestFrame:SetAlpha(1); mock_advance(5)')
+Q(mk, 'CALLER = "Blizzard_GossipFrame"; C_GossipInfo.SelectAvailableQuest(5001)')
+check("Quest picks: the player's own click (game UI) passes, runs the real function once and arms the fade",
+      Q(mk, 'return PICKS') == 2 and Q(mk, 'return QuestFrame:GetAlpha()') == 0 and Q(mk, 'return M.Probe.questFaded.by') == "pick"
+      and Q(mk, 'return M.db.probe.quest.selectBlocked') == 2)
+Q(mk, 'M.Probe:QuestRestore("test"); QuestFrame:SetAlpha(1); mock_advance(5)')
+Q(mk, 'local keep = debugstack; debugstack = nil; CALLER = "AutoQuest"; SelectAvailableQuest(1); DBG = keep')
+check("Quest picks: with no debugstack (cannot tell who called) the call passes through",
+      Q(mk, 'return PICKS2') == 1 and Q(mk, 'return M.db.probe.quest.selectBlocked') == 2)
+Q(mk, 'debugstack = DBG; M.Probe:QuestRestore("test"); QuestFrame:SetAlpha(1); mock_advance(5)')
+# No decline loop: the player picks, our page opens, Decline, the game goes back to the list, the other add-on re-selects.
+Q(mk, 'CALLER = "Blizzard_GossipFrame"; C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.24); OPEN2("QUEST_DETAIL"); mock_advance(0.3)')
+check("Quest picks: a page opened by the player's pick is up", Q(mk, 'return #M.db.probe.quest.pages') == 1 and Q(mk, 'return M.Probe.questOwn:IsShown()') is True)
+Q(mk, 'M.Probe.questOwn.decline.scripts.OnClick(M.Probe.questOwn.decline); QUEST_ALIVE = false; QuestFrame:Hide(); mock_fire("QUEST_FINISHED")')
+mk.log.clear()
+Q(mk, 'CALLER = "AutoQuest"; mock_fire("GOSSIP_SHOW"); C_GossipInfo.SelectAvailableQuest(5001); mock_advance(1)')
+check("Quest picks: after Decline the other add-on's re-select is blocked, so no second page opens (no loop)",
+      Q(mk, 'return #M.db.probe.quest.pages') == 1 and Q(mk, 'return M.Probe.questOwn:IsShown()') is False
+      and Q(mk, 'return QuestFrame:GetAlpha()') == 1 and mk.said(r"called by AutoQuest .*BLOCKED") and Q(mk, 'return M.db.probe.quest.selectBlocked') == 3)
+mk.log.clear()
+mk.slash("probe quest off")
+check("Quest picks: off prints how many picks by other add-ons were blocked, with the add-on name",
+      mk.said(r"quest picks by other add-ons blocked: 3 \(AutoQuest x3\)"))
+check("Quest picks: ...and both functions are restored to the originals",
+      Q(mk, 'return C_GossipInfo.SelectAvailableQuest == ORIG_C and SelectAvailableQuest == ORIG_G') is True)
+Q(mk, 'CALLER = "AutoQuest"; C_GossipInfo.SelectAvailableQuest(5001); SelectAvailableQuest(3)')
+check("Quest picks: after off, a call by another add-on passes through", Q(mk, 'return PICKS') == 4 and Q(mk, 'return PICKS2') == 2)
+mk.slash("probe quest fade")
+check("Quest picks: fade mode does not install the wrappers",
+      Q(mk, 'return next(M.Probe.questSelectWrapped or {}) == nil and M.db.probe.quest.selectWrapped == nil') is True
+      and not mk.said(r"quest-pick wrappers"))
+mk.slash("probe quest off")
+Q(mk, 'debugstack = nil; CALLER = nil')
+check("Quest picks: nothing in this section raised a Lua error", len(errors) == 0)
 
 print()
 print("Lua errors:", len(errors))
