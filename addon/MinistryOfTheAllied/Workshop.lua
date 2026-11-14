@@ -94,6 +94,10 @@ function Workshop:Scan()
     local ok, r = pcall(readRecipe, id)
     if ok and r and r.name then prof.recipes[id] = r end
   end
+  -- one record per profession: an older one saved under another key (its expansion's) goes
+  for k, p in pairs(store()) do
+    if k ~= key and p.name == prof.name then store()[k] = nil end
+  end
   store()[key] = prof
   self.current = prof
   MOTA:Fire("WORKSHOP_CHANGED")

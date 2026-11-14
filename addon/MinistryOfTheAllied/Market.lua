@@ -79,13 +79,30 @@ local function done() MOTA:Fire("MARKET_CHANGED") end
 
 local nextSearch
 
+-- The next search as soon as the auction house will take one (Duncan, 14 Nov: the scan was
+-- slow with a fixed 1.5 s gap). The game says when its search throttle is ready; this checks
+-- every tenth of a second, and goes after GAP seconds at most whatever it says.
+Market.MIN_GAP = 0.2
+function Market:WhenReady(fn)
+  local AH = C_AuctionHouse
+  local ready = AH and AH.IsThrottledMessageSystemReady
+  if not ready then C_Timer.After(self.GAP, fn) return end
+  local waited = 0
+  local function try()
+    if ready() or waited >= self.GAP then fn() return end
+    waited = waited + 0.1
+    C_Timer.After(0.1, try)
+  end
+  C_Timer.After(self.MIN_GAP, function() waited = self.MIN_GAP; try() end)
+end
+
 local function finish(id, entry)
   if current ~= id then return end
   if timer then timer:Cancel(); timer = nil end
   if entry then entry.at = GetServerTime(); Market:Record(id, db()[id], entry); db()[id] = entry end
   current = nil
   done()
-  if #queue > 0 then C_Timer.After(Market.GAP, nextSearch) else
+  if #queue > 0 then Market:WhenReady(nextSearch) else
     frame:UnregisterAllEvents()
     MOTA:Fire("MARKET_SCANNED")
   end

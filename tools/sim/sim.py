@@ -431,20 +431,38 @@ check("Workshop: materials without a scan stay on Auctionator's price", ws('loca
 max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
 max_.lua.execute('MinistryOfTheAllied.Workshop:SetBatch(1)')
 # The scan at the auction house
-max_.lua.execute('mock_fire("AUCTION_HOUSE_SHOW")')
+max_.lua.execute('''
+AuctionHouseFrame = CreateFrame("Frame")
+AuctionHouseFrame.Tabs = { CreateFrame("Button"), CreateFrame("Button") }
+AuctionHouseFrame.SetDisplayMode = function(self, mode) self.mode = mode end
+AuctionHouseFrame.SetTitle = function(self, t) self.title = t end
+AuctionHouseFrame:Show()
+mock_fire("AUCTION_HOUSE_SHOW")
+''')
 run(1)
-check("Workshop: the strip shows at the auction house", ws('return P.strip and P.strip.shown and P.strip.go.shown'))
-check("Workshop: Scan queues this character's materials and crafts", ws('P.strip.go.scripts.OnClick(P.strip.go) return MinistryOfTheAllied.Market:Scanning()') >= 3)
+MKT = 'local G = MinistryOfTheAllied.WorkshopMarket '
+check("Workshop: a Workshop tab joins the auction house's tabs", ws(MKT + 'return G.tab and G.tab.shown and not G.page.shown'))
+check("Workshop: the tab opens the Market page and deselects the others", ws(MKT + 'G.tab.scripts.OnClick(G.tab) return G.page.shown and AuctionHouseFrame.title == "The Workshop" and #AuctionHouseFrame.mode == 0'))
+check("Workshop: the page lists the crafts and their materials", ws(MKT + 'return #G:Items() >= 3 and G.rows[1].shown and G.page.go.shown'))
+check("Workshop: Scan queues this character's materials and crafts", ws(MKT + 'G.page.go.scripts.OnClick(G.page.go) return MinistryOfTheAllied.Market:Scanning()') >= 3)
 for _ in range(6):
     max_.lua.execute('local M = MinistryOfTheAllied.Market for _, id in ipairs({ 2835, 2840, 2862, 2853 }) do mock_fire("COMMODITY_SEARCH_RESULTS_UPDATED", id) end')
     run(2)
 check("Workshop: the scan stores each price level, cheapest first", ws('local l = MinistryOfTheAllied.Market:Levels(2835) return l and #l == 2 and l[1].p == 50 and l[1].q == 20 and l[2].p == 100') is True)
-check("Workshop: the scan finishes and says when", ws('return MinistryOfTheAllied.Market:Scanning() == nil and P.strip.text.text:find("just now") ~= nil'))
+check("Workshop: the scan finishes and says when", ws(MKT + 'return MinistryOfTheAllied.Market:Scanning() == nil and G.page.status.text:find("just now") ~= nil'))
+check("Workshop: another tab hides the Market page", ws(MKT + 'AuctionHouseFrame:SetDisplayMode({ "ItemBuy" }) return not G.page.shown and not G.tab.selected'))
+check("Workshop: the Crafts view compares cost and price, most profitable first", ws(MKT + 'G:Select() G:View("crafts") local l = G:Rows() return #l >= 2 and l[1].profit >= l[2].profit and l[1].cost ~= nil and l[1].sale ~= nil'))
+check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
+check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
 check("Workshop: at the auction house, a row searches for its item", ws('P:Tab("profit") local r = P.rows[1] r.scripts.OnClick(r) return ws_searched ~= nil and ws_searched == W.ItemInfo(r.v.r.item)') is True)
 check("Workshop: without Auctionator, the auction house's own search", ws('Auctionator = nil return P:SearchAuctions(2853, "Copper Bracers")') == "query")
 max_.lua.execute('mock_fire("AUCTION_HOUSE_CLOSED")')
-check("Workshop: the strip goes with the auction house", ws('return not P.strip.shown'))
+check("Workshop: the side tab sits on the profession window and toggles the panel", ws('local s = P.side if not (s and s.shown) then return false end s.scripts.OnClick(s) local a = not P.frame.shown s.scripts.OnClick(s) return a and P.frame.shown'))
+check("Workshop: closed with the tab, it stays closed next time", ws('P.side.scripts.OnClick(P.side) mock_fire("TRADE_SKILL_CLOSE") mock_fire("TRADE_SKILL_SHOW") return MinistryOfTheAllied.db.settings.workshopHidden == true'))
+run(1)
+check("Workshop: ...with only the side tab showing", ws('return P.side.shown and not P.frame.shown'))
+max_.lua.execute('MinistryOfTheAllied.WorkshopPanel:Show() AuctionHouseFrame = nil')
 # The market watch: what sold between two scans (Market.lua; Duncan, 14 Nov)
 MK = '(function() local M = MinistryOfTheAllied.Market '
 def mk(code):
@@ -470,7 +488,30 @@ max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.
 max_.lua.execute('mock_fire("TRADE_SKILL_CLOSE")')
 run(1)
 check("Workshop: closes with the profession window", ws('return not P.frame.shown'))
-max_.lua.execute('Auctionator = nil')
+# The Professions book: quick access away from a crafting station (Duncan, 14 Nov)
+max_.lua.execute('''
+MinistryOfTheAllied.db.settings.workshopHidden = nil
+mock_fire("TRADE_SKILL_CLOSE")
+ProfessionsBookFrame = CreateFrame("Frame")
+ProfessionsBookFrame:Hide()
+mock_fire("ADDON_LOADED", "Blizzard_ProfessionsBook")
+ProfessionsBookFrame:Show()
+if ProfessionsBookFrame.scripts.OnShow then ProfessionsBookFrame.scripts.OnShow(ProfessionsBookFrame) end
+''')
+run(1)
+check("Workshop: the side tab and panel come with the Professions book", ws('return P.side.shown and P.frame.shown and W.current ~= nil'))
+check("Workshop: closing the book takes them away", ws('ProfessionsBookFrame:Hide() if ProfessionsBookFrame.scripts.OnHide then ProfessionsBookFrame.scripts.OnHide(ProfessionsBookFrame) end return not P.side.shown and not P.frame.shown'))
+check("Workshop: one saved profession, the name doesn't switch", ws('local c = W.current P:NextProfession() return W.current == c'))
+check("Workshop: the scan waits for the auction house to be ready", ws(
+    'local M, went, ready = MinistryOfTheAllied.Market, false, false '
+    'C_AuctionHouse.IsThrottledMessageSystemReady = function() return ready end '
+    'M:WhenReady(function() went = true end) ws_went = function() return went end ws_ready = function() ready = true end return true'))
+run(0.6)
+check("Workshop: ...not before", ws('return not ws_went()'))
+max_.lua.execute('ws_ready()')
+run(0.3)
+check("Workshop: ...and goes as soon as it is", ws('return ws_went()'))
+max_.lua.execute('Auctionator = nil ProfessionsBookFrame = nil C_AuctionHouse.IsThrottledMessageSystemReady = nil')
 check("Workshop: nothing in it raised a Lua error", len(errors) == errs_before_ws)
 max_.lua.execute('GetItemInfo, GetItemCount, Enum = mp_saved.GetItemInfo, mp_saved.GetItemCount, mp_saved.Enum C_TradeSkillUI = nil C_AuctionHouse = nil mock_fire("AUCTION_HOUSE_CLOSED")')
 check("Market probe: nothing in it raised a Lua error", len(errors) == errs_before_mp)
