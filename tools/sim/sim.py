@@ -399,6 +399,79 @@ run(2)
 check("Market probe, modern: the gear search shows auction IDs, sellers and time left", max_.said(r"#101: 1x, buyout 0g 8s 0c, seller Elon Banquee, time left 2 to 12 h") and max_.said(r"Of 2 rows: auction IDs 2, sellers named 2, time left 2"))
 check("Market probe, modern: the second search went with no click", max_.lua.eval('mp_sent[2]') == 2862)
 check("Market probe, modern: the stackable search, with hidden sellers", max_.said(r"#201: 20x at 0g 0s 50c each, seller 3 \(names hidden\), time left 120 min") and max_.said(r"Saved\. It writes"))
+# --- The Workshop (Workshop.lua, UI/Workshop.lua; Duncan, 14 Nov) -------------------------------------
+errs_before_ws = len(errors)
+max_.lua.execute('''
+local prices = { [2862] = 100, [2835] = 20, [2853] = 500, [2840] = 150, [7071] = 300 }
+Auctionator = { API = { v1 = {
+  GetAuctionPriceByItemID = function(_, id) return prices[id] end,
+  GetAuctionAgeByItemID = function() return 2 end } } }
+mock_fire("TRADE_SKILL_SHOW")
+''')
+run(1)
+WS = '(function() local W, P = MinistryOfTheAllied.Workshop, MinistryOfTheAllied.WorkshopPanel '
+def ws(code):
+    return max_.lua.eval(WS + code + ' end)()')
+check("Workshop: reads Blacksmithing when the window opens", ws('return W.current and W.current.name == "Blacksmithing" and W.current.rank == 114'))
+check("Workshop: remembered for this character", ws('local n = 0 for _ in pairs(W:Mine()) do n = n + 1 end return n') == 1)
+check("Workshop: profit after the 5% cut, best first", ws('local l = W:Profit(W.current) return #l == 2 and l[1].r.name == "Copper Bracers" and l[1].profit == 175 and l[2].profit == 75'))
+check("Workshop: levelling skips grey recipes, and a money-making one leads", ws('local l = W:Levelling(W.current) return #l == 1 and l[1].r.name == "Copper Bracers" and l[1].net == -175'))
+check("Workshop: unlearned recipes are on Learn", ws('local l = W:ToLearn(W.current) return #l == 1 and l[1].r.name == "Iron Buckle" and l[1].profit == 285'))
+check("Workshop: the panel opens beside it, on Profit", ws('return P.frame and P.frame.shown and P.rows[1].shown and P.rows[1].name.text == "Copper Bracers" and P.rows[1].right.text == "+1s 75c"'))
+check("Workshop: the Level tab says it makes money and levels", ws('P:Tab("level") return P.rows[1].right.text == "+1s 75c" and P.rows[1].sub.text:find("makes money and levels") ~= nil'))
+check("Workshop: the Learn tab marks it not learned", ws('P:Tab("learn") return P.rows[1].sub.text:find("^not learned") ~= nil'))
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+check("Workshop: the x hides it, /mota workshop brings it back", ws('P.frame.close.scripts.OnClick(P.frame.close) local a = not P.frame.shown P:Toggle() return a and P.frame.shown'))
+# Batches priced up the market's levels (Market.lua; Duncan, 14 Nov)
+max_.lua.execute('MinistryOfTheAllied.db.market = { [2840] = { at = GetServerTime(), levels = { { p = 100, q = 1 }, { p = 200, q = 19 } } } }')
+check("Workshop: one craft buys the cheapest bars", ws('W:SetBatch(1) local c = W:Cost(W.current.recipes[2]) return c') == 300)
+check("Workshop: twenty crafts buy up the levels and run short", ws('W:SetBatch(20) local c, _, short = W:Cost(W.current.recipes[2]) return c == 395 and #short == 1 and short[1].got == 20'))
+check("Workshop: the row says how many are listed", ws('P:Tab("profit") for _, r in ipairs(P.rows) do if r.shown and r.name.text == "Copper Bracers" then return r.sub.text end end') .find("only 20 Copper Bar listed") > 0)
+check("Workshop: materials without a scan stay on Auctionator's price", ws('local _, _, _, mats = W:Cost(W.current.recipes[1], 20) return mats[1].src') == "auctionator")
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+max_.lua.execute('MinistryOfTheAllied.Workshop:SetBatch(1)')
+# The scan at the auction house
+max_.lua.execute('mock_fire("AUCTION_HOUSE_SHOW")')
+run(1)
+check("Workshop: the strip shows at the auction house", ws('return P.strip and P.strip.shown and P.strip.go.shown'))
+check("Workshop: Scan queues this character's materials and crafts", ws('P.strip.go.scripts.OnClick(P.strip.go) return MinistryOfTheAllied.Market:Scanning()') >= 3)
+for _ in range(6):
+    max_.lua.execute('local M = MinistryOfTheAllied.Market for _, id in ipairs({ 2835, 2840, 2862, 2853 }) do mock_fire("COMMODITY_SEARCH_RESULTS_UPDATED", id) end')
+    run(2)
+check("Workshop: the scan stores each price level, cheapest first", ws('local l = MinistryOfTheAllied.Market:Levels(2835) return l and #l == 2 and l[1].p == 50 and l[1].q == 20 and l[2].p == 100') is True)
+check("Workshop: the scan finishes and says when", ws('return MinistryOfTheAllied.Market:Scanning() == nil and P.strip.text.text:find("just now") ~= nil'))
+max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
+check("Workshop: at the auction house, a row searches for its item", ws('P:Tab("profit") local r = P.rows[1] r.scripts.OnClick(r) return ws_searched ~= nil and ws_searched == W.ItemInfo(r.v.r.item)') is True)
+check("Workshop: without Auctionator, the auction house's own search", ws('Auctionator = nil return P:SearchAuctions(2853, "Copper Bracers")') == "query")
+max_.lua.execute('mock_fire("AUCTION_HOUSE_CLOSED")')
+check("Workshop: the strip goes with the auction house", ws('return not P.strip.shown'))
+# The market watch: what sold between two scans (Market.lua; Duncan, 14 Nov)
+MK = '(function() local M = MinistryOfTheAllied.Market '
+def mk(code):
+    return max_.lua.eval(MK + code + ' end)()')
+check("Market watch: cheaper levels gone and the cheapest shrunk count as sold", mk(
+    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
+    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600)') == 18)
+check("Market watch: a level about to expire isn't counted", mk(
+    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600)') == 0)
+check("Market watch: a listing gone with hours still left was bought", mk(
+    'return M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600)') == 2)
+check("Market watch: a week of scans gives a rate a day", mk(
+    'local prev = { at = GetServerTime() - 6 * 3600, levels = { { p = 50, q = 30 } } } '
+    'local new = { at = GetServerTime(), levels = { { p = 50, q = 24 } } } '
+    'M:Record(9999, prev, new) MinistryOfTheAllied.db.market[9999] = new '
+    'return math.floor(M:SellRate(9999) + 0.5)') == 24)
+check("Market watch: the rate reads as words", mk('return M:RateText(9999)') == "~24 a day")
+check("Market watch: too little watching gives no rate", mk(
+    'local new = { at = GetServerTime(), levels = { { p = 5, q = 1 } } } M:Record(9998, { at = GetServerTime() - 3600, levels = { { p = 5, q = 2 } } }, new) '
+    'MinistryOfTheAllied.db.market[9998] = new return M:SellRate(9998) == nil') is True)
+check("Market watch: the usual price is this week's median", mk('return M:Normal(9999)') == 50)
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+max_.lua.execute('mock_fire("TRADE_SKILL_CLOSE")')
+run(1)
+check("Workshop: closes with the profession window", ws('return not P.frame.shown'))
+max_.lua.execute('Auctionator = nil')
+check("Workshop: nothing in it raised a Lua error", len(errors) == errs_before_ws)
 max_.lua.execute('GetItemInfo, GetItemCount, Enum = mp_saved.GetItemInfo, mp_saved.GetItemCount, mp_saved.Enum C_TradeSkillUI = nil C_AuctionHouse = nil mock_fire("AUCTION_HOUSE_CLOSED")')
 check("Market probe: nothing in it raised a Lua error", len(errors) == errs_before_mp)
 max_.slash("debug")

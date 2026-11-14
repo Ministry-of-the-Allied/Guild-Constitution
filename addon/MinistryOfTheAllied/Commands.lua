@@ -213,6 +213,10 @@ add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank be
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
+add("workshop", "", "shows or hides the Workshop, the crafting guide beside the profession window", function()
+  MOTA.WorkshopPanel:Toggle()
+end)
+
 add("probe", "[limits|bank|map|craft|market]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'craft' what a profession window shows, 'market' Auctionator and an auction house search", function(arg)
   if arg == "craft" then
     MOTA.Probe:Craft()

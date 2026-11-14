@@ -43,6 +43,8 @@ Contest.lua
 Bench.lua
 Elect.lua
 Calendar.lua
+Market.lua
+Workshop.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
@@ -84,6 +86,7 @@ UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
 UI\CalendarPage.lua
+UI\Workshop.lua
 UI\ChronicleBook.lua
 UI\FullText.lua
 UI\AdminControls.lua
