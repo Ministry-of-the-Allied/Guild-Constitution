@@ -325,6 +325,82 @@ check("Probe sees Bram as not the Crown", bram.said(r"counts as the Crown: no"))
 check("Both Crown ranks are recognised", bram.said(r'On the Crown ranks \("The King", "The Crown"\): Aldric, Max'))
 max_.slash("probe map")
 check("Map probe runs without errors and saves what it found", max_.said(r"Map probe") and max_.said(r"Saved\. After /reload"))
+errs_before_mp = len(errors)
+max_.slash("probe craft")
+check("Craft probe: no profession window, it says so and saves", max_.said(r"Craft probe") and max_.said(r"No profession window open"))
+max_.slash("probe market")
+check("Market probe: without Auctionator or an auction house, it says so", max_.said(r"Market probe") and max_.said(r"Auctionator isn't loaded"))
+# a pretend Auctionator and a Tailoring window
+max_.lua.execute('''
+Auctionator = { API = { v1 = {
+  GetAuctionPriceByItemID = function(_, id) return id * 10 end,
+  GetAuctionAgeByItemID = function() return 1 end,
+  GetVendorPriceByItemID = function() return 5 end,
+  GetAuctionPriceByItemLink = function() return 1 end } } }
+GetNumTradeSkills = function() return 2 end
+GetTradeSkillLine = function() return "Tailoring", 75, 150 end
+GetTradeSkillInfo = function(i) if i == 1 then return "Cloth", "header" end return "Bolt of Linen Cloth", "optimal" end
+GetTradeSkillItemLink = function() return "|cffffffff|Hitem:2996::::::::|h[Bolt of Linen Cloth]|h|r" end
+GetTradeSkillRecipeLink = function() end
+GetTradeSkillNumMade = function() return 1, 1 end
+GetTradeSkillNumReagents = function() return 1 end
+GetTradeSkillReagentInfo = function() return "Linen Cloth", nil, 2, 7 end
+GetTradeSkillReagentItemLink = function() return "|Hitem:2589::|h" end
+GetTradeSkillCooldown = function() end
+''')
+max_.slash("probe craft")
+check("Craft probe: reads the open window, colours and materials", max_.said(r"Open window: Tailoring 75/150, 1 recipes \(optimal 1\)") and max_.said(r"Bolt of Linen Cloth \[optimal\] item 2996: 2x Linen Cloth"))
+max_.slash("probe market")
+check("Market probe: Auctionator's price for the crafted item and its material", max_.said(r"Bolt of Linen Cloth \(2996\): Auctionator 2g 99s 60c") and max_.said(r"Linen Cloth \(2589\): Auctionator 2g 58s 90c"))
+max_.lua.execute('Auctionator = nil GetNumTradeSkills = nil GetTradeSkillLine = nil GetTradeSkillInfo = nil')
+# Forever's way (probe, 14 Nov): the modern profession window and auction house
+max_.lua.execute('''
+mp_saved = { GetItemInfo = GetItemInfo, GetItemCount = GetItemCount, Enum = Enum }
+local items = { [2862] = { "Rough Sharpening Stone", 20 }, [2853] = { "Copper Bracers", 1 }, [2835] = { "Rough Stone", 20 }, [2840] = { "Copper Bar", 20 } }
+GetItemInfo = function(id) local i = items[id] if i then return i[1], nil, nil, nil, nil, nil, nil, i[2] end end
+GetItemCount = function() return 3 end
+Enum = Enum or {}
+Enum.AuctionHouseSortOrder = { Price = 0 }
+C_TradeSkillUI = {
+  IsTradeSkillReady = function() return true end,
+  GetBaseProfessionInfo = function() return { professionName = "Blacksmithing", skillLevel = 114, maxSkillLevel = 150 } end,
+  GetChildProfessionInfo = function() return {} end,
+  GetAllRecipeIDs = function() return { 1, 2, 3 } end,
+  GetRecipeInfo = function(id) return ({ { name = "Rough Sharpening Stone", learned = true, difficulty = "trivial" },
+    { name = "Copper Bracers", learned = true, relativeDifficulty = 1 }, { name = "Iron Buckle", learned = false } })[id] end,
+  GetRecipeSchematic = function(id) return ({ { outputItemID = 2862, quantityMin = 1, reagentSlotSchematics = { { quantityRequired = 1, reagents = { { itemID = 2835 } } } } },
+    { outputItemID = 2853, quantityMin = 1, reagentSlotSchematics = { { quantityRequired = 2, reagents = { { itemID = 2840 } } } } },
+    { outputItemID = 7071, reagentSlotSchematics = {} } })[id] end,
+}
+mp_sent = {}
+C_AuctionHouse = {
+  MakeItemKey = function(id) return { itemID = id } end,
+  SendSearchQuery = function(key) table.insert(mp_sent, key.itemID) end,
+  GetItemCommodityStatus = function(id) return id == 2853 and 2 or 1 end,
+  GetNumItemSearchResults = function() return 2 end,
+  HasFullItemSearchResults = function() return true end,
+  GetItemSearchResultInfo = function(_, i) return { auctionID = 100 + i, owners = { "Elon Banquee" }, totalNumberOfOwners = 1, quantity = 1, buyoutAmount = 800, timeLeft = 2 } end,
+  GetNumCommoditySearchResults = function() return 2 end,
+  HasFullCommoditySearchResults = function() return true end,
+  GetCommoditySearchResultInfo = function(_, i) return { auctionID = 200 + i, owners = {}, totalNumberOfOwners = 3, quantity = 20 * i, unitPrice = 50 * i, timeLeftSeconds = 7200 } end,
+}
+''')
+max_.slash("probe craft")
+check("Craft probe, modern: reads Blacksmithing, learned recipes and colours", max_.said(r"Open window: Blacksmithing 114/150, 2 recipes") and max_.said(r"not yet learned that the game also lists: 1"))
+check("Craft probe, modern: finds a gear item and a stackable for the market probe", max_.said(r"gear Copper Bracers \(2853\), stackable Rough Sharpening Stone \(2862\)"))
+max_.slash("probe market")
+check("Market probe, modern: waits for the auction house to be open", max_.said(r"Open the auction house and run it again to test the searches"))
+max_.lua.execute('mock_fire("AUCTION_HOUSE_SHOW")')
+max_.slash("probe market")
+max_.lua.execute('mock_fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = 2853 })')
+run(3)
+max_.lua.execute('mock_fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2862)')
+run(2)
+check("Market probe, modern: the gear search shows auction IDs, sellers and time left", max_.said(r"#101: 1x, buyout 0g 8s 0c, seller Elon Banquee, time left 2 to 12 h") and max_.said(r"Of 2 rows: auction IDs 2, sellers named 2, time left 2"))
+check("Market probe, modern: the second search went with no click", max_.lua.eval('mp_sent[2]') == 2862)
+check("Market probe, modern: the stackable search, with hidden sellers", max_.said(r"#201: 20x at 0g 0s 50c each, seller 3 \(names hidden\), time left 120 min") and max_.said(r"Saved\. It writes"))
+max_.lua.execute('GetItemInfo, GetItemCount, Enum = mp_saved.GetItemInfo, mp_saved.GetItemCount, mp_saved.Enum C_TradeSkillUI = nil C_AuctionHouse = nil mock_fire("AUCTION_HOUSE_CLOSED")')
+check("Market probe: nothing in it raised a Lua error", len(errors) == errs_before_mp)
 max_.slash("debug")
 max_.slash("debug")
 max_.slash("probe limits")
@@ -2613,6 +2689,32 @@ check("Election: the Leader of the Opposition, the shadow cabinet", em.said(r"Na
 check("Throne Room: the First Government, day 1", E(eb, TH + 'return T:Banner().eyebrow').startswith("The First Government · Day 1 of"))
 check("Throne Room: the Prime Minister and five Cabinet posts", E(ekk, TH + 'local p = T:Power() return p.pm.name == "Bram" and #p.cabinet == 5 and p.cabinet[1].title == "Treasury"') is True)
 check("Throne Room: the Leader of the Opposition", E(ekk, TH + 'local p = T:Power() return p.opposition.name == "Mira" and p.opposition.p == "ex"') is True)
+
+# --- The Calendar (Calendar.lua, UI/CalendarPage.lua; Duncan, 14 Nov) ---------------------------------
+CAL = 'local Cal, P = MinistryOfTheAllied.Calendar, MinistryOfTheAllied.ThronePage '
+def cal_has(c, word):
+    return E(c, CAL + 'for _, e in ipairs(Cal:ElectionEvents()) do if e.title:find("%s") then return e.t end end return 0' % word)
+check("Calendar: the term's start and end are on it", cal_has(eb, "takes office") > 0 and cal_has(eb, "term ends") == E(eb, 'return El:Government().ends'))
+check("Calendar: polling day is the next General Election's date", cal_has(eb, "Polling day") == E(eb, 'return Co:PollAt()'))
+check("Calendar: the polls close 2 hours after", cal_has(eb, "polls close") - cal_has(eb, "Polling day") == 7200)
+check("Calendar: contests open 28 days before polling day", cal_has(eb, "Polling day") - cal_has(eb, "contests open") == 28 * 86400)
+check("Calendar: the campaign starts 14 days before", cal_has(eb, "Polling day") - cal_has(eb, "campaign begins") == 14 * 86400)
+check("Calendar: the past result is on it", E(eb, CAL + 'for _, e in ipairs(Cal:PastEvents()) do if e.text:find("Bram") then return true end end return false') is True)
+check("Calendar: a citizen can't post to the guild calendar", E(eb, CAL + 'local ok = Cal:CanPost() return ok == nil') is True)
+errs_before_cal = len(errors)
+for c in (ek, eb):
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(1)')
+    c.lua.execute('local P = MinistryOfTheAllied.ThronePage; P.decrees.calendar.scripts.OnClick(P.decrees.calendar)')
+    for skin in ("crown", "silverhand", "exchange", "ministry"):
+        c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
+        c.lua.execute('local P = MinistryOfTheAllied.ThronePage; P:StepMonth(1); P:StepMonth(1); P:StepMonth(1); P:CalendarGoto()')
+check("Calendar: opens from the Throne Room and draws in all four skins", len(errors) == errs_before_cal and
+      E(eb, CAL + 'return P.view == "calendar" and P.calendar.shown and not P.root.shown') is True)
+check("Calendar: today's cell is in the grid, the side names the day", E(eb, CAL + 'local n = 0 for _, c in ipairs(P.calendarGrid.cells) do if c.day == Cal:DayStart(time()) then n = n + 1 end end return n == 1 and P.calendarSide.title.text ~= ""') is True)
+check("Calendar: three months on, polling day's cell names it", E(eb, CAL + 'P:CalendarGoto(Co:PollAt()) for _, c in ipairs(P.calendarGrid.cells) do if c.day == Cal:DayStart(Co:PollAt()) then return c.lines[1].text.text end end') or "")
+check("Calendar: the plate says what's next", E(eb, CAL + 'return P.calendarSide ~= nil and MinistryOfTheAllied.ThronePage.calendar ~= nil') is True)
+check("Calendar: the post button is the Crown's only", E(eb, CAL + 'return P.calendarBar.post.shown') is not True)
+check("Calendar: the Throne Room button goes back", E(eb, CAL + 'P:Open("state") return P.view == "state" and P.root.shown and not P.calendar.shown') is True)
 # Who holds power, drawn from a real government and laid out as the board flows it (ThroneRoom board, measured
 # in Edge: Crown row 46, rule 114, Prime Minister 127, Cabinet plate 215 and 130 high, rows 23 apart, the Opposition pinned
 # to the bottom). The board's fifth post is "Justice"; the add-on's is Games (Duncan, 8 Nov): the Crown appoints the Justices.

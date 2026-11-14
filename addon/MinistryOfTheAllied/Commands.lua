@@ -213,8 +213,12 @@ add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank be
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits|bank|map]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of", function(arg)
-  if arg == "limits" then
+add("probe", "[limits|bank|map|craft|market]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'craft' what a profession window shows, 'market' Auctionator and an auction house search", function(arg)
+  if arg == "craft" then
+    MOTA.Probe:Craft()
+  elseif arg == "market" then
+    MOTA.Probe:Market()
+  elseif arg == "limits" then
     MOTA.Probe:Limits()
   elseif arg == "map" then
     MOTA.Probe:Map()

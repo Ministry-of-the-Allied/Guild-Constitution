@@ -26,6 +26,7 @@ Book.lua
 Hello.lua
 Sync.lua
 Probe.lua
+ProbeMarket.lua
 Media.lua
 Fonts.lua
 Charter.lua
@@ -41,6 +42,7 @@ Ledger.lua
 Contest.lua
 Bench.lua
 Elect.lua
+Calendar.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
@@ -81,6 +83,7 @@ UI\NPCPlates.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
+UI\CalendarPage.lua
 UI\ChronicleBook.lua
 UI\FullText.lua
 UI\AdminControls.lua
