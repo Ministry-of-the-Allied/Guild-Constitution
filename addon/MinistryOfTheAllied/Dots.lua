@@ -105,6 +105,8 @@ function Dots:Tick(force)
   self:Flush()
   self:Sweep()
   if not self:Sharing() or not MOTA.guild then return self:Stop() end
+  -- Playing Hide and Seek: no dot, so hiders can't be seen on the map (Hide.lua).
+  if MOTA.Hide and MOTA.Hide:Silenced() then return self:Stop() end
   local map, x, y = self:Here()
   if not map then return self:Stop() end
   local last = self.last

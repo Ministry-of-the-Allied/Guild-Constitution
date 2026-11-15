@@ -55,6 +55,8 @@ Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua
+MapReveal.lua
+Hide.lua
 Dots.lua
 NPCMarkers.lua
 UI\Skin.lua
@@ -71,6 +73,7 @@ UI\Statutes.lua
 UI\Constitution.lua
 UI\Ring.lua
 UI\GamesHall.lua
+UI\HideMap.lua
 UI\HuntGlow.lua
 UI\BankPrompt.lua
 UI\Parties.lua

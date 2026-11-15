@@ -55,10 +55,12 @@ local function build()
       end
     elseif r.k == "game.result" and not NO_POINTS[d.g] and type(d.places) == "table" then
       local ds = type(d.ds) == "table" and d.ds or {}
-      for p = 1, #Cup.POINTS do
-        local who = d.places[p]
-        if type(who) == "string" and who ~= "" then
-          scores[#scores + 1] = { t = r.t, who = who, pts = Cup.POINTS[p], code = codeOf(ds[p]) }
+      -- A shared place (Hide and Seek's survivors) gives each name its points.
+      local at = MOTA.Games:ValidAt(d.at, #d.places) and d.at or nil
+      for p = 1, #d.places do
+        local who, place = d.places[p], at and at[p] or p
+        if place <= #Cup.POINTS and type(who) == "string" and who ~= "" then
+          scores[#scores + 1] = { t = r.t, who = who, pts = Cup.POINTS[place], code = codeOf(ds[p]) }
         end
       end
     end
