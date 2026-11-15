@@ -23,7 +23,7 @@ Games.KINDS = {
   quiz = "Quiz",
   other = "Game",
 }
-Games.MAX_PLACES = 10
+Games.MAX_PLACES = 20 -- a quiz's top three teams of four, with ties
 
 local function str(v, max) return type(v) == "string" and v ~= "" and #v <= max end
 
