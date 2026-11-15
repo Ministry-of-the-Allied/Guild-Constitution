@@ -95,6 +95,7 @@ UI\ChroniclePage.lua
 UI\CalendarPage.lua
 UI\Workshop.lua
 UI\WorkshopMarket.lua
+UI\WorkshopTooltip.lua
 UI\ChronicleBook.lua
 UI\FullText.lua
 UI\AdminControls.lua

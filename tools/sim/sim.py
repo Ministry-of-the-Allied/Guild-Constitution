@@ -5358,6 +5358,8 @@ check("Flips: shift-click reopens a finished flip", Q(fl, G + 'for _, r in ipair
 Q(fl, 'IsShiftKeyDown = nil')
 fl.slash("flip")
 check("Flips: /mota flip lists them", fl.said(r"#1 Iron Ore: 35/35 sold"))
+fl_tip = Q(fl, 'local l = M.WorkshopTooltip:Lines(3575) local t = {} for _, x in ipairs(l) do t[#t + 1] = x[1] .. "=" .. x[2] end t = table.concat(t, ";") return t')
+check("Tooltips: an item's tooltip shows craft profit and your flips' sales", "Craft profit (after 5% cut)=" in str(fl_tip) and "Your flips (1)=35 sold, +" in str(fl_tip))
 fl.slash("flip delete 3")
 check("Flips: /mota flip delete removes one", Q(fl, FL + 'return #F:All()') == 2)
 check("Flips: kept per character", Q(fl, 'return M.db.flips[M.me] ~= nil') is True)
