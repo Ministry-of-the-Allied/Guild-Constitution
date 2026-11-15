@@ -405,6 +405,13 @@ local function buildDecrees()
   seeAllText:SetPoint("RIGHT", seeAll, "RIGHT", -2, 0)
   seeAll:SetScript("OnClick", function() Page:Open("chronicle") end)
   decrees.seeAll = seeAll
+  -- "Calendar" opens the Calendar (UI/CalendarPage.lua), left of "See all"
+  local cal = CreateFrame("Button", nil, p)
+  cal:SetSize(76, 16)
+  cal:SetPoint("RIGHT", seeAll, "LEFT", -6, 0)
+  Kit:Label(cal, "kitTiny", "1B3570", 0.2, "Calendar  ›"):SetPoint("RIGHT", cal, "RIGHT", -2, 0)
+  cal:SetScript("OnClick", function() Page:Open("calendar") end)
+  decrees.calendar = cal
   local rowH = DECREE_ROW_H
   for i = 1, DECREE_ROWS do
     local r = CreateFrame("Button", nil, p)
@@ -864,12 +871,15 @@ function Page:OpenCharter() go(MOTA.Throne.PAGES.statute, "charter") end
 function Page:Show(show)
   if show and not self.opening then self.view = "state" end
   local chronicle = show and self.view == "chronicle"
+  local calendar = show and self.view == "calendar" -- the Calendar (UI/CalendarPage.lua)
   if self.ShowChronicle then self:ShowChronicle(chronicle) end
-  if show and not chronicle and not root then build() end
+  if self.ShowCalendar then self:ShowCalendar(calendar) end
+  local state = show and not chronicle and not calendar
+  if state and not root then build() end
   if not root then return end
-  if book and not (show and not chronicle) then book:Reset() end -- the book is closed when you come back
-  root:SetShown(show and not chronicle)
-  if show and not chronicle then self:Refresh() end
+  if book and not state then book:Reset() end -- the book is closed when you come back
+  root:SetShown(state)
+  if state then self:Refresh() end
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)

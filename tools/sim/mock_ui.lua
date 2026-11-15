@@ -153,6 +153,8 @@ function Methods:SetTexture(path, wrapH, wrapV, filter)
   return true
 end
 function Methods:SetColorTexture() end
+-- A texture's turn in radians (added 11 Nov, the NPC marker's compass arrow).
+function Methods:SetRotation(r) assert(type(r) == "number", "SetRotation needs a number") self.rotation = r end
 function Methods:SetAtlas(name) self.atlas = name end
 -- Coordinates past 1 only on a repeating (tiled) texture; swapped ends mirror the picture.
 function Methods:SetTexCoord(l, r, t, b)
@@ -275,8 +277,15 @@ function CreateFrame(kind, name, parent)
   local f = region(kind or "Frame", parent)
   allFrames[#allFrames + 1] = f
   if name then _G[name] = f end
+  -- a frame's child frames, as GetChildren gives them (added 12 Nov, the NPC nameplates)
+  if parent then
+    local kids = rawget(parent, "kids") or {}
+    kids[#kids + 1] = f
+    rawset(parent, "kids", kids)
+  end
   return f
 end
+function Methods:GetChildren() return unpack(rawget(self, "kids") or {}) end
 
 function mock_fire(event, ...)
   for _, f in ipairs(allFrames) do

@@ -33,6 +33,8 @@ local SECTIONS = {
     "ballot", "contest", "noconfidence", "justice", "ring", "refunds", "district", "alts" },
   { title = "Treasury", "books" },
   { title = "Games and honours", "games", "lottery", "hunt", "honour", "honours" },
+  -- party quest markers (ADDON_SPEC.md 10.18): /mota marker split into a row per part (Max, 12 Nov)
+  { title = "NPC markers", "marker" },
   { title = "Records and sync", "sync", "who", "missing", "test", "book", "probe", "debug" },
   { title = "Look and sound",
     "skin", "scale", "minimap", "settings", "voice", "fanfare", "herald", "heralds", "throne",
@@ -68,7 +70,32 @@ local SPEC = {
   fanfare = { choices = { { "List", "" } } },
   throne = { choices = { { "Preview on", "preview" }, { "Preview off", "preview off" } }, input = false },
   crest = { choices = { { "Ours", "ours" } } },
+  -- /mota marker, one row per part (rows): sub is the word after "marker". A choice's
+  -- label and words can be functions, read when it is pressed (the test's Off / On).
+  marker = { rows = {
+    { sub = "", usage = "", help = "Whether markers are on, the far mode, how many you can see, and the nameplates. Help says what the colours and choices mean.",
+      choices = { { "Status", "" }, { "Help", "help" }, { "List", "list" }, { "Probe", "probe" } }, input = false },
+    { sub = "test", usage = "[look] [?]", help = "A marker on your target, on your screen only (nothing is sent). Off takes it away and becomes On, which brings the same marker back.",
+      choices = { { "Silverhand", "sh" }, { "Exchange", "ex" }, { "Crown", "crown" }, { "Ministry", "ministry" }, { "?", "crown ?" },
+        { function() return MOTA.Markers:Testing() and "Off" or "On" end,
+          function() return MOTA.Markers:Testing() and "off" or "on" end } } },
+    { sub = "add", usage = "sh|ex|all [?]", help = "Marks your target for a party (the Crown): stand beside the NPC. With ?, a quest to hand in.",
+      choices = { { "Silverhand", "sh" }, { "Exchange", "ex" }, { "Everyone", "all" }, { "SH ?", "sh ?" }, { "EX ?", "ex ?" }, { "All ?", "all ?" } }, input = false },
+    { sub = "clear", usage = "[npc ID]", help = "Takes the mark off your target, or off an NPC by its ID (the Crown).",
+      choices = { { "Target", "" } } },
+    { sub = "scale", usage = function() return MOTA.Markers.UI.RangeText("scale") end, help = "The markers and the names on the nameplates, bigger or smaller together (1 is as drawn).",
+      choices = { { "0.8", "0.8" }, { "1.2", "1.2" }, { "1.5", "1.5" }, { "Default", "default" } } },
+    { sub = "namesize", usage = function() return MOTA.Markers.UI.RangeText("namesize") end, help = "The names' font size on the nameplates (16 unless changed).",
+      choices = { { "14", "14" }, { "18", "18" }, { "Default", "default" } } },
+    { sub = "size", usage = function() return MOTA.Markers.UI.RangeText("size") end, help = "The marker's height (44 unless changed).", choices = { { "Default", "default" } } },
+    { sub = "lift", usage = function() return MOTA.Markers.UI.RangeText("lift") end, help = "How far the marker stands above the nameplate or the name (18 unless changed).", choices = { { "Default", "default" } } },
+    { sub = "namey", usage = function() return MOTA.Markers.UI.RangeText("namey") end, help = "How high the names stand on the nameplates (0 unless changed).", choices = { { "Default", "default" } } },
+  } },
 }
+
+-- A choice's label or words: a word, or a function that gives it when asked.
+local function now(v) if type(v) == "function" then return v() end return v end
+local live = {} -- buttons whose label changes (the test's Off / On): relabelled when the markers change
 
 local function sectionOf(name)
   for _, s in ipairs(SECTIONS) do
@@ -126,7 +153,15 @@ local function hover(region, title, text)
 end
 
 local function typed(c)
-  return "/mota " .. c.name .. (c.usage ~= "" and " " .. c.usage or "")
+  local head = "/mota " .. c.name .. ((c.sub and c.sub ~= "") and " " .. c.sub or "")
+  return head .. (c.usage ~= "" and " " .. c.usage or "")
+end
+
+-- Runs a row's command with its words (a part's own word first, for /mota marker's rows).
+local function runRow(c, words)
+  words = words or ""
+  if c.sub and c.sub ~= "" then words = strtrim(c.sub .. " " .. words) end
+  MOTA.Commands:Run(c.name, words)
 end
 
 -- A dotted rule along a row's foot.
@@ -158,7 +193,7 @@ local PAD, MIN_W, GAP = 24, 56, 6
 local TALL_H, TALL_BTN = 64, 24
 
 local function buildRow(parent, c, y, last)
-  local spec = SPEC[c.name] or {}
+  local spec = c.spec or SPEC[c.name] or {}
   local row = CreateFrame("Frame", nil, parent)
   row:SetSize(LIST_W, ROW_H)
   row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
@@ -167,7 +202,7 @@ local function buildRow(parent, c, y, last)
 
   local label = MOTA:Tracked(row, "setLabel", "2A1F14", 0.08)
   label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -11)
-  label:SetText(("/mota " .. c.name):upper())
+  label:SetText(("/mota " .. c.name .. ((c.sub and c.sub ~= "") and " " .. c.sub or "")):upper())
   local small = row:CreateFontString(nil, "OVERLAY")
   small:SetFontObject(MOTA:Font("setSmall"))
   small:SetTextColor(MOTA:RGB("5E4B33"))
@@ -186,10 +221,13 @@ local function buildRow(parent, c, y, last)
   local btns, widths = {}, {}
   for i, ch in ipairs(choices) do
     local lab, words = ch[1], ch[2]
-    local b = Kit:Button(row, MIN_W, BTN_H, lab, (lab == "Run") and "blue" or "gold", function()
+    local b
+    b = Kit:Button(row, MIN_W, BTN_H, now(lab), (lab == "Run") and "blue" or "gold", function()
       play("IG_MAINMENU_OPTION_CHECKBOX_ON")
-      MOTA.Commands:Run(c.name, words)
+      runRow(c, now(words))
+      if type(lab) == "function" and b.SetLabel then b:SetLabel(lab()) end
     end)
+    if type(lab) == "function" then live[#live + 1] = { button = b, label = lab } end
     btns[i] = b
     widths[i] = math.max(MIN_W, math.ceil((b.label:GetWidth() or 0) + PAD))
   end
@@ -222,18 +260,18 @@ local function buildRow(parent, c, y, last)
     local y0 = (rowH - BTN_H) / 2
     run = Kit:Button(row, 56, BTN_H, "Run", "blue", function()
       play("IG_MAINMENU_OPTION_CHECKBOX_ON")
-      MOTA.Commands:Run(c.name, strtrim(box:GetText() or ""))
+      runRow(c, strtrim(box:GetText() or ""))
     end)
     x = x - 56
     run:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y0)
     hover(run, typed(c), c.help)
-    controls[#controls + 1] = { name = c.name, label = "Run", button = run, row = row }
+    controls[#controls + 1] = { name = c.name, sub = c.sub, label = "Run", button = run, row = row }
     box = wordsBox(row, boxW)
     x = x - 8 - boxW
     box:SetPoint("TOPLEFT", row, "TOPLEFT", x, -(y0 + 1))
     box:SetScript("OnEnterPressed", function(self)
       self:ClearFocus()
-      MOTA.Commands:Run(c.name, strtrim(self:GetText() or ""))
+      runRow(c, strtrim(self:GetText() or ""))
     end)
     hover(box, typed(c), c.help)
     row.box = box
@@ -251,7 +289,7 @@ local function buildRow(parent, c, y, last)
       b:SetPoint("TOPLEFT", row, "TOPLEFT", lx, -ly)
       lx = lx - GAP
       hover(b, typed(c), c.help)
-      controls[#controls + 1] = { name = c.name, label = choices[i][1], button = b, row = row }
+      controls[#controls + 1] = { name = c.name, sub = c.sub, label = now(choices[i][1]), button = b, row = row }
     end
   end
   if not last then rule(row, rowH - 1, LIST_W) end
@@ -425,7 +463,15 @@ local function grouped()
   for _, c in ipairs(MOTA.Commands.list) do
     local t = sectionOf(c.name)
     if not by[t] then by[t] = {} titles[#titles + 1] = t end
-    table.insert(by[t], c)
+    local parts = SPEC[c.name] and SPEC[c.name].rows
+    if parts then
+      -- a command in parts: a row for each (/mota marker)
+      for _, r in ipairs(parts) do
+        table.insert(by[t], { name = c.name, sub = r.sub, usage = now(r.usage), help = r.help or c.help, spec = r })
+      end
+    else
+      table.insert(by[t], c)
+    end
   end
   local result = {}
   for _, s in ipairs(SECTIONS) do
@@ -524,6 +570,13 @@ local function build()
 end
 
 -- Docks the window on the main one's left, level with the parchment, at the same size.
+-- The test's Off / On says what a press will do now.
+MOTA:Listen("MARKERS_CHANGED", function()
+  for _, l in ipairs(live) do
+    if l.button.SetLabel then l.button:SetLabel(l.label()) end
+  end
+end)
+
 function Admin:Dock()
   if not frame or not UI.window then return end
   frame:SetScale(UI.window:GetScale())
