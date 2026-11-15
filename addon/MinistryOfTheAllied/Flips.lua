@@ -24,6 +24,7 @@ local Flips = {}
 MOTA.Flips = Flips
 
 Flips.MAIL_DAYS = 30 -- an auction mail's life, to tell when it was sent
+Flips.CUT = 0.05     -- the auction house's cut of a sale (the invoice's own figure when there is one)
 
 local function db()
   MOTA.db.flips = MOTA.db.flips or {}
@@ -156,7 +157,7 @@ function Flips:Listed(item, q, p, dur, dep)
     f.own = true
   end
   local l = { item = item, name = itemInfo(item) or ("item " .. item), q = q, p = p, dur = dur, dep = dep or 0,
-    at = now(), tier = self:Tier(item, p), sold = 0, back = 0, got = 0 }
+    at = now(), tier = self:Tier(item, p), sold = 0, back = 0, got = 0, gross = 0, cut = 0, refund = 0 }
   f.lists[#f.lists + 1] = l
   self.pending = l
   changed()
@@ -199,8 +200,9 @@ local function settle(f)
 end
 
 -- A sale, from its mail: q units of the item called name, money paid (after the cut, with any
--- deposit back), sold at about `at`, for `gross` before the cut.
-function Flips:Sold(name, q, money, at, gross)
+-- deposit back), sold at about `at`, for `gross` before the cut; `cut` is the auction house's
+-- share and `refund` the deposit paid back, as the invoice gives them (else worked out).
+function Flips:Sold(name, q, money, at, gross, cut, refund)
   local list = up(name)
   if #list == 0 then return nil end
   q = q or 1
@@ -219,6 +221,11 @@ function Flips:Sold(name, q, money, at, gross)
     local take = math.min(left, active(e.l))
     local share = (i == #list or take == left) and pay or math.floor((money or 0) * take / q)
     e.l.sold, e.l.got = e.l.sold + take, e.l.got + share
+    -- the sale's parts: what the buyer paid, the cut, the deposit back
+    local g = gross and math.floor(gross * take / q + 0.5) or e.l.p * take
+    local c = cut and math.floor(cut * take / q + 0.5) or math.floor(g * Flips.CUT + 0.5)
+    local r = refund and math.floor(refund * take / q + 0.5) or math.max(0, share - (g - c))
+    e.l.gross, e.l.cut, e.l.refund = (e.l.gross or 0) + g, (e.l.cut or 0) + c, (e.l.refund or 0) + r
     e.l.first = e.l.first or at
     e.l.last = math.max(e.l.last or 0, at or 0)
     left, pay, hit = left - take, pay - share, e.f
@@ -278,10 +285,12 @@ end
 -- The score
 ---------------------------------------------------------------------------
 
--- bought, cost, units, listed, sold, up (still listed), got (paid by mail), deps, profit,
+-- bought, cost, units, listed, sold, up (still listed), got (paid by mail), deps (paid),
+-- gross (what buyers paid), cut (the auction house's 5%), refund (deposits paid back), lost
+-- (deposits not paid back: expired or cancelled), profit,
 -- tiers = { low/usual/high = { sold, listed, got, hours (to the first sale) } }
 function Flips:Sum(f)
-  local s = { bought = 0, cost = 0, listed = 0, sold = 0, up = 0, got = 0, deps = 0, tiers = {}, est = false }
+  local s = { bought = 0, cost = 0, listed = 0, sold = 0, up = 0, got = 0, deps = 0, gross = 0, cut = 0, refund = 0, tiers = {}, est = false }
   for _, b in ipairs(f.buys) do
     s.bought, s.cost = s.bought + b.q, s.cost + (b.c or 0)
     if b.est then s.est = true end
@@ -289,6 +298,7 @@ function Flips:Sum(f)
   for _, l in ipairs(f.lists) do
     s.listed, s.sold, s.up = s.listed + l.q, s.sold + l.sold, s.up + active(l)
     s.got, s.deps = s.got + l.got, s.deps + (l.dep or 0)
+    s.gross, s.cut, s.refund = s.gross + (l.gross or 0), s.cut + (l.cut or 0), s.refund + (l.refund or 0)
     local t = s.tiers[l.tier or "?"] or { sold = 0, listed = 0, got = 0 }
     s.tiers[l.tier or "?"] = t
     t.listed, t.sold, t.got, t.p = t.listed + l.q, t.sold + l.sold, t.got + l.got, l.p
@@ -298,7 +308,9 @@ function Flips:Sum(f)
     end
   end
   s.units = self:Units(f)
+  -- received = gross - cut + refund, so this is gross - cut - cost - the deposits not paid back
   s.profit = s.got - s.cost - s.deps
+  s.lost = s.deps - s.refund
   -- if what's still up sells at its price, after the cut
   local cut = MOTA.Workshop and MOTA.Workshop.CUT or 0.05
   local more = 0
@@ -408,17 +420,18 @@ function Flips:ReadMail(i, takingItems)
   if what and (money or 0) > 0 then
     seenMail[key] = true
     local name, n = split(what)
-    local gross, count
+    local gross, count, cut, refund
     if GetInboxInvoiceInfo then
       local r = { pcall(GetInboxInvoiceInfo, i) }
       if r[1] and r[2] == "seller" then
         gross = r[6] or r[5] -- buyout, else the winning bid
+        refund, cut = r[7], r[8]  -- the deposit back, the auction house's cut
         if type(r[12]) == "number" and r[12] > 0 then count = r[12] end
       end
     end
     local at = (self.found and self.found[name]) or sent
     if self.found then self.found[name] = nil end
-    self:Sold(name, count or n or 1, money, at, gross)
+    self:Sold(name, count or n or 1, money, at, gross, cut, refund)
     return
   end
   what = takingItems and SUBJECT.expired and subject:match(SUBJECT.expired)

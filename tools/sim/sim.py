@@ -452,6 +452,7 @@ check("Workshop: the scan stores each price level, cheapest first", ws('local l 
 check("Workshop: the scan finishes and says when", ws(MKT + 'return MinistryOfTheAllied.Market:Scanning() == nil and G.page.status.text:find("just now") ~= nil'))
 check("Workshop: another tab hides the Market page", ws(MKT + 'AuctionHouseFrame:SetDisplayMode({ "ItemBuy" }) return not G.page.shown and not G.tab.selected'))
 check("Workshop: the Crafts view compares cost and price, most profitable first", ws(MKT + 'G:Select() G:View("crafts") local l = G:Rows() return #l >= 2 and l[1].profit >= l[2].profit and l[1].cost ~= nil and l[1].sale ~= nil'))
+check("Workshop: a craft's tooltip shows the sale, the cut and the materials", ws(MKT + 'local r = G.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r) local it = G:Rows()[1] return it.gross ~= nil and it.cut == it.gross - it.sale and G.page.status.text:find("5%% cut") ~= nil'))
 check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
 check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
@@ -5296,7 +5297,7 @@ check("Flips: deposits and auction IDs are kept", Q(fl, FL + 'local l = F:All()[
 Q(fl, '''
 local now = GetServerTime()
 fl_mail = {
-  { "Stormwind Auction House", "Auction successful: Iron Bar (12)", 3672 + 24, 29.9 },
+  { "Stormwind Auction House", "Auction successful: Iron Bar (12)", 3648 + 24, 29.9 },
   { "Stormwind Auction House", "Auction expired: Iron Bar (12)", 0, 29.5 },
 }
 GetInboxHeaderInfo = function(i) local m = fl_mail[i] if m then return nil, nil, m[1], m[2], m[3], 0, m[4] end end
@@ -5309,7 +5310,9 @@ mock_fire("MAIL_SHOW")
 mock_fire("CHAT_MSG_SYSTEM", "A buyer has been found for your auction of Iron Bar.")
 TakeInboxMoney(1)
 ''')
-check("Flips: the sale mail sells the cheapest listing, money and all", Q(fl, FL + 'local l = F:All()[1].lists return l[1].sold == 12 and l[1].got == 3696 and l[2].sold == 0') is True)
+check("Flips: the sale mail sells the cheapest listing, money and all", Q(fl, FL + 'local l = F:All()[1].lists return l[1].sold == 12 and l[1].got == 3672 and l[2].sold == 0') is True)
+check("Flips: the sale keeps its parts: sales, the 5% cut, the deposit refunded", Q(fl, FL + 'local l = F:All()[1].lists[1] return l.gross == 3840 and l.cut == 192 and l.refund == 24') is True)
+check("Flips: the score adds up: sales less cut, cost and deposits not refunded", Q(fl, FL + 'local s = F:Sum(F:All()[1]) return s.profit == s.gross - s.cut - s.cost - s.lost') is True)
 check("Flips: the sale's time is when the buyer was found", Q(fl, FL + 'local l = F:All()[1].lists[1] return l.first ~= nil and l.first - l.at < 60') is True)
 Q(fl, 'TakeInboxMoney(1) AutoLootMailItem(1)')
 check("Flips: the same mail isn't counted twice", Q(fl, FL + 'return F:All()[1].lists[1].sold') == 12)
@@ -5317,7 +5320,7 @@ Q(fl, 'TakeInboxItem(2, 1)')
 check("Flips: an expired mail brings the whole listing's units back", Q(fl, FL + 'local l = F:All()[1].lists return l[2].back == 12 and l[3].back == 0') is True)
 Q(fl, 'C_AuctionHouse.CancelAuction(503)')
 check("Flips: a cancelled auction comes off the market", Q(fl, FL + 'local l = F:All()[1].lists[3] return l.cancelled == true and l.back == 11') is True)
-check("Flips: the score: received less cost and every deposit", Q(fl, FL + 'local s = F:Sum(F:All()[1]) return s.cost == 10500 and s.got == 3696 and s.deps == 70 and s.profit == 3696 - 10500 - 70') is True)
+check("Flips: the score: received less cost and every deposit", Q(fl, FL + 'local s = F:Sum(F:All()[1]) return s.cost == 10500 and s.got == 3672 and s.deps == 70 and s.profit == 3672 - 10500 - 70') is True)
 check("Flips: still open while units are unsold", Q(fl, FL + 'return F:All()[1].closed == nil') is True)
 # Relisting the returned bars, and selling out
 Q(fl, '''C_AuctionHouse.PostCommodity({ id = 3575 }, 2, 23, 330) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 504)

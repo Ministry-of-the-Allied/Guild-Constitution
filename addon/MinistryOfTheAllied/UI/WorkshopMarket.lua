@@ -96,7 +96,7 @@ function Page:Crafts()
           local net = math.floor(v.sale * (1 - W.CUT))
           local rate = (M:SellRate(r.item))
           out[#out + 1] = { id = r.item, recipe = id, name = r.name, colour = r.colour, prof = prof.name,
-            cost = v.cost, sale = net, profit = v.profit, margin = v.cost > 0 and v.profit / v.cost or nil,
+            cost = v.cost, sale = net, gross = v.sale, cut = v.sale - net, profit = v.profit, margin = v.cost > 0 and v.profit / v.cost or nil,
             rate = rate, sells = M:RateText(r.item), perDay = rate and (v.profit / made * rate) or nil,
             missing = v.missing, short = #v.short > 0 }
         end
@@ -295,6 +295,7 @@ local function buildPage(ah)
       if GameTooltip.SetItemByID then GameTooltip:SetItemByID(self.id) end
       local it = self.it
       if it and it.flip then Page:FlipTip(it) GameTooltip:Show() return end
+      if it and it.recipe then Page:CraftTip(it) end
       if it and it.short then GameTooltip:AddLine("Not enough materials listed for the whole batch.", 1, 0.5, 0.3) end
       if it and it.missing and it.missing > 0 then GameTooltip:AddLine("* Some materials have no price.", 1, 0.5, 0.3) end
       GameTooltip:AddLine("Click to search the auction house for it.", 0.6, 0.6, 0.6)
@@ -369,7 +370,7 @@ function Page:Refresh()
     local newest = Panel:NewestScan()
     local n = #W:Materials()
     page.status:SetText(n == 0 and "Open a profession once so the Workshop knows your recipes."
-      or (("Your crafts and their materials. Last scan %s. Scan every visit: sell rates need scans a few hours apart. Crafts priced at a batch of %d.")
+      or (("Your crafts and their materials. Last scan %s. Crafts priced at a batch of %d. Profit is after the auction house's 5%% cut: green makes money, red loses it. Deposits come back when it sells.")
         :format(newest and Panel:Ago(newest) or "never", W:Batch())))
     page.go:SetShown(n > 0); page.stop:Hide()
   end
@@ -402,6 +403,23 @@ function Page:Refresh()
       or ("%d %s · click a heading to sort · click a row to search for it"):format(#list, what)))
 end
 
+-- A craft's sums: the sale, the cut, the materials and the deposit that's only lost unsold.
+function Page:CraftTip(it)
+  GameTooltip:AddLine(" ")
+  GameTooltip:AddDoubleLine("Sells for", money(it.gross), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine("Auction house cut (5%)", "-" .. money(it.cut), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Materials", "-" .. money(it.cost), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Profit", signed(it.profit), 1, 1, 1, MOTA:RGB(it.profit >= 0 and GAIN or LOSS))
+  local AH = C_AuctionHouse
+  if AH and AH.CalculateCommodityDeposit then
+    local ok, dep = pcall(AH.CalculateCommodityDeposit, it.id, 2, 1)
+    if ok and type(dep) == "number" and dep > 0 then
+      GameTooltip:AddDoubleLine("Deposit (24 h, each)", money(dep), 0.8, 0.8, 0.8, 1, 1, 1)
+      GameTooltip:AddLine("Refunded when it sells; lost if it expires or you cancel.", 0.6, 0.6, 0.6, true)
+    end
+  end
+end
+
 -- A flip's tooltip: its listings by price, what sold and how fast.
 function Page:FlipTip(it)
   local f, s = it.flip, it.sum
@@ -414,8 +432,13 @@ function Page:FlipTip(it)
       GameTooltip:AddDoubleLine(("At %s (%s each)"):format(TIER[key], money(t.p)), ("%d/%d sold, %s"):format(t.sold, t.listed, speed), 0.8, 0.8, 0.8, 1, 1, 1)
     end
   end
-  GameTooltip:AddDoubleLine("Deposits", money(s.deps), 0.8, 0.8, 0.8, 1, 1, 1)
-  GameTooltip:AddDoubleLine("Received", money(s.got), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddLine(" ")
+  GameTooltip:AddDoubleLine("Sales", money(s.gross), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine("Auction house cut (5%)", "-" .. money(s.cut), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Bought for", "-" .. money(s.cost), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Deposits paid", "-" .. money(s.deps), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Deposits refunded on sale", "+" .. money(s.refund), 0.8, 0.8, 0.8, MOTA:RGB(GAIN))
+  if s.up > 0 then GameTooltip:AddLine(("Deposits on the %d still listed come back if they sell."):format(s.up), 0.6, 0.6, 0.6, true) end
   GameTooltip:AddDoubleLine(f.closed and "Profit" or "Profit so far", signed(s.profit), 1, 1, 1, MOTA:RGB(s.profit >= 0 and GAIN or LOSS))
   if not f.closed then GameTooltip:AddDoubleLine("If the rest sells", signed(s.outlook), 0.8, 0.8, 0.8, MOTA:RGB(s.outlook >= 0 and GAIN or LOSS)) end
   GameTooltip:AddLine(f.closed and "Shift-click to reopen." or "Shift-click to close it.", 0.6, 0.6, 0.6)
