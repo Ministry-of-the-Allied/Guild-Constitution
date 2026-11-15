@@ -28,7 +28,8 @@ local COLOUR = { optimal = "FF8040", medium = "FFFF00", easy = "40BF40", trivial
 local tab, page, rows = nil, nil, {}
 local top = 0
 local view = "crafts"
-local sorts = { market = { key = "name", up = true }, crafts = { key = "profit", up = false } }
+local sorts = { market = { key = "name", up = true }, crafts = { key = "profit", up = false }, flips = { key = "at", up = false } }
+local TIER = { low = "lowest", usual = "usual", high = "above", ["?"] = "no market data" }
 
 local function money(c) return c and W:Money(c) or "-" end
 local function signed(c) return c and ((c >= 0 and "+" or "") .. W:Money(c)) or "-" end
@@ -105,6 +106,19 @@ function Page:Crafts()
   return out
 end
 
+-- The flips (Flips.lua), newest first: what each cost, what's sold, the profit so far.
+function Page:Flips()
+  local out, F = {}, MOTA.Flips
+  for _, f in ipairs(F:All()) do
+    local s = F:Sum(f)
+    out[#out + 1] = { id = f.makes or f.item, flip = f, sum = s, at = f.at,
+      name = f.name .. (f.makesName and (" > " .. f.makesName) or ""),
+      bought = s.bought, cost = s.cost, sold = s.sold, units = s.units, up = s.up, got = s.got,
+      profit = f.closed and s.profit or s.outlook }
+  end
+  return out
+end
+
 -- The columns of each view: heading, width, alignment, the text and colour of a cell, and what
 -- it sorts by.
 local COLS = {
@@ -133,11 +147,22 @@ local COLS = {
     { key = "perDay", label = "A day", w = 84, text = function(it) return it.perDay and signed(it.perDay) or "-" end,
       colour = function(it) return not it.perDay and "808080" or (it.perDay >= 0 and GAIN or LOSS) end },
   },
+  flips = {
+    { key = "name", label = "Flip", w = 220, justify = "LEFT", text = function(it) return it.name end,
+      colour = function(it) return it.flip.closed and "808080" or "FFD100" end },
+    { key = "bought", label = "Bought", w = 60, text = function(it) return it.flip.own and "own" or tostring(it.bought) end },
+    { key = "cost", label = "Cost", w = 84, text = function(it) return money(it.cost) .. (it.sum.est and "*" or "") end },
+    { key = "up", label = "Listed", w = 60, text = function(it) return tostring(it.up) end },
+    { key = "sold", label = "Sold", w = 70, text = function(it) return it.sold .. "/" .. it.units end },
+    { key = "got", label = "Received", w = 90, text = function(it) return money(it.got) end },
+    { key = "profit", label = "Profit", w = 110, text = function(it) return signed(it.profit) .. (it.flip.closed and "" or " ?") end,
+      colour = function(it) return it.profit >= 0 and GAIN or LOSS end },
+  },
 }
 
 -- Sorted by the chosen column; empty values last whichever way round.
 function Page:Rows()
-  local list = view == "crafts" and self:Crafts() or self:Items()
+  local list = view == "crafts" and self:Crafts() or view == "flips" and self:Flips() or self:Items()
   local s = sorts[view]
   table.sort(list, function(a, b)
     local x, y = a[s.key], b[s.key]
@@ -225,6 +250,10 @@ local function buildPage(ah)
   page.views.crafts:SetPoint("TOPLEFT", page, "TOPLEFT", 14, -68)
   page.views.market = button(page, 90, 22, "Market", function() Page:View("market") end)
   page.views.market:SetPoint("LEFT", page.views.crafts, "RIGHT", 4, 0)
+  page.views.flips = button(page, 90, 22, "Flips", function() Page:View("flips") end)
+  page.views.flips:SetPoint("LEFT", page.views.market, "RIGHT", 4, 0)
+  page.flipping = button(page, 170, 22, "Flipping mode: off", function() MOTA.Flips:SetOn(not MOTA.Flips:On()) end)
+  page.flipping:SetPoint("TOPRIGHT", page, "TOPRIGHT", -14, -68)
   page.quick = {}
   page.quick.profit = button(page, 120, 22, "Most profitable", function() sorts.crafts = { key = "profit", up = false }; Page:View("crafts") end)
   page.quick.hot = button(page, 100, 22, "Hot sellers", function() sorts.crafts = { key = "rate", up = false }; Page:View("crafts") end)
@@ -265,13 +294,16 @@ local function buildPage(ah)
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       if GameTooltip.SetItemByID then GameTooltip:SetItemByID(self.id) end
       local it = self.it
+      if it and it.flip then Page:FlipTip(it) GameTooltip:Show() return end
       if it and it.short then GameTooltip:AddLine("Not enough materials listed for the whole batch.", 1, 0.5, 0.3) end
       if it and it.missing and it.missing > 0 then GameTooltip:AddLine("* Some materials have no price.", 1, 0.5, 0.3) end
       GameTooltip:AddLine("Click to search the auction house for it.", 0.6, 0.6, 0.6)
       GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    r:SetScript("OnClick", function(self) if self.id then Panel:SearchAuctions(self.id, W.ItemInfo(self.id) or (self.it and self.it.name)) end end)
+    r:SetScript("OnClick", function(self)
+      if self.it and self.it.flip and IsShiftKeyDown() then MOTA.Flips:Close(self.it.flip.id) return end
+      if self.id then Panel:SearchAuctions(self.id, W.ItemInfo(self.id) or (self.it and self.it.name)) end end)
     rows[i] = r
   end
   page.foot = fontString(page, "GameFontDisableSmall", "CENTER")
@@ -324,6 +356,11 @@ function Page:Refresh()
   hold(page.quick.profit, view == "crafts" and s.key == "profit")
   hold(page.quick.hot, view == "crafts" and s.key == "rate")
   hold(page.quick.day, view == "crafts" and s.key == "perDay")
+  local flips = view == "flips"
+  for _, b in pairs(page.quick) do b:SetShown(not flips) end
+  page.flipping:SetShown(flips)
+  page.flipping:SetText("Flipping mode: " .. (MOTA.Flips:On() and "|cff1EFF00on|r" or "off"))
+  hold(page.flipping, MOTA.Flips:On())
 
   if left then
     page.status:SetText(("Scanning: %d to go. Each search shows briefly on the Buy tab."):format(left))
@@ -351,10 +388,37 @@ function Page:Refresh()
       end
     end
   end
+  if flips then
+    local t = MOTA.Flips:Totals()
+    page.status:SetText((MOTA.Flips:On() and "Flipping mode is on: what you buy here is logged as a flip. "
+      or "Turn flipping mode on before buying to log a flip. ")
+      .. ("%d finished, %s profit in all. ? = so far, if what's listed sells."):format(t.done, signed(t.profit)))
+    page.foot:SetText(#list == 0 and "No flips yet." or (#list .. " flips · hover for each price's sales · shift-click to close or reopen"))
+    return
+  end
   local what = view == "crafts" and "crafts" or "items"
   page.foot:SetText(#list == 0 and (view == "crafts" and "No priced crafts yet: scan, or visit the auction house with Auctionator." or "Nothing watched yet.")
     or (#list > ROWS and ("%d to %d of %d %s · scroll for more · click a heading to sort"):format(top + 1, math.min(#list, top + ROWS), #list, what)
       or ("%d %s · click a heading to sort · click a row to search for it"):format(#list, what)))
+end
+
+-- A flip's tooltip: its listings by price, what sold and how fast.
+function Page:FlipTip(it)
+  local f, s = it.flip, it.sum
+  GameTooltip:AddLine(it.name, 1, 0.82, 0)
+  if not f.own then GameTooltip:AddDoubleLine("Bought", s.bought .. " for " .. money(s.cost) .. (s.est and " (estimated)" or ""), 1, 1, 1, 1, 1, 1) end
+  for _, key in ipairs({ "low", "usual", "high", "?" }) do
+    local t = s.tiers[key]
+    if t then
+      local speed = t.hours and ("first in " .. (t.hours < 1 and "<1 h" or (math.floor(t.hours + 0.5) .. " h"))) or "none yet"
+      GameTooltip:AddDoubleLine(("At %s (%s each)"):format(TIER[key], money(t.p)), ("%d/%d sold, %s"):format(t.sold, t.listed, speed), 0.8, 0.8, 0.8, 1, 1, 1)
+    end
+  end
+  GameTooltip:AddDoubleLine("Deposits", money(s.deps), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine("Received", money(s.got), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine(f.closed and "Profit" or "Profit so far", signed(s.profit), 1, 1, 1, MOTA:RGB(s.profit >= 0 and GAIN or LOSS))
+  if not f.closed then GameTooltip:AddDoubleLine("If the rest sells", signed(s.outlook), 0.8, 0.8, 0.8, MOTA:RGB(s.outlook >= 0 and GAIN or LOSS)) end
+  GameTooltip:AddLine(f.closed and "Shift-click to reopen." or "Shift-click to close it.", 0.6, 0.6, 0.6)
 end
 
 ---------------------------------------------------------------------------
@@ -477,3 +541,4 @@ MOTA:Listen("AUCTION_OPEN", onOpen)
 MOTA:Listen("AUCTION_CLOSED", function() Page:Deselect() Panel:Refresh() end)
 MOTA:Listen("MARKET_CHANGED", function() Page:Refresh(); Panel:Refresh() end)
 MOTA:Listen("WORKSHOP_CHANGED", function() Page:Refresh() end)
+MOTA:Listen("FLIPS_CHANGED", function() Page:Refresh() end)

@@ -45,6 +45,7 @@ Elect.lua
 Calendar.lua
 Market.lua
 Workshop.lua
+Flips.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
