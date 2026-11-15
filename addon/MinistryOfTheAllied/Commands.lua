@@ -217,6 +217,21 @@ add("workshop", "", "shows or hides the Workshop, the crafting guide beside the 
   MOTA.WorkshopPanel:Toggle()
 end)
 
+add("flip", "[on|off|close <n>|delete <n>]", "flipping mode: logs auction house purchases, listings and sales as flips (the Workshop tab's Flips view); with no word, lists them", function(arg)
+  local F = MOTA.Flips
+  local word, n = (arg or ""):match("^(%S*)%s*(%d*)")
+  if word == "on" or word == "off" then return F:SetOn(word == "on") end
+  if word == "close" or word == "delete" then
+    local ok, err = F[word == "close" and "Close" or "Delete"](F, tonumber(n))
+    return MOTA:Print(ok and ("Flip " .. n .. (word == "close" and " closed or reopened." or " deleted.")) or (err or ("No flip " .. n .. ".")))
+  end
+  MOTA:Print("Flipping mode " .. (F:On() and "on" or "off") .. ".")
+  for _, f in ipairs(F:All()) do
+    local s = F:Sum(f)
+    MOTA:Print(("#%d %s: %d/%d sold, %s %s"):format(f.id, f.name, s.sold, s.units, f.closed and "profit" or "so far", MOTA.Workshop:Money(s.profit)))
+  end
+end)
+
 add("probe", "[limits|bank|map|craft|market|gossip [nohide|off]|quest [nohide|fade|page|button|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'craft' what a profession window shows, 'market' Auctionator and an auction house search, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either), 'quest' whether the game's quest page can be hidden so our own could take its place ('quest fade' makes it invisible for 4 s, 'quest page' is a prototype of our own page whose Accept really accepts and where other add-ons cannot auto-accept or auto-pick a quest, 'quest button' tries adding our own test entry to the gossip window, 'quest nohide' is the control run that never touches it, 'quest off' stops any)", function(arg)
   local what, extra = arg:lower():match("^(%S*)%s*(.-)$")
   if what == "gossip" then
