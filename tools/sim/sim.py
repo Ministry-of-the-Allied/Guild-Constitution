@@ -325,6 +325,196 @@ check("Probe sees Bram as not the Crown", bram.said(r"counts as the Crown: no"))
 check("Both Crown ranks are recognised", bram.said(r'On the Crown ranks \("The King", "The Crown"\): Aldric, Max'))
 max_.slash("probe map")
 check("Map probe runs without errors and saves what it found", max_.said(r"Map probe") and max_.said(r"Saved\. After /reload"))
+errs_before_mp = len(errors)
+max_.slash("probe craft")
+check("Craft probe: no profession window, it says so and saves", max_.said(r"Craft probe") and max_.said(r"No profession window open"))
+max_.slash("probe market")
+check("Market probe: without Auctionator or an auction house, it says so", max_.said(r"Market probe") and max_.said(r"Auctionator isn't loaded"))
+# a pretend Auctionator and a Tailoring window
+max_.lua.execute('''
+Auctionator = { API = { v1 = {
+  GetAuctionPriceByItemID = function(_, id) return id * 10 end,
+  GetAuctionAgeByItemID = function() return 1 end,
+  GetVendorPriceByItemID = function() return 5 end,
+  GetAuctionPriceByItemLink = function() return 1 end } } }
+GetNumTradeSkills = function() return 2 end
+GetTradeSkillLine = function() return "Tailoring", 75, 150 end
+GetTradeSkillInfo = function(i) if i == 1 then return "Cloth", "header" end return "Bolt of Linen Cloth", "optimal" end
+GetTradeSkillItemLink = function() return "|cffffffff|Hitem:2996::::::::|h[Bolt of Linen Cloth]|h|r" end
+GetTradeSkillRecipeLink = function() end
+GetTradeSkillNumMade = function() return 1, 1 end
+GetTradeSkillNumReagents = function() return 1 end
+GetTradeSkillReagentInfo = function() return "Linen Cloth", nil, 2, 7 end
+GetTradeSkillReagentItemLink = function() return "|Hitem:2589::|h" end
+GetTradeSkillCooldown = function() end
+''')
+max_.slash("probe craft")
+check("Craft probe: reads the open window, colours and materials", max_.said(r"Open window: Tailoring 75/150, 1 recipes \(optimal 1\)") and max_.said(r"Bolt of Linen Cloth \[optimal\] item 2996: 2x Linen Cloth"))
+max_.slash("probe market")
+check("Market probe: Auctionator's price for the crafted item and its material", max_.said(r"Bolt of Linen Cloth \(2996\): Auctionator 2g 99s 60c") and max_.said(r"Linen Cloth \(2589\): Auctionator 2g 58s 90c"))
+max_.lua.execute('Auctionator = nil GetNumTradeSkills = nil GetTradeSkillLine = nil GetTradeSkillInfo = nil')
+# Forever's way (probe, 14 Nov): the modern profession window and auction house
+max_.lua.execute('''
+mp_saved = { GetItemInfo = GetItemInfo, GetItemCount = GetItemCount, Enum = Enum }
+local items = { [2862] = { "Rough Sharpening Stone", 20 }, [2853] = { "Copper Bracers", 1 }, [2835] = { "Rough Stone", 20 }, [2840] = { "Copper Bar", 20 } }
+GetItemInfo = function(id) local i = items[id] if i then return i[1], nil, nil, nil, nil, nil, nil, i[2] end end
+GetItemCount = function() return 3 end
+Enum = Enum or {}
+Enum.AuctionHouseSortOrder = { Price = 0 }
+C_TradeSkillUI = {
+  IsTradeSkillReady = function() return true end,
+  GetBaseProfessionInfo = function() return { professionName = "Blacksmithing", skillLevel = 114, maxSkillLevel = 150 } end,
+  GetChildProfessionInfo = function() return {} end,
+  GetAllRecipeIDs = function() return { 1, 2, 3 } end,
+  GetRecipeInfo = function(id) return ({ { name = "Rough Sharpening Stone", learned = true, difficulty = "trivial" },
+    { name = "Copper Bracers", learned = true, relativeDifficulty = 1 }, { name = "Iron Buckle", learned = false } })[id] end,
+  GetRecipeSchematic = function(id) return ({ { outputItemID = 2862, quantityMin = 1, reagentSlotSchematics = { { quantityRequired = 1, reagents = { { itemID = 2835 } } } } },
+    { outputItemID = 2853, quantityMin = 1, reagentSlotSchematics = { { quantityRequired = 2, reagents = { { itemID = 2840 } } } } },
+    { outputItemID = 7071, reagentSlotSchematics = {} } })[id] end,
+}
+mp_sent = {}
+C_AuctionHouse = {
+  MakeItemKey = function(id) return { itemID = id } end,
+  SendSearchQuery = function(key) table.insert(mp_sent, key.itemID) end,
+  GetItemCommodityStatus = function(id) return id == 2853 and 2 or 1 end,
+  GetNumItemSearchResults = function() return 2 end,
+  HasFullItemSearchResults = function() return true end,
+  GetItemSearchResultInfo = function(_, i) return { auctionID = 100 + i, owners = { "Elon Banquee" }, totalNumberOfOwners = 1, quantity = 1, buyoutAmount = 800, timeLeft = 2 } end,
+  GetNumCommoditySearchResults = function() return 2 end,
+  HasFullCommoditySearchResults = function() return true end,
+  GetCommoditySearchResultInfo = function(_, i) return { auctionID = 200 + i, owners = {}, totalNumberOfOwners = 3, quantity = 20 * i, unitPrice = 50 * i, timeLeftSeconds = 7200 } end,
+}
+''')
+max_.slash("probe craft")
+check("Craft probe, modern: reads Blacksmithing, learned recipes and colours", max_.said(r"Open window: Blacksmithing 114/150, 2 recipes") and max_.said(r"not yet learned that the game also lists: 1"))
+check("Craft probe, modern: finds a gear item and a stackable for the market probe", max_.said(r"gear Copper Bracers \(2853\), stackable Rough Sharpening Stone \(2862\)"))
+max_.slash("probe market")
+check("Market probe, modern: waits for the auction house to be open", max_.said(r"Open the auction house and run it again to test the searches"))
+max_.lua.execute('mock_fire("AUCTION_HOUSE_SHOW")')
+max_.slash("probe market")
+max_.lua.execute('mock_fire("ITEM_SEARCH_RESULTS_UPDATED", { itemID = 2853 })')
+run(3)
+max_.lua.execute('mock_fire("COMMODITY_SEARCH_RESULTS_UPDATED", 2862)')
+run(2)
+check("Market probe, modern: the gear search shows auction IDs, sellers and time left", max_.said(r"#101: 1x, buyout 0g 8s 0c, seller Elon Banquee, time left 2 to 12 h") and max_.said(r"Of 2 rows: auction IDs 2, sellers named 2, time left 2"))
+check("Market probe, modern: the second search went with no click", max_.lua.eval('mp_sent[2]') == 2862)
+check("Market probe, modern: the stackable search, with hidden sellers", max_.said(r"#201: 20x at 0g 0s 50c each, seller 3 \(names hidden\), time left 120 min") and max_.said(r"Saved\. It writes"))
+# --- The Workshop (Workshop.lua, UI/Workshop.lua; Duncan, 14 Nov) -------------------------------------
+errs_before_ws = len(errors)
+max_.lua.execute('''
+local prices = { [2862] = 100, [2835] = 20, [2853] = 500, [2840] = 150, [7071] = 300 }
+Auctionator = { API = { v1 = {
+  GetAuctionPriceByItemID = function(_, id) return prices[id] end,
+  GetAuctionAgeByItemID = function() return 2 end } } }
+mock_fire("TRADE_SKILL_SHOW")
+''')
+run(1)
+WS = '(function() local W, P = MinistryOfTheAllied.Workshop, MinistryOfTheAllied.WorkshopPanel '
+def ws(code):
+    return max_.lua.eval(WS + code + ' end)()')
+check("Workshop: reads Blacksmithing when the window opens", ws('return W.current and W.current.name == "Blacksmithing" and W.current.rank == 114'))
+check("Workshop: remembered for this character", ws('local n = 0 for _ in pairs(W:Mine()) do n = n + 1 end return n') == 1)
+check("Workshop: profit after the 5% cut, best first", ws('local l = W:Profit(W.current) return #l == 2 and l[1].r.name == "Copper Bracers" and l[1].profit == 175 and l[2].profit == 75'))
+check("Workshop: levelling skips grey recipes, and a money-making one leads", ws('local l = W:Levelling(W.current) return #l == 1 and l[1].r.name == "Copper Bracers" and l[1].net == -175'))
+check("Workshop: unlearned recipes are on Learn", ws('local l = W:ToLearn(W.current) return #l == 1 and l[1].r.name == "Iron Buckle" and l[1].profit == 285'))
+check("Workshop: the panel opens beside it, on Profit", ws('return P.frame and P.frame.shown and P.rows[1].shown and P.rows[1].name.text == "Copper Bracers" and P.rows[1].right.text == "+1s 75c"'))
+check("Workshop: the Level tab says it makes money and levels", ws('P:Tab("level") return P.rows[1].right.text == "+1s 75c" and P.rows[1].sub.text:find("makes money and levels") ~= nil'))
+check("Workshop: the Learn tab marks it not learned", ws('P:Tab("learn") return P.rows[1].sub.text:find("^not learned") ~= nil'))
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+check("Workshop: the x hides it, /mota workshop brings it back", ws('P.frame.close.scripts.OnClick(P.frame.close) local a = not P.frame.shown P:Toggle() return a and P.frame.shown'))
+# Batches priced up the market's levels (Market.lua; Duncan, 14 Nov)
+max_.lua.execute('MinistryOfTheAllied.db.market = { [2840] = { at = GetServerTime(), levels = { { p = 100, q = 1 }, { p = 200, q = 19 } } } }')
+check("Workshop: one craft buys the cheapest bars", ws('W:SetBatch(1) local c = W:Cost(W.current.recipes[2]) return c') == 300)
+check("Workshop: twenty crafts buy up the levels and run short", ws('W:SetBatch(20) local c, _, short = W:Cost(W.current.recipes[2]) return c == 395 and #short == 1 and short[1].got == 20'))
+check("Workshop: the row says how many are listed", ws('P:Tab("profit") for _, r in ipairs(P.rows) do if r.shown and r.name.text == "Copper Bracers" then return r.sub.text end end') .find("only 20 Copper Bar listed") > 0)
+check("Workshop: materials without a scan stay on Auctionator's price", ws('local _, _, _, mats = W:Cost(W.current.recipes[1], 20) return mats[1].src') == "auctionator")
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+max_.lua.execute('MinistryOfTheAllied.Workshop:SetBatch(1)')
+# The scan at the auction house
+max_.lua.execute('''
+AuctionHouseFrame = CreateFrame("Frame")
+AuctionHouseFrame.Tabs = { CreateFrame("Button"), CreateFrame("Button") }
+AuctionHouseFrame.SetDisplayMode = function(self, mode) self.mode = mode end
+AuctionHouseFrame.SetTitle = function(self, t) self.title = t end
+AuctionHouseFrame:Show()
+mock_fire("AUCTION_HOUSE_SHOW")
+''')
+run(1)
+MKT = 'local G = MinistryOfTheAllied.WorkshopMarket '
+check("Workshop: a Workshop tab joins the auction house's tabs", ws(MKT + 'return G.tab and G.tab.shown and not G.page.shown'))
+check("Workshop: the tab opens the Market page and deselects the others", ws(MKT + 'G.tab.scripts.OnClick(G.tab) return G.page.shown and AuctionHouseFrame.title == "The Workshop" and #AuctionHouseFrame.mode == 0'))
+check("Workshop: the page lists the crafts and their materials", ws(MKT + 'return #G:Items() >= 3 and G.rows[1].shown and G.page.go.shown'))
+check("Workshop: Scan queues this character's materials and crafts", ws(MKT + 'G.page.go.scripts.OnClick(G.page.go) return MinistryOfTheAllied.Market:Scanning()') >= 3)
+for _ in range(6):
+    max_.lua.execute('local M = MinistryOfTheAllied.Market for _, id in ipairs({ 2835, 2840, 2862, 2853 }) do mock_fire("COMMODITY_SEARCH_RESULTS_UPDATED", id) end')
+    run(2)
+check("Workshop: the scan stores each price level, cheapest first", ws('local l = MinistryOfTheAllied.Market:Levels(2835) return l and #l == 2 and l[1].p == 50 and l[1].q == 20 and l[2].p == 100') is True)
+check("Workshop: the scan finishes and says when", ws(MKT + 'return MinistryOfTheAllied.Market:Scanning() == nil and G.page.status.text:find("just now") ~= nil'))
+check("Workshop: another tab hides the Market page", ws(MKT + 'AuctionHouseFrame:SetDisplayMode({ "ItemBuy" }) return not G.page.shown and not G.tab.selected'))
+check("Workshop: the Crafts view compares cost and price, most profitable first", ws(MKT + 'G:Select() G:View("crafts") local l = G:Rows() return #l >= 2 and l[1].profit >= l[2].profit and l[1].cost ~= nil and l[1].sale ~= nil'))
+check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
+check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
+max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
+check("Workshop: at the auction house, a row searches for its item", ws('P:Tab("profit") local r = P.rows[1] r.scripts.OnClick(r) return ws_searched ~= nil and ws_searched == W.ItemInfo(r.v.r.item)') is True)
+check("Workshop: without Auctionator, the auction house's own search", ws('Auctionator = nil return P:SearchAuctions(2853, "Copper Bracers")') == "query")
+max_.lua.execute('mock_fire("AUCTION_HOUSE_CLOSED")')
+check("Workshop: the side tab sits on the profession window and toggles the panel", ws('local s = P.side if not (s and s.shown) then return false end s.scripts.OnClick(s) local a = not P.frame.shown s.scripts.OnClick(s) return a and P.frame.shown'))
+check("Workshop: closed with the tab, it stays closed next time", ws('P.side.scripts.OnClick(P.side) mock_fire("TRADE_SKILL_CLOSE") mock_fire("TRADE_SKILL_SHOW") return MinistryOfTheAllied.db.settings.workshopHidden == true'))
+run(1)
+check("Workshop: ...with only the side tab showing", ws('return P.side.shown and not P.frame.shown'))
+max_.lua.execute('MinistryOfTheAllied.WorkshopPanel:Show() AuctionHouseFrame = nil')
+# The market watch: what sold between two scans (Market.lua; Duncan, 14 Nov)
+MK = '(function() local M = MinistryOfTheAllied.Market '
+def mk(code):
+    return max_.lua.eval(MK + code + ' end)()')
+check("Market watch: cheaper levels gone and the cheapest shrunk count as sold", mk(
+    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
+    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600)') == 18)
+check("Market watch: a level about to expire isn't counted", mk(
+    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600)') == 0)
+check("Market watch: a listing gone with hours still left was bought", mk(
+    'return M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600)') == 2)
+check("Market watch: a week of scans gives a rate a day", mk(
+    'local prev = { at = GetServerTime() - 6 * 3600, levels = { { p = 50, q = 30 } } } '
+    'local new = { at = GetServerTime(), levels = { { p = 50, q = 24 } } } '
+    'M:Record(9999, prev, new) MinistryOfTheAllied.db.market[9999] = new '
+    'return math.floor(M:SellRate(9999) + 0.5)') == 24)
+check("Market watch: the rate reads as words", mk('return M:RateText(9999)') == "~24 a day")
+check("Market watch: too little watching gives no rate", mk(
+    'local new = { at = GetServerTime(), levels = { { p = 5, q = 1 } } } M:Record(9998, { at = GetServerTime() - 3600, levels = { { p = 5, q = 2 } } }, new) '
+    'MinistryOfTheAllied.db.market[9998] = new return M:SellRate(9998) == nil') is True)
+check("Market watch: the usual price is this week's median", mk('return M:Normal(9999)') == 50)
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+max_.lua.execute('mock_fire("TRADE_SKILL_CLOSE")')
+run(1)
+check("Workshop: closes with the profession window", ws('return not P.frame.shown'))
+# The Professions book: quick access away from a crafting station (Duncan, 14 Nov)
+max_.lua.execute('''
+MinistryOfTheAllied.db.settings.workshopHidden = nil
+mock_fire("TRADE_SKILL_CLOSE")
+ProfessionsBookFrame = CreateFrame("Frame")
+ProfessionsBookFrame:Hide()
+mock_fire("ADDON_LOADED", "Blizzard_ProfessionsBook")
+ProfessionsBookFrame:Show()
+if ProfessionsBookFrame.scripts.OnShow then ProfessionsBookFrame.scripts.OnShow(ProfessionsBookFrame) end
+''')
+run(1)
+check("Workshop: the side tab and panel come with the Professions book", ws('return P.side.shown and P.frame.shown and W.current ~= nil'))
+check("Workshop: closing the book takes them away", ws('ProfessionsBookFrame:Hide() if ProfessionsBookFrame.scripts.OnHide then ProfessionsBookFrame.scripts.OnHide(ProfessionsBookFrame) end return not P.side.shown and not P.frame.shown'))
+check("Workshop: one saved profession, the name doesn't switch", ws('local c = W.current P:NextProfession() return W.current == c'))
+check("Workshop: the scan waits for the auction house to be ready", ws(
+    'local M, went, ready = MinistryOfTheAllied.Market, false, false '
+    'C_AuctionHouse.IsThrottledMessageSystemReady = function() return ready end '
+    'M:WhenReady(function() went = true end) ws_went = function() return went end ws_ready = function() ready = true end return true'))
+run(0.6)
+check("Workshop: ...not before", ws('return not ws_went()'))
+max_.lua.execute('ws_ready()')
+run(0.3)
+check("Workshop: ...and goes as soon as it is", ws('return ws_went()'))
+max_.lua.execute('Auctionator = nil ProfessionsBookFrame = nil C_AuctionHouse.IsThrottledMessageSystemReady = nil')
+check("Workshop: nothing in it raised a Lua error", len(errors) == errs_before_ws)
+max_.lua.execute('GetItemInfo, GetItemCount, Enum = mp_saved.GetItemInfo, mp_saved.GetItemCount, mp_saved.Enum C_TradeSkillUI = nil C_AuctionHouse = nil mock_fire("AUCTION_HOUSE_CLOSED")')
+check("Market probe: nothing in it raised a Lua error", len(errors) == errs_before_mp)
 max_.slash("debug")
 max_.slash("debug")
 max_.slash("probe limits")
@@ -2613,6 +2803,32 @@ check("Election: the Leader of the Opposition, the shadow cabinet", em.said(r"Na
 check("Throne Room: the First Government, day 1", E(eb, TH + 'return T:Banner().eyebrow').startswith("The First Government · Day 1 of"))
 check("Throne Room: the Prime Minister and five Cabinet posts", E(ekk, TH + 'local p = T:Power() return p.pm.name == "Bram" and #p.cabinet == 5 and p.cabinet[1].title == "Treasury"') is True)
 check("Throne Room: the Leader of the Opposition", E(ekk, TH + 'local p = T:Power() return p.opposition.name == "Mira" and p.opposition.p == "ex"') is True)
+
+# --- The Calendar (Calendar.lua, UI/CalendarPage.lua; Duncan, 14 Nov) ---------------------------------
+CAL = 'local Cal, P = MinistryOfTheAllied.Calendar, MinistryOfTheAllied.ThronePage '
+def cal_has(c, word):
+    return E(c, CAL + 'for _, e in ipairs(Cal:ElectionEvents()) do if e.title:find("%s") then return e.t end end return 0' % word)
+check("Calendar: the term's start and end are on it", cal_has(eb, "takes office") > 0 and cal_has(eb, "term ends") == E(eb, 'return El:Government().ends'))
+check("Calendar: polling day is the next General Election's date", cal_has(eb, "Polling day") == E(eb, 'return Co:PollAt()'))
+check("Calendar: the polls close 2 hours after", cal_has(eb, "polls close") - cal_has(eb, "Polling day") == 7200)
+check("Calendar: contests open 28 days before polling day", cal_has(eb, "Polling day") - cal_has(eb, "contests open") == 28 * 86400)
+check("Calendar: the campaign starts 14 days before", cal_has(eb, "Polling day") - cal_has(eb, "campaign begins") == 14 * 86400)
+check("Calendar: the past result is on it", E(eb, CAL + 'for _, e in ipairs(Cal:PastEvents()) do if e.text:find("Bram") then return true end end return false') is True)
+check("Calendar: a citizen can't post to the guild calendar", E(eb, CAL + 'local ok = Cal:CanPost() return ok == nil') is True)
+errs_before_cal = len(errors)
+for c in (ek, eb):
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(1)')
+    c.lua.execute('local P = MinistryOfTheAllied.ThronePage; P.decrees.calendar.scripts.OnClick(P.decrees.calendar)')
+    for skin in ("crown", "silverhand", "exchange", "ministry"):
+        c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
+        c.lua.execute('local P = MinistryOfTheAllied.ThronePage; P:StepMonth(1); P:StepMonth(1); P:StepMonth(1); P:CalendarGoto()')
+check("Calendar: opens from the Throne Room and draws in all four skins", len(errors) == errs_before_cal and
+      E(eb, CAL + 'return P.view == "calendar" and P.calendar.shown and not P.root.shown') is True)
+check("Calendar: today's cell is in the grid, the side names the day", E(eb, CAL + 'local n = 0 for _, c in ipairs(P.calendarGrid.cells) do if c.day == Cal:DayStart(time()) then n = n + 1 end end return n == 1 and P.calendarSide.title.text ~= ""') is True)
+check("Calendar: three months on, polling day's cell names it", E(eb, CAL + 'P:CalendarGoto(Co:PollAt()) for _, c in ipairs(P.calendarGrid.cells) do if c.day == Cal:DayStart(Co:PollAt()) then return c.lines[1].text.text end end') or "")
+check("Calendar: the plate says what's next", E(eb, CAL + 'return P.calendarSide ~= nil and MinistryOfTheAllied.ThronePage.calendar ~= nil') is True)
+check("Calendar: the post button is the Crown's only", E(eb, CAL + 'return P.calendarBar.post.shown') is not True)
+check("Calendar: the Throne Room button goes back", E(eb, CAL + 'P:Open("state") return P.view == "state" and P.root.shown and not P.calendar.shown') is True)
 # Who holds power, drawn from a real government and laid out as the board flows it (ThroneRoom board, measured
 # in Edge: Crown row 46, rule 114, Prime Minister 127, Cabinet plate 215 and 130 high, rows 23 apart, the Opposition pinned
 # to the bottom). The board's fifth post is "Justice"; the add-on's is Games (Duncan, 8 Nov): the Crown appoints the Justices.
@@ -3134,7 +3350,7 @@ def games_draws(c, label):
     seen = []
     for skin in ("crown", "silverhand", "exchange", "ministry"):
         c.lua.execute("MinistryOfTheAllied.Skin:Preview(\"%s\")" % skin)
-        for v in ("lottery", "hunt", "cup", "honours"):
+        for v in ("lottery", "hunt", "hide", "cup", "honours"):
             c.lua.execute('MinistryOfTheAllied.GamesPage:Select("%s")' % v)
         seen.append(c.lua.eval('MinistryOfTheAllied.GamesPage:View()'))
     check("Games Hall: draws in all four skins and every view, " + label, len(errors) == errs and seen == ["honours"] * 4)
@@ -3532,6 +3748,251 @@ RE(rmax, 'return R:Result(5, "Bram")')
 run(2)
 check("Duels: the organiser settles a disagreement", RE(rmira, 'local c = R:Current() return c.bouts[5].w == "Bram" and c.bouts[7].a == "Bram"') is True)
 
+print("== Hide and Seek")
+hmax, hbram, hkael, hmira, hwren = Client("Max"), Client("Bram"), Client("Kael"), Client("Mira"), Client("Wren")
+HC = [hmax, hbram, hkael, hmira, hwren]
+clients[:] = HC
+for c in HC:
+    c.lua.execute('CVARS = { UnitNameFriendlyPlayerName = "1", nameplateShowFriends = "1" }; '
+                  'function GetCVar(k) return CVARS[k] end; function SetCVar(k, v) CVARS[k] = tostring(v) end; '
+                  'HP_SENT = 0; local C = MinistryOfTheAllied.Comm; local o = C.Send; '
+                  'C.Send = function(self, msg, ...) if msg:find("\\031HP\\031") then HP_SENT = HP_SENT + 1 end return o(self, msg, ...) end')
+run(20)
+HQ = "local M = MinistryOfTheAllied; local Hi = M.Hide "
+def HE(c, code): return c.lua.eval("(function() " + HQ + code + " end)()")
+def at(c, x, y, inst=0):
+    c.lua.execute('POS = { x = %f, y = %f, inst = %d }; ZONE = "Elwynn Forest"' % (x, y, inst))
+for c in HC: at(c, 1000, 1000)
+
+check("Hide: a citizen can't open a game", "Only the Crown" in (HE(hbram, 'local _, e = Hi:Open("x") return e') or ""))
+check("Hide: a game needs its play area first", "play area" in (HE(hmax, 'local _, e = Hi:Open("x") return e') or ""))
+HE(hmax, 'Hi:SetCentre() local d = Hi:Draft() d.hs = 30 d.ss = 300 Hi:SetRadius(100) return 1')
+check("Hide: the middle is where the organiser stands", HE(hmax, 'local d = Hi:Draft() return d.cx .. "," .. d.cy .. "," .. d.rad') == "1000,1000,100")
+check("Hide: the organiser opens it", HE(hmax, 'return Hi:Open("Goldshire Hide") ~= nil') is True)
+run(2)
+check("Hide: every copy sees it open to join", all(HE(c, 'return Hi:Stage()') == "lobby" for c in HC))
+check("Hide: nobody is told about it twice by the draft (it's cleared)", HE(hmax, 'return M.db.hideDraft == nil') is True)
+HE(hbram, 'return Hi:Join()')
+run(1)
+check("Hide: one player isn't enough to start", "At least" in (HE(hmax, 'local _, e = Hi:Start() return e') or ""))
+for c in (hkael, hmira, hwren): HE(c, 'return Hi:Join()')
+HE(hmira, 'return Hi:Leave()')
+run(1)
+check("Hide: a player can leave before the start", HE(hbram, 'return #Hi:Current().players') == 3)
+HE(hmira, 'return Hi:Join()')
+run(1)
+check("Hide: Mira rejoins: four players", HE(hkael, 'local t = {} for _, p in ipairs(Hi:Current().players) do t[#t + 1] = p end table.sort(t) return table.concat(t, ",")') == "Bram,Kael,Mira,Wren")
+check("Hide: only the organiser starts it", "Only Max" in (HE(hbram, 'local _, e = Hi:Start() return e') or ""))
+HE(hwren, 'Hi.BLOCKED = { { folder = "GuildPins", label = "Guild Pins" } }; C_AddOns.IsAddOnLoaded = function(n) return n == "GuildPins" end; return 1')
+check("Hide: an add-on that shows guild members on the map keeps you out", "Turn off Guild Pins" in (HE(hwren, 'local G = Hi:Current() G.joined[M.me] = nil local _, e = Hi:Join() G.joined[M.me] = true return e') or ""))
+HE(hwren, 'Hi.BLOCKED = {} return 1')
+
+# Hiding.
+at(hkael, 1030, 1000); at(hmira, 1060, 1000); at(hwren, 990, 1040)
+check("Hide: Max starts it with Bram seeking", HE(hmax, 'return Hi:Start("Bram") ~= nil') is True)
+run(2)
+check("Hide: every copy is hiding, Bram seeking", all(HE(c, 'return Hi:Stage() .. "|" .. Hi:Current().sk') == "hiding|Bram" for c in HC))
+check("Hide: each player knows their part", HE(hkael, 'return Hi:Role(M.me)') == "hider" and HE(hbram, 'return Hi:Role(M.me)') == "seeker")
+check("Hide: names go off for the players", hkael.lua.eval('CVARS.UnitNameFriendlyPlayerName .. CVARS.nameplateShowFriends') == "00")
+check("Hide: and the old settings are kept to put back", HE(hkael, 'return M.db.hideSaved.nameplateShowFriends') == "1")
+check("Hide: names stay on for someone not playing", hmax.lua.eval('CVARS.nameplateShowFriends') == "1")
+check("Hide: players' guild dots go quiet while they play", HE(hmira, 'return Hi:Silenced()') is True and HE(hmax, 'return Hi:Silenced()') is False)
+hmira.lua.execute('OpenMapDB = { worldmap = { guild = true, friendsShare = true } }; C_AddOns.IsAddOnLoaded = function(n) return n == "OpenMap" end; MinistryOfTheAllied.MapCompat:OpenMapStepAside()')
+check("Hide: OpenMap's own sharing is held off while they play", hmira.lua.eval('OpenMapDB.worldmap.friendsShare') is False and hmira.lua.eval('tostring(MinistryOfTheAllied.db.settings.dotsShare)') != 'true')
+check("Hide: the map is shut for players in a No map game", HE(hmira, 'return Hi:MapBlocked()') is True and HE(hmax, 'return Hi:MapBlocked()') is False)
+at(hbram, 1031, 1000)
+run(5)
+check("Hide: nobody is found while they're still hiding", HE(hmax, 'return #Hi:Current().found') == 0)
+check("Hide: the seeker sends nothing while everyone hides", hbram.lua.eval("HP_SENT") == 0)
+
+# Seeking.
+run(26)
+check("Hide: after the hiding time, seeking", HE(hmax, 'return Hi:Stage()') == "seeking")
+check("Hide: hiders are told the seekers are coming", hkael.said(r"ready or not"))
+run(3)
+check("Hide: Bram, on top of Kael, finds them", all(HE(c, 'return Hi:Role("Kael")') == "seeker" for c in HC))
+check("Hide: the finder is credited", HE(hmira, 'local G = Hi:Current() return G.finds.Bram .. "|" .. G.foundBy.Kael') == "1|Bram")
+check("Hide: Kael is told they seek now", hkael.said(r"found you\. You're a seeker now"))
+check("Hide: Bram is told who they found", hbram.said(r"Found: Kael"))
+check("Hide: the seekers' places go out, the hiders' never do", hbram.lua.eval("HP_SENT") > 0 and hmira.lua.eval("HP_SENT") == 0 and hwren.lua.eval("HP_SENT") == 0)
+# Running past someone doesn't find them.
+at(hbram, 1059, 1000)
+run(1)
+at(hbram, 1000, 1000)
+run(4)
+check("Hide: a seeker running past (under 2 s) finds nobody", HE(hmax, 'return Hi:Role("Mira")') == "hider")
+at(hkael, 1045, 1000)
+run(3)
+check("Hide: within 20 yards the hider's screen warns them", HE(hmira, 'return Hi.warm') is True)
+check("Hide: the hider's glow is on", HE(hmira, 'return M.HuntGlow.target or 0') > 0)
+# Wren leaves the play area.
+at(hwren, 1200, 1000)
+run(4)
+check("Hide: outside the play area, a countdown", hwren.said(r"Out of bounds: \d+s to get back in"))
+check("Hide: not out yet", HE(hmax, 'return Hi:Role("Wren")') == "hider")
+run(8)
+check("Hide: 10 seconds outside and they're out", all(HE(c, 'return Hi:Role("Wren")') == "out" for c in HC))
+check("Hide: someone who's out gets names back", hwren.lua.eval('CVARS.nameplateShowFriends') == "1")
+# Kael finds Mira: nobody left hidden.
+at(hkael, 1058, 1000)
+run(4)
+check("Hide: the last hider found ends it at once", all(HE(c, 'return Hi:Stage()') == "done" for c in HC))
+check("Hide: everyone found: best seeker, last found, the one before", HE(hkael, 'local p, a = Hi:Places(Hi:Current()) return table.concat(p, ",") .. "|" .. table.concat(a, ",")') == "Bram,Mira,Kael|1,2,3")
+run(2)
+check("Hide: the organiser's copy writes it to the games log", all(HE(c, 'local e = M.Games:Log()[1] return e and e.g == "hide" and e.name == "Goldshire Hide" and table.concat(e.places, ",") == "Bram,Mira,Kael"') is True for c in HC))
+check("Hide: it's written once", HE(hmax, 'local n = 0 for _, e in ipairs(M.Games:Log()) do if e.g == "hide" then n = n + 1 end end return n') == 1)
+check("Hide: names come back on at the end", all(c.lua.eval('CVARS.UnitNameFriendlyPlayerName .. CVARS.nameplateShowFriends') == "11" for c in (hbram, hkael, hmira)))
+check("Hide: and nothing is left saved", HE(hmira, 'return M.db.hideSaved == nil') is True)
+check("Hide: the map opens again", HE(hmira, 'return Hi:MapBlocked()') is False)
+hmira.lua.execute('MinistryOfTheAllied.MapCompat:OpenMapStepAside()')
+check("Hide: and OpenMap's sharing comes back after", hmira.lua.eval('OpenMapDB.worldmap.friendsShare') is True)
+def pts(c, who): return HE(c, 'for _, m in ipairs(M.Cup:Current().scorers) do if m.name == "%s" then return m.pts end end return 0' % who)
+check("Hide: Cup points 10, 6, 3", (pts(hmira, "Bram"), pts(hmira, "Mira"), pts(hmira, "Kael")) == (10, 6, 3))
+check("Hide: the winner gets the Victor's Laurel", HE(hkael, 'return M.Honours:Of("Bram") ~= nil') is True)
+
+# Game two: the clock runs out with two still hidden.
+HE(hmax, 'Hi:SetCentre() local d = Hi:Draft() d.hs = 30 d.ss = 300 d.nm = false d.nmap = false return 1')
+check("Hide: a second game opens once the first is over", HE(hmax, 'return Hi:Open("Woods Hide") ~= nil') is True)
+run(1)
+for c in (hbram, hkael, hmira, hwren): HE(c, 'return Hi:Join()')
+for c, x in ((hbram, 1000), (hkael, 1030), (hmira, 1070), (hwren, 950)): at(c, x, 1000)
+run(1)
+HE(hmax, 'return Hi:Start("Kael")')
+run(2)
+check("Hide: with Hide names off, names stay on", hmira.lua.eval('CVARS.nameplateShowFriends') == "1" and HE(hmira, 'return Hi:MapBlocked()') is False)
+at(hkael, 1001, 1000)
+run(34)
+check("Hide: Kael finds Bram", HE(hmax, 'return Hi:Role("Bram")') == "seeker")
+check("Hide: someone found can't be found again", HE(hmax, 'return #Hi:Current().found') == 1)
+run(300)
+check("Hide: the clock runs out", all(HE(c, 'return Hi:Stage()') == "done" for c in HC))
+check("Hide: time up: the hidden share 1st, best seeker 2nd, last found 3rd",
+      HE(hmira, 'local p, a = Hi:Places(Hi:Current()) return table.concat(p, ",") .. "|" .. table.concat(a, ",")') == "Mira,Wren,Kael,Bram|1,1,2,3")
+run(2)
+check("Hide: the result keeps the shared place", HE(hbram, 'local e = M.Games:Log()[1] return e.name .. "|" .. table.concat(e.at, ",")') == "Woods Hide|1,1,2,3")
+check("Hide: the games line shows two firsts", "1st Mira, 1st Wren, 2nd Kael, 3rd Bram" in HE(hbram, 'return M.Games:Line(M.Games:Log()[1])'))
+check("Hide: a find after the clock counts for nothing", HE(hwren, 'M.Book:Write("hide.found", { id = Hi:Current().id, by = "Kael" }) return 1') == 1 and HE(hmax, 'return Hi:Role("Wren")') == "hider")
+check("Hide: both survivors get 10 Cup points", (pts(hmax, "Mira"), pts(hmax, "Wren")) == (16, 10))
+check("Hide: and both get the Victor's Laurel", HE(hkael, 'return M.Honours:Of("Mira") ~= nil and M.Honours:Of("Wren") ~= nil') is True)
+check("Hide: places that go down are refused", HE(hmax, 'return M.Games:ValidAt({ 1, 2, 1 }, 3)') is False and HE(hmax, 'return M.Games:ValidAt({ 2, 2 }, 2)') is False)
+check("Hide: a hand-written result can't claim odd places", "add up" in (HE(hmax, 'local _, e = M.Games:Record("hide", "x", { "Bram", "Kael" }, { 1, 3, 4 }) return e') or ""))
+
+# Ending early, and a crash.
+HE(hmax, 'Hi:SetCentre() return Hi:Open("Short Hide") ~= nil')
+run(1)
+check("Hide: the organiser can end a game", HE(hmax, 'return Hi:Close() ~= nil') is True)
+run(1)
+check("Hide: an ended game has no result", HE(hbram, 'return Hi:Stage()') == "closed" and HE(hbram, 'return M.Games:Log()[1].name') == "Woods Hide")
+hmira.lua.execute('CVARS.nameplateShowFriends = "0"; MinistryOfTheAllied.db.hideSaved = { nameplateShowFriends = "1" }')
+HE(hmira, 'Hi:Tick(0.25) return 1')
+check("Hide: names hidden when the game crashed come back next time", hmira.lua.eval('CVARS.nameplateShowFriends') == "1" and HE(hmira, 'return M.db.hideSaved == nil') is True)
+
+# The Games Hall: a drop-down of games, The Cup and Honours as ribbons.
+HE(hmax, 'Hi:SetCentre() return Hi:Open("Page Hide") ~= nil')
+run(1)
+errs = len(errors)
+hbram.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8)')
+check("Games Hall: it opens on the game that's on now", HE(hbram, 'return M.GamesPage:View()') == "hide")
+check("Games Hall: the drop-down marks it open to join", HE(hbram, 'return M.GamesPage.GameStatus("hide")') == "open to join")
+for v in ("lottery", "hunt", "hide", "cup", "honours", "picker"):
+    hbram.lua.execute('MinistryOfTheAllied.GamesPage:Select("%s")' % v)
+check("Games Hall: the picker goes back to the last game looked at", HE(hbram, 'return M.GamesPage:View()') == "hide")
+HE(hbram, 'Hi:Join() return 1')
+run(1)
+hmax.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("hide")')
+HE(hkael, 'Hi:Join() return 1')
+run(1)
+HE(hmax, 'return Hi:Start("Kael")')
+run(35)
+hbram.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+HE(hmax, 'return Hi:Close()')
+run(1)
+hmax.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+check("Games Hall: Hide and Seek draws in every stage, for players and the organiser", len(errors) == errs)
+
+print("== Hide and Seek: a play area drawn on the map")
+HE(hmax, 'return Hi:Close() or 1')
+run(1)
+check("Hide: a drawn shape needs three corners", "at least 3" in (HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elwynn Forest", 1429) Hi:AddCorner(0, 1100, 1000) local _, e = Hi:Open("Shape") return e') or ""))
+check("Hide: every corner in the same part of the world", "same part" in (HE(hmax, 'local _, e = Hi:AddCorner(1, 1100, 1100) return e') or ""))
+HE(hmax, 'Hi:AddCorner(0, 1100, 1100) Hi:AddCorner(0, 1000, 1100) Hi:AddCorner(0, 1050, 1200) return 1')
+check("Hide: a corner can be taken back", HE(hmax, 'Hi:UndoCorner() return #Hi:Draft().pts') == 4)
+check("Hide: the shape's middle and reach are worked out", HE(hmax, 'local d = Hi:Draft() return d.cx .. "," .. d.cy .. "," .. d.rad') == "1050,1050,71")
+check("Hide: the radius buttons leave a drawn shape alone", HE(hmax, 'Hi:SetRadius(400) return Hi:Draft().rad') == 71)
+check("Hide: a shape opens a game", HE(hmax, 'return Hi:Open("Square Hide") ~= nil') is True)
+run(1)
+check("Hide: every copy has the corners and the map", HE(hmira, 'local G = Hi:Current() return #G.pts .. "|" .. G.m') == "4|1429")
+check("Hide: inside the square is inside", HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1050, 1050)') is True)
+check("Hide: inside the circle round it but outside the square is outside", HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1090, 1010)') is True and HE(hmira, 'return Hi:Inside(Hi:Current(), 0, 1110, 1060)') is False)
+check("Hide: yards to the edge, inside and outside", HE(hmira, 'local G = Hi:Current() return math.floor(Hi:ToEdge(G, 0, 1050, 1010) + 0.5) .. "|" .. math.floor(Hi:ToEdge(G, 0, 1050, 980) + 0.5)') == "10|-20")
+check("Hide: the circle's corners are made up for drawing", HE(hmira, 'return #Hi:Shape({ cx = 0, cy = 0, rad = 50 })') == 48)
+for c in (hbram, hmira, hkael): HE(c, 'return Hi:Join()')
+at(hbram, 1050, 1050); at(hmira, 1040, 1040); at(hkael, 1020, 1080)
+run(1)
+HE(hmax, 'return Hi:Start("Bram")')
+run(2)
+at(hmira, 1050, 990)  # outside the square's bottom edge
+run(12)
+check("Hide: leaving a drawn shape puts you out too", HE(hmax, 'return Hi:Role("Mira")') == "out")
+
+# The page, with the zone's map art behind the play area.
+for c in (hmax, hmira):
+    c.lua.execute('''
+      TILES_SET = 0
+      function CreateVector2D(a, b) return { GetXY = function() return a, b end } end
+      C_Map = C_Map or {}
+      C_Map.GetMapPosFromWorldPos = function(inst, v, m) local wy, wx = v:GetXY() return m, CreateVector2D((2000 - wx) / 4000, (2000 - wy) / 4000) end
+      C_Map.GetMapArtLayers = function() return { { layerWidth = 1002, layerHeight = 668, tileWidth = 256, tileHeight = 256 } } end
+      C_Map.GetMapArtLayerTextures = function() local t = {} for i = 1, 12 do t[i] = 100 + i end return t end
+    ''')
+errs = len(errors)
+hmira.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("hide"); MinistryOfTheAllied.GamesPage:Refresh()')
+check("Games Hall: the play area draws with the zone's map behind it", len(errors) == errs)
+check("Games Hall: the map's tiles under the area are laid", HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().tiles) do if t:IsShown() then n = n + 1 end end return n') > 0)
+check("Games Hall: the edge is drawn as dots", HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().dots) do if t:IsShown() then n = n + 1 end end return n') > 20)
+HE(hmax, 'return Hi:Close()')
+run(1)
+errs = len(errors)
+hmax.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("hide")')
+HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elwynn Forest", 1429) Hi:AddCorner(0, 1100, 1000) Hi:AddCorner(0, 1050, 1100) M.GamesPage:Refresh() return 1')
+check("Games Hall: the organiser's form draws a shape being set up", len(errors) == errs and HE(hmax, 'return M.GamesPage._hideArea(true):IsShown()') is True)
+
+print("== Hide and Seek: unexplored map")
+hmax.lua.execute('C_MapExplorationInfo = { GetExploredMapTextures = function() return { { offsetX = 150, offsetY = 100, textureWidth = 300, textureHeight = 200, numTexturesWide = 2, numTexturesTall = 1, fileDataIDs = { 901, 902 } }, { offsetX = 0, offsetY = 0, textureWidth = 100, textureHeight = 100, numTexturesWide = 1, numTexturesTall = 1, fileDataIDs = { 903 } } } end }')
+check("Hide: Forever's zone maps ship with the add-on, fog lifted", HE(hmax, 'return M.MapReveal[1429] ~= nil and #M.MapReveal[1429] > 5 and M.MapRevealBuild') == "1.60.1.70888")
+check("Hide: on a shipped map, nothing extra goes in the game", HE(hmax, 'Hi:Open("Fog Hide") return Hi:Current().ov == nil') is True)
+run(1)
+errs = len(errors)
+hmira.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+check("Hide: a player who hasn't explored it sees the whole map", len(errors) == errs and HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().over) do if t:IsShown() then n = n + 1 end end return n') > 5)
+HE(hmax, 'return Hi:Close()')
+run(1)
+HE(hmax, 'Hi:Draft().pts = nil Hi:AddCorner(0, 1000, 1000, "Elsewhere", 99999) Hi:AddCorner(0, 1100, 1000) Hi:AddCorner(0, 1050, 1100) return 1')
+check("Hide: on a map not shipped, the organiser's explored pieces go in the game", HE(hmax, 'Hi:Open("Odd Hide") local G = Hi:Current() return G.ov and #G.ov == 1 and G.ov[1].f[2] == 902') is True)
+run(1)
+hmira.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+check("Hide: and players see those", HE(hmira, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea().over) do if t:IsShown() then n = n + 1 end end return n') == 2)
+HE(hmax, 'return Hi:Close()')
+run(1)
+
+print("== Hide and Seek: a circle drawn on the map")
+hmax.lua.execute('C_Map.GetWorldPosFromMapPos = function(m, v) local px, py = v:GetXY() return 0, CreateVector2D(2000 - 4000 * py, 2000 - 4000 * px) end; C_Map.GetMapInfo = function(m) return { name = "Elwynn Forest" } end')
+HMQ = 'local HM = M.HideMap '
+HE(hmax, HMQ + 'HM.circling, HM.centre = true, nil return 1')
+check("Circle: the first click sets the middle", HE(hmax, HMQ + 'HM:CircleClick(1429, 0.25, 0.25) local d = Hi:Draft() return d.cx .. "," .. d.cy .. "|" .. tostring(HM.circling)') == "1000,1000|true")
+check("Circle: an edge too close is refused", "too small" in (HE(hmax, HMQ + 'local _, e = HM:CircleClick(1429, 0.251, 0.25) return e') or ""))
+check("Circle: the second click sets the edge", HE(hmax, HMQ + 'HM:CircleClick(1429, 0.2625, 0.25) local d = Hi:Draft() return d.rad .. "|" .. tostring(d.pts) .. "|" .. d.m .. "|" .. d.z .. "|" .. tostring(HM.circling)') == "50|nil|1429|Elwynn Forest|false")
+check("Circle: a game opens with it", HE(hmax, 'return Hi:Open("Ring Hide") ~= nil and Hi:Current().rad == 50 and Hi:Current().pts == nil') is True)
+run(1)
+check("Circle: everyone has the circle", HE(hmira, 'local G = Hi:Current() return G.name .. "|" .. G.rad') == "Ring Hide|50")
+HE(hmax, 'return Hi:Close()')
+run(1)
+
+print("== Hide and Seek: the organiser's page before a play area is set")
+errs = len(errors)
+HE(hmax, 'M.db.hideDraft = nil M.GamesPage:Select("hide") M.GamesPage:Refresh() return 1')
+check("Setup: the map round where you stand shows before a play area is set", len(errors) == errs and HE(hmax, 'local a = M.GamesPage._hideArea(true) return a:IsShown() and a.you:IsShown()') is True)
+check("Setup: with no edge drawn yet", HE(hmax, 'local n = 0 for _, t in ipairs(M.GamesPage._hideArea(true).dots) do if t:IsShown() then n = n + 1 end end return n') == 0)
 print("== 17. Admin Controls: the Crown's window and Crown-only commands (10 Nov)")
 adm = Client("Max", guarded=True)
 cit = Client("Bram", guarded=True)
@@ -3935,6 +4396,146 @@ Q(dc, 'M.db.settings.dotsShow = true; M.Dots:Changed()')
 check("OpenMap: not loaded, nothing of its is touched", Q(dc, 'return _G.OpenMapDB.worldmap.guild') is True)
 check("Dots: nothing in this section raised a Lua error", len(errors) == 0)
 
+print("== The Pub Quiz")
+zmax, zbram, zkael, zmira, zwren = Client("Max"), Client("Bram"), Client("Kael"), Client("Mira"), Client("Wren")
+ZC = [zmax, zbram, zkael, zmira, zwren]
+clients[:] = ZC
+run(20)
+ZQ = "local M = MinistryOfTheAllied; local Qz = M.Quiz "
+def QE(c, code): return c.lua.eval("(function() " + ZQ + code + " end)()")
+
+check("Quiz: the bank has 100 questions in six categories", QE(zmax, 'local n, c = #M.QuizBank.Q, {} for _, e in ipairs(M.QuizBank.Q) do c[e[2]] = true end local k = 0 for _ in pairs(c) do k = k + 1 end return n .. "|" .. k') == "100|6")
+check("Quiz: every bank question has a unique id", QE(zmax, 'local s = {} for _, e in ipairs(M.QuizBank.Q) do if s[e[1]] then return false end s[e[1]] = true end return true') is True)
+check("Quiz: answers match loosely", QE(zmax, 'local B = M.QuizBank return B.Matches("  the Molten  core!", "Molten Core") and B.Matches("mc", "Molten Core", { "mc" }) and not B.Matches("Blackwing", "Molten Core")') is True)
+check("Quiz: a citizen can't open one", "Only the Crown" in (QE(zbram, 'local _, e = Qz:Open("x") return e') or ""))
+QE(zmax, 'local d = Qz:Desk() d.rounds = 2 d.per = 3 d.secs = 30 return 1')
+check("Quiz: a round fills from the bank", QE(zmax, 'return Qz:FillRandom(1)') == 3)
+check("Quiz: a full round takes no more", "full" in (QE(zmax, 'local _, e = Qz:FillRandom(1) return e') or ""))
+QE(zmax, 'Qz:AddOwn(2, "Who founded the Ministry of the Allied?", "The Crown") Qz:AddOwn(2, "How many districts are there?", "5") return Qz:FillRandom(2, "lore")')
+check("Quiz: the quizmaster's own questions mix with the bank's", QE(zmax, 'local p = Qz:RoundPlan(2) return #p .. "|" .. tostring(p[1].bank) .. "|" .. p[3].bank:sub(1, 1)') == "3|nil|L")
+check("Quiz: bank questions aren't picked twice", QE(zmax, 'local seen = {} for r = 1, 2 do for _, q in ipairs(Qz:RoundPlan(r)) do if q.bank then if seen[q.bank] then return false end seen[q.bank] = true end end end return #Qz:Unused() == 96') is True)
+check("Quiz: a question can be taken out", QE(zmax, 'local id = Qz:RoundPlan(1)[3].bank Qz:Remove(1, 3) local ok = #Qz:RoundPlan(1) == 2 Qz:AddBank(1, id) return ok and #Qz:RoundPlan(1) == 3') is True)
+check("Quiz: the quizmaster opens it", QE(zmax, 'return Qz:Open("Friday Quiz") ~= nil') is True)
+run(2)
+check("Quiz: every copy sees it, teams joining", all(QE(c, 'return Qz:Stage() .. "|" .. Qz:Current().rounds') == "lobby|2" for c in ZC))
+check("Quiz: nobody else can see the questions", QE(zbram, 'return M.db.quizDesk == nil or #(M.db.quizDesk.r[1] or {}) == 0') is True)
+QE(zbram, 'return Qz:MakeTeam("Lions")')
+QE(zkael, 'return Qz:MakeTeam("Owls")')
+run(1)
+check("Quiz: a team name can't be taken twice", "already a team" in (QE(zwren, 'local _, e = Qz:MakeTeam("lions") return e') or ""))
+QE(zwren, 'return Qz:MakeTeam("Badgers")')
+QE(zmira, 'return Qz:Join("Bram")')
+run(1)
+check("Quiz: the quizmaster can't play", "quizmaster" in (QE(zmax, 'local _, e = Qz:MakeTeam("Crowns") return e') or ""))
+check("Quiz: three teams, Mira on Bram's", QE(zkael, 'local Q = Qz:Current() return #Q.order .. "|" .. Q.teamOf.Mira .. "|" .. #Q.teams.Bram.members') == "3|Bram|2")
+check("Quiz: one team at a time", "already on a team" in (QE(zmira, 'local _, e = Qz:Join("Kael") return e') or ""))
+QE(zbram, 'return Qz:Joker(2)')
+run(1)
+check("Quiz: a captain plays the joker on round 2", QE(zmax, 'return Qz:Current().jokers.Bram') == 2)
+check("Quiz: only a captain plays it", "captain" in (QE(zmira, 'local _, e = Qz:Joker(1) return e') or ""))
+
+# Round 1.
+check("Quiz: round 1 starts", QE(zmax, 'return Qz:StartRound() ~= nil') is True)
+run(1)
+check("Quiz: teams are fixed once it starts", "before the first round" in (QE(zmira, 'local _, e = Qz:Leave() return e') or "") or "can leave" in (QE(zmira, 'local _, e = Qz:Leave() return e') or ""))
+check("Quiz: a joker can't be played on a round under way", "has started" in (QE(zkael, 'local _, e = Qz:Joker(1) return e') or ""))
+def ans(r, i): return QE(zmax, 'return Qz:RoundPlan(%d)[%d].a' % (r, i))
+def qtext(r, i): return QE(zmax, 'return Qz:RoundPlan(%d)[%d].q' % (r, i))
+QE(zmax, 'return Qz:Ask()')
+run(1)
+check("Quiz: every captain gets the question in full", all(QE(c, 'return Qz:Waiting() and Qz.live.text') == qtext(1, 1) for c in (zbram, zkael, zwren)))
+check("Quiz: a team member who isn't captain gets no answer box", QE(zmira, 'return Qz:Waiting()') is False and QE(zmira, 'return Qz.live ~= nil') is True)
+check("Quiz: the captain's herald stays up", QE(zbram, 'return M.QuizPrompt:IsShown()') is True)
+check("Quiz: only one question at a time", "Close question" in (QE(zmax, 'local _, e = Qz:Ask() return e') or ""))
+QE(zbram, 'return Qz:Answer("%s")' % ans(1, 1))
+QE(zkael, 'return Qz:Answer("Something else")')
+run(1)
+check("Quiz: answering closes the herald", QE(zbram, 'return M.QuizPrompt:IsShown()') is False and QE(zwren, 'return M.QuizPrompt:IsShown()') is True)
+check("Quiz: the quizmaster has the answers, privately", QE(zmax, 'local a = Qz:Answered() return a.Bram ~= nil and a.Kael == "Something else" and a.Wren == nil') is True and QE(zmira, 'return M.db.quizDesk == nil or next(M.db.quizDesk.answers or {}) == nil') is True)
+check("Quiz: the captain hears it was received", QE(zbram, 'return Qz.got["1.1"]') is True)
+check("Quiz: an answer can be changed until the question closes", QE(zkael, 'return Qz:Answer("Still wrong")') is True)
+run(1)
+QE(zmax, 'return Qz:CloseQuestion()')
+run(1)
+check("Quiz: closing takes the herald away", QE(zwren, 'return M.QuizPrompt:IsShown()') is False and QE(zwren, 'return Qz.live == nil') is True)
+check("Quiz: right answers are marked right at once", QE(zmax, 'local m = Qz:Desk().marks["1.1"] return m.Bram .. "|" .. m.Kael .. "|" .. tostring(m.Wren)') == "1|0|nil")
+# Question 2: the timer closes it.
+QE(zmax, 'return Qz:Ask()')
+run(1)
+QE(zkael, 'return Qz:Answer("%s")' % ans(1, 2))
+QE(zwren, 'return Qz:Answer("close but not quite")')
+run(32)
+check("Quiz: the question closes itself when time is up", QE(zmax, 'return Qz:Desk().open == nil') is True and QE(zkael, 'return Qz.live == nil') is True)
+check("Quiz: the quizmaster gives a half mark", QE(zmax, 'return Qz:Mark("1.2", "Wren", 0.5)') == 0.5)
+QE(zmax, 'return Qz:Ask()')
+run(1)
+for c, a in ((zbram, ans(1, 3)), (zkael, ans(1, 3)), (zwren, ans(1, 3))): QE(c, 'return Qz:Answer("%s")' % a)
+run(1)
+check("Quiz: every question asked, Ask has nothing left", QE(zmax, 'Qz:CloseQuestion() return Qz:NextQuestion()') is None)
+check("Quiz: round 1 is published", QE(zmax, 'return Qz:Publish() ~= nil') is True)
+run(1)
+check("Quiz: every copy has round 1's scores", all(QE(c, 'local s = Qz:Current().scores[1] return s.Bram .. "|" .. s.Kael .. "|" .. s.Wren') == "2|2|1.5" for c in ZC))
+check("Quiz: a corrected round replaces the old", QE(zmax, 'Qz:Mark("1.1", "Kael", 0.5) return Qz:Publish() ~= nil') is True)
+run(1)
+check("Quiz: and everyone has the correction", QE(zwren, 'return Qz:Current().scores[1].Kael') == 2.5)
+
+# Round 2, with Bram's joker.
+QE(zmax, 'return Qz:StartRound()')
+run(1)
+for i in (1, 2, 3):
+    QE(zmax, 'return Qz:Ask()')
+    run(1)
+    QE(zbram, 'return Qz:Answer("%s")' % ans(2, i))
+    QE(zkael, 'return Qz:Answer("%s")' % (ans(2, i) if i == 1 else "no idea"))
+    QE(zwren, 'return Qz:Answer("%s")' % (ans(2, i) if i < 3 else "pass"))
+    run(1)
+    QE(zmax, 'return Qz:CloseQuestion()')
+    run(1)
+QE(zmax, 'return Qz:Publish()')
+run(5)
+check("Quiz: the joker doubles the round", QE(zkael, 'return Qz:Points(Qz:Current(), "Bram", 2) .. "|" .. Qz:Points(Qz:Current(), "Kael", 2)') == "6|1")
+check("Quiz: the scoreboard", QE(zmira, 'local t = {} for _, r in ipairs(Qz:Board()) do t[#t + 1] = r.rank .. r.name .. M.Quiz.Fmt(r.total) end return table.concat(t, ",")') == "1Lions8,2Badgers3.5,2Owls3.5")
+# A tie-break for 2nd.
+QE(zmax, 'return Qz:AskTie("How many players in a 40-player raid?")')
+run(1)
+check("Quiz: the tie-break goes to captains too", QE(zwren, 'return Qz:Waiting() and Qz.live.key') == "tie")
+QE(zkael, 'return Qz:Answer("38")')
+QE(zwren, 'return Qz:Answer("about 45")')
+QE(zbram, 'return Qz:Answer("40")')
+run(1)
+QE(zmax, 'Qz:CloseQuestion() return Qz:SettleTie(40) ~= nil')
+run(1)
+check("Quiz: the closest guess breaks the tie", QE(zmira, 'local t = {} for _, r in ipairs(Qz:Board()) do t[#t + 1] = r.rank .. r.name end return table.concat(t, ",")') == "1Lions,2Owls,3Badgers")
+check("Quiz: the quizmaster ends it", QE(zmax, 'return Qz:Finish() ~= nil') is True)
+run(6)
+check("Quiz: every copy has it over", all(QE(c, 'return Qz:Stage()') == "done" for c in ZC))
+check("Quiz: every member of the top three goes in the games log", all(QE(c, 'local e = M.Games:Log()[1] return e.g .. "|" .. table.concat(e.places, ",") .. "|" .. table.concat(e.at, ",")') == "quiz|Bram,Mira,Kael,Wren|1,1,2,3" for c in ZC))
+def zpts(c, who): return QE(c, 'for _, m in ipairs(M.Cup:Current().scorers) do if m.name == "%s" then return m.pts end end return 0' % who)
+check("Quiz: both Lions get the winners' Cup points", (zpts(zkael, "Bram"), zpts(zkael, "Mira")) == (10, 10))
+check("Quiz: and the Victor's Laurel", QE(zkael, 'return M.Honours:Of("Mira") ~= nil') is True)
+
+# The pages draw: the quizmaster setting up and running, a player, a captain.
+errs = len(errors)
+for c in (zmax, zbram, zmira):
+    c.lua.execute('MinistryOfTheAllied.UI:Build(); MinistryOfTheAllied.UI.window:Show(); MinistryOfTheAllied.UI:SelectPage(8); MinistryOfTheAllied.GamesPage:Select("quiz")')
+QE(zmax, 'Qz:Desk().r = {} Qz:FillRandom(1) return Qz:Open("Page Quiz") ~= nil')
+run(1)
+QE(zbram, 'return Qz:MakeTeam("Lions")')
+QE(zmira, 'return Qz:Join("Bram")')
+run(1)
+check("Games Hall: the quiz page opens on a quiz that's on", QE(zmira, 'M.GamesPage:Show(true) return M.GamesPage:View()') == "quiz")
+QE(zmax, 'Qz:StartRound() return 1')
+run(1)
+QE(zmax, 'Qz:Ask() return 1')
+run(1)
+for c in (zmax, zbram, zmira):
+    c.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+QE(zmax, 'return Qz:Close()')
+run(1)
+for c in (zmax, zbram, zmira):
+    c.lua.execute('MinistryOfTheAllied.GamesPage:Refresh()')
+check("Games Hall: the quiz draws for the quizmaster, a captain and a player", len(errors) == errs)
+check("Quiz: a cancelled quiz takes the captain's herald away", QE(zbram, 'return Qz:Waiting()') is False)
 print("== 19. Party quest markers over NPCs (11 Nov, reworked 12 Nov): the records, who sees them, the marker on the nameplate, the far arrow, the nameplates turned on near a marker")
 # Max (a Crown rank) marks NPCs; Bram (a citizen) sees them. Same straight-line world as section 18.
 clients[:] = []

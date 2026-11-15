@@ -1,7 +1,8 @@
 -- Ministry of the Allied: the Games Hall tab, following the Games Hall board
 -- (design/canvas-source/GamesHall.dc.html; Duncan, 2026-11-08).
 -- The Royal Lottery (Lottery.lua), the Roll of Honour (Honours.lua), and the
--- treasure hunt and the District Cup (Cup.lua). Everything blue follows the window
+-- treasure hunt, Hide and Seek (Hide.lua) and the District Cup (Cup.lua). The
+-- games are picked from a drop-down; The Cup and Honours keep their ribbons. Everything blue follows the window
 -- skin (Kit's accent), as on the other pages.
 
 local _, MOTA = ...
@@ -976,20 +977,1220 @@ local function refreshCup(v)
 end
 
 ---------------------------------------------------------------------------
--- Coming soon
+-- Hide and Seek: the play area, the players, the organiser's form
 ---------------------------------------------------------------------------
 
+local LOW_H = HEIGHT - BODY_Y - TOP_H - 12   -- the lower panel (playing)
+local AREA = LOW_H - 44                      -- the play area's square while playing
+local FORM_H = 172                           -- the organiser's form (setting up)
+local SET_LOW_H = HEIGHT - BODY_Y - FORM_H - 12
+local PREVIEW_YARDS = 180                    -- before a play area is set: the map round you
+local AREA_GAP = 6                           -- pixels between the edge's dots
+
+local function hideSetting()
+  return MOTA.Games:CanRun(MOTA.me) and not MOTA.Hide:Live()
+end
+
+-- A small map of the play area: the zone's own map art behind it when the
+-- game gives it (C_Map's art tiles, cut to the area), the edge, and you.
+local function buildArea(parent, x, y, w, h)
+  w, h = w or AREA, h or AREA
+  local a = panel(parent, nil, x, y, w, h)
+  a.w, a.h = w, h
+  Kit:Fill(a, "EFE3C2", "E2D2A8")
+  Kit:Outline(a, "6E4F17", 0.5)
+  if a.SetClipsChildren then a:SetClipsChildren(true) end
+  a.art = CreateFrame("Frame", nil, a)
+  a.art:SetAllPoints()
+  a.tiles, a.dots, a.over = {}, {}, {}
+  a.you = a:CreateTexture(nil, "OVERLAY", nil, 7)
+  a.you:SetSize(8, 8)
+  a.you:SetColorTexture(MOTA:RGB("1B3570"))
+  a.note = Kit:Text(parent, "kitSmallest", "5E4B33", "RIGHT")
+  a.note:SetPoint("BOTTOMRIGHT", a, "TOPRIGHT", 0, 6)
+  a.note:SetWidth(math.max(160, w - 160))
+  return a
+end
+
+-- How world spots land on the square: through the zone map's pixels when the
+-- map can be read (so the art lines up), else straight from yards.
+local function projection(A)
+  local Hi = MOTA.Hide
+  local shape = Hi:Shape(A)
+  local HMp = MOTA.HideMap
+  local L = A.m and C_Map and C_Map.GetMapArtLayers and C_Map.GetMapArtLayers(A.m)
+  L = L and L[1]
+  if L and HMp then
+    local pts, ok = {}, true
+    for i, q in ipairs(shape) do
+      local px, py = HMp.ToMap(A.inst, q.x, q.y, A.m)
+      if not px then ok = false break end
+      pts[i] = { px * L.layerWidth, py * L.layerHeight }
+    end
+    if ok then
+      return pts, function(x, y)
+        local px, py = HMp.ToMap(A.inst, x, y, A.m)
+        if px then return px * L.layerWidth, py * L.layerHeight end
+      end, L
+    end
+  end
+  -- Yards: x grows to the west, so it is turned round; y grows to the north.
+  local pts = {}
+  for i, q in ipairs(shape) do pts[i] = { -q.x, -q.y } end
+  return pts, function(x, y) return -x, -y end
+end
+
+local function areaKey(A)
+  local k = { A.inst, A.cx, A.cy, A.rad, A.m or 0, MOTA.HideMap and MOTA.HideMap.drawing and 1 or 0, A.preview and 1 or 0 }
+  for _, q in ipairs(A.pts or {}) do k[#k + 1] = q.x .. ":" .. q.y end
+  return table.concat(k, ",")
+end
+
+-- Draws the area (only when it changed) and puts your dot on it.
+local function drawArea(a, A)
+  local key = areaKey(A)
+  if a.areaKey ~= key then
+    a.areaKey = key
+    local pts, proj, L = projection(A)
+    local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+    for _, p in ipairs(pts) do
+      x0, y0 = math.min(x0, p[1]), math.min(y0, p[2])
+      x1, y1 = math.max(x1, p[1]), math.max(y1, p[2])
+    end
+    local span = math.max(x1 - x0, y1 - y0, 1) * 1.25
+    local k = math.min(a.w, a.h) / span
+    local halfX, halfY = a.w / 2 / k, a.h / 2 / k
+    local ox, oy = (x0 + x1) / 2, (y0 + y1) / 2
+    a.proj = function(x, y)
+      local sx, sy = proj(x, y)
+      if sx then return (sx - ox) * k, -(sy - oy) * k end
+    end
+    -- The map's art, the tiles that fall in the square.
+    for _, t in ipairs(a.tiles) do t:Hide() end
+    local files = L and C_Map.GetMapArtLayerTextures and C_Map.GetMapArtLayerTextures(A.m, 1)
+    if L and files then
+      local cols = math.ceil(L.layerWidth / L.tileWidth)
+      local half = span / 2
+      local n = 0
+      for i, file in ipairs(files) do
+        local cx, cy = ((i - 1) % cols) * L.tileWidth, math.floor((i - 1) / cols) * L.tileHeight
+        if cx < ox + halfX and cx + L.tileWidth > ox - halfX and cy < oy + halfY and cy + L.tileHeight > oy - halfY then
+          n = n + 1
+          local t = a.tiles[n] or a.art:CreateTexture(nil, "BACKGROUND", nil, 1)
+          a.tiles[n] = t
+          t:SetTexture(file)
+          t:SetSize(L.tileWidth * k, L.tileHeight * k)
+          t:ClearAllPoints()
+          t:SetPoint("TOPLEFT", a, "CENTER", (cx - ox) * k, -(cy - oy) * k)
+          t:SetAlpha(0.9)
+          t:Show()
+        end
+      end
+    end
+    -- The explored pieces over the base map: the organiser's (in the game's
+    -- record) and this player's own, drawn as the world map draws them.
+    for _, t in ipairs(a.over) do t:Hide() end
+    if L then
+      local n, seen = 0, {}
+      local function lay(list)
+        for _, e in ipairs(list or {}) do
+          local key = type(e.f) == "table" and tostring(e.f[1]) .. ":" .. tostring(e.x) .. ":" .. tostring(e.y)
+          if key and not seen[key] and e.nw and e.nh then
+            seen[key] = true
+            for j = 1, e.nh do
+              local ph, fh = 256, 256
+              if j == e.nh then
+                ph = e.h % 256
+                if ph == 0 then ph = 256 end
+                fh = 16
+                while fh < ph do fh = fh * 2 end
+              end
+              for i = 1, e.nw do
+                local pw, fw = 256, 256
+                if i == e.nw then
+                  pw = e.w % 256
+                  if pw == 0 then pw = 256 end
+                  fw = 16
+                  while fw < pw do fw = fw * 2 end
+                end
+                local file = e.f[(j - 1) * e.nw + i]
+                if file then
+                  n = n + 1
+                  local t = a.over[n] or a.art:CreateTexture(nil, "BACKGROUND", nil, 2)
+                  a.over[n] = t
+                  t:SetTexture(file)
+                  t:SetTexCoord(0, pw / fw, 0, ph / fh)
+                  t:SetSize(pw * k, ph * k)
+                  t:ClearAllPoints()
+                  t:SetPoint("TOPLEFT", a, "CENTER", (e.x + 256 * (i - 1) - ox) * k, -(e.y + 256 * (j - 1) - oy) * k)
+                  t:SetAlpha(0.9)
+                  t:Show()
+                end
+              end
+            end
+          end
+        end
+      end
+      -- The whole map, fog lifted (MapReveal.lua, from Forever's own data);
+      -- for a map that isn't there, the organiser's and your explored pieces.
+      local reveal = MOTA.MapReveal and A.m and MOTA.MapReveal[A.m]
+      if reveal then
+        local list = {}
+        for i, e in ipairs(reveal) do
+          list[i] = { x = e[1], y = e[2], w = e[3], h = e[4], nw = e[5], nh = e[6], f = e[7] }
+        end
+        lay(list)
+      else
+        lay(A.ov)
+        lay(MOTA.Hide:Explored(A))
+      end
+    end
+    -- The edge.
+    for _, t in ipairs(a.dots) do t:Hide() end
+    local n = 0
+    local closed = not (A == (MOTA.db and MOTA.db.hideDraft) and MOTA.HideMap and MOTA.HideMap.drawing)
+    for i = 1, A.preview and 0 or #pts do
+      local p, q = pts[i], pts[i % #pts + 1]
+      if closed or i < #pts then
+        local ax, ay = (p[1] - ox) * k, -(p[2] - oy) * k
+        local bx, by = (q[1] - ox) * k, -(q[2] - oy) * k
+        local steps = math.max(1, math.floor(math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2) / AREA_GAP))
+        for s = 0, steps - 1 do
+          n = n + 1
+          local t = a.dots[n] or a:CreateTexture(nil, "ARTWORK")
+          a.dots[n] = t
+          t:SetSize(3, 3)
+          t:SetColorTexture(MOTA:RGB("8E2B22"))
+          t:ClearAllPoints()
+          t:SetPoint("CENTER", a, "CENTER", ax + (bx - ax) * s / steps, ay + (by - ay) * s / steps)
+          t:Show()
+        end
+      end
+    end
+  end
+  -- You.
+  local Hi = MOTA.Hide
+  local inst, x, y = Hi:Where()
+  local edge = x and Hi:ToEdge(A, inst, x, y)
+  local sx, sy
+  if edge then sx, sy = a.proj(x, y) end
+  if not sx then
+    a.you:Hide()
+    a.note:SetText(x and "You're in another part of the world" or "No position here")
+    return
+  end
+  local limX, limY = a.w / 2 - 4, a.h / 2 - 4
+  a.you:ClearAllPoints()
+  a.you:SetPoint("CENTER", a, "CENTER", math.max(-limX, math.min(limX, sx)), math.max(-limY, math.min(limY, sy)))
+  a.you:Show()
+  if A.preview then
+    a.note:SetText("You're here · set the play area to draw its edge")
+    return
+  end
+  a.note:SetText(edge < 0 and "|cff8E1B1BOutside the play area|r" or ("You · " .. math.floor(edge) .. " yards from the edge"))
+end
+
+local function sureButton(parent, w, label, fn)
+  return Kit:Button(parent, w, 26, label, "quiet", function(b)
+    if not b.sure then
+      b.sure = true
+      b:SetLabel("Sure?")
+      C_Timer.After(4, function() b.sure = nil; b:SetLabel(label) end)
+      return
+    end
+    b.sure = nil
+    b:SetLabel(label)
+    fn()
+  end)
+end
+
+-- A small "?" that explains on hover.
+local function helpButton(parent, title, lines)
+  local b = Kit:Button(parent, 22, 20, "?", "quiet", function() end)
+  b:SetScript("OnEnter", function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title, 1, 0.95, 0.77)
+    for _, l in ipairs(lines) do GameTooltip:AddLine(l, 1, 1, 1, true) end
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  b.lines = lines
+  return b
+end
+
+local PLAYER_ROWS = 9
+
+local function buildHide()
+  local v = panel(root, nil, MAIN_X, BODY_Y, MAIN_W, HEIGHT - BODY_Y)
+  local Hi = MOTA.Hide
+
+  -- Playing.
+  local play = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local game = panel(play, "plain", 0, 0, CLUE_W, TOP_H)
+  game.head = Kit:Label(game, "kitSection", BLUE, 0.22, "")
+  game.head:SetPoint("TOPLEFT", game, "TOPLEFT", 18, -14)
+  game.zone = Kit:Label(game, "kitTiny", "7A5719", 0.2, "")
+  game.zone:SetPoint("TOPLEFT", game, "TOPLEFT", 18, -32)
+  Kit:Rule(game, CLUE_W - 36):SetPoint("TOPLEFT", game, "TOPLEFT", 18, -48)
+  game.role = line(game, "kitNameSmall", nil, 18, 58, CLUE_W - 36)
+  game.text = line(game, "kitSmall", nil, 18, 80, CLUE_W - 36)
+  game.text:SetMaxLines(5)
+  local warm = panel(game, nil, CLUE_W - 146, TOP_H - 42, 128, 24)
+  Kit:Fill(warm, "B9503F", "8E2B22")
+  Kit:Outline(warm, "3A0C08", 1)
+  Kit:Label(warm, "kitTiny", "FBE9C8", 0.18, "A seeker is near"):SetPoint("CENTER", warm, "CENTER", 0, 0)
+  game.warm = warm
+  game.join = Kit:Button(game, 120, 28, "Join", "blue", function()
+    local G = Hi:Current()
+    if G and G.joined[MOTA.me] then report(Hi:Leave()) else report(Hi:Join()) end
+  end)
+  game.join:SetPoint("BOTTOMLEFT", game, "BOTTOMLEFT", 18, 16)
+  v.game = game
+
+  local players = panel(play, "plain", MAIN_W - SIDE_W, 0, SIDE_W, TOP_H)
+  players.head = Kit:Label(players, "kitSection", BLUE, 0.22, "Players")
+  players.head:SetPoint("TOPLEFT", players, "TOPLEFT", 14, -12)
+  players.rows = {}
+  for i = 1, PLAYER_ROWS do
+    local n = line(players, "kitSmallest", nil, 14, 32 + (i - 1) * 15, SIDE_W - 28)
+    n:SetMaxLines(1)
+    players.rows[i] = n
+  end
+  players.start = Kit:Button(players, SIDE_W - 28, 26, "Start", "blue", function()
+    report(Hi:Start(players.seeker))
+  end)
+  players.start:SetPoint("BOTTOMLEFT", players, "BOTTOMLEFT", 14, 44)
+  players.pick = Kit:Button(players, SIDE_W - 28, 22, "Seeker: random", "quiet", function()
+    -- Round the joined players, then back to random.
+    local G = Hi:Current()
+    if not G then return end
+    local nextOne
+    if not players.seeker then
+      nextOne = G.players[1]
+    else
+      for i, p in ipairs(G.players) do if p == players.seeker then nextOne = G.players[i + 1] end end
+    end
+    players.seeker = nextOne
+    Page:Refresh()
+  end)
+  players.pick:SetPoint("BOTTOMLEFT", players, "BOTTOMLEFT", 14, 74)
+  players.stop = sureButton(players, SIDE_W - 28, "End the game", function() report(Hi:Close()) end)
+  players.stop:SetPoint("BOTTOMLEFT", players, "BOTTOMLEFT", 14, 12)
+  v.players = players
+
+  -- Below: the play area, and past games beside it.
+  local low = panel(play, "sunk", 0, TOP_H + 12, MAIN_W, LOW_H)
+  low.head = Kit:Label(low, "kitSection", BLUE, 0.22, "The play area")
+  low.head:SetPoint("TOPLEFT", low, "TOPLEFT", 14, -10)
+  low.area = buildArea(low, 14, 26)
+  local px = AREA + 40
+  Kit:Label(low, "kitSection", BLUE, 0.22, "Past games"):SetPoint("TOPLEFT", low, "TOPLEFT", px, -10)
+  low.rows = {}
+  for i = 1, 6 do
+    local t = line(low, "kitSmall", nil, px, 30 + (i - 1) * 21, MAIN_W - px - 14)
+    t:SetMaxLines(1)
+    low.rows[i] = t
+  end
+  v.low = low
+  v.play = play
+
+  -- Setting: the organiser's form, the whole width, and the map below it.
+  local set = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local form = panel(set, "plain", 0, 0, MAIN_W, FORM_H)
+  Kit:Label(form, "kitSection", BLUE, 0.22, "Open a game"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -14)
+  local colW = (MAIN_W - 56) / 2
+  local rx = 16 + colW + 24
+  -- Left: the name and the play area.
+  form.name = field(form, "Name", 16, 36, colW, "")
+  form.name:SetScript("OnTextChanged", function(e) Hi:Draft().name = e:GetText() end)
+  Kit:Label(form, "kitTiny", "7A5719", 0.2, "The play area"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -88)
+  local third = (colW - 16) / 3
+  form.here = Kit:Button(form, third, 26, "Here", "blue", function() report(Hi:SetCentre()) end)
+  form.here:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -104)
+  form.circle = Kit:Button(form, third, 26, "Circle", "quiet", function()
+    local HMp = MOTA.HideMap
+    if not HMp then return end
+    if HMp.circling then report(HMp:StopCircle()) else report(HMp:Circle()) end
+  end)
+  form.circle:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + third + 8, -104)
+  form.draw = Kit:Button(form, third, 26, "Shape", "quiet", function()
+    local HMp = MOTA.HideMap
+    if not HMp then return end
+    if HMp.drawing then report(HMp:Finish()) else report(HMp:Draw()) end
+  end)
+  form.draw:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + 2 * (third + 8), -104)
+  form.status = line(form, "kitSmallest", "5E4B33", 16, 140, colW)
+  form.status:SetMaxLines(2)
+  -- Right: the size, the times, the options, and Open.
+  local function stepper(y, get, put, steps)
+    local l = Kit:Text(form, "kitSmall")
+    l:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -y)
+    l:SetWidth(colW - 70)
+    l:SetWordWrap(false)
+    local function move(dir)
+      local cur, at = get(), 1
+      for i, s in ipairs(steps) do if s <= cur then at = i end end
+      put(steps[math.max(1, math.min(#steps, at + dir))])
+      Page:Refresh()
+    end
+    l.minus = Kit:Button(form, 26, 20, "-", "quiet", function() move(-1) end)
+    l.minus:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 56, -(y - 3))
+    l.plus = Kit:Button(form, 26, 20, "+", "quiet", function() move(1) end)
+    l.plus:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 26, -(y - 3))
+    return l
+  end
+  local D = function() return Hi:Draft() end
+  form.radius = stepper(40, function() return D().rad end, function(r) Hi:SetRadius(r) end, Hi.RADII)
+  form.undo = Kit:Button(form, 110, 20, "Undo corner", "quiet", function() report(Hi:UndoCorner()) end)
+  form.undo:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 110, -37)
+  form.hs = stepper(64, function() return D().hs end, function(s) D().hs = s end, { 30, 60, 120, 180, 300, 600 })
+  form.ss = stepper(88, function() return D().ss end, function(s) D().ss = s end, { 300, 600, 900, 1200, 1800, 2700, 3600 })
+  local half = (colW - 8) / 2
+  local function toggle(label, key, x)
+    local b = Kit:Button(form, half, 22, "", "quiet", function()
+      D()[key] = not D()[key]
+      Page:Refresh()
+    end)
+    b:SetPoint("TOPLEFT", form, "TOPLEFT", x, -110)
+    b.base = label
+    return b
+  end
+  form.nm = toggle("Names", "nm", rx)
+  form.nmap = toggle("Map", "nmap", rx + half + 8)
+  form.open = Kit:Button(form, colW, 26, "Open the game", "blue", function()
+    report(Hi:Open(form.name:GetText()))
+  end)
+  form.open:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -138)
+  form.help = helpButton(form, "Before you open", {
+    "Set the play area: Here makes a circle round where you stand (size it with - and +); Circle lets you click its middle and then its edge on the world map; Shape lets you click its corners.",
+    "Names off: friendly names and nameplates are hidden for players until the game ends (they come back after, even after a crash).",
+    "Map off: the world map stays shut for players; the play area shows on this page.",
+  })
+  form.help:SetPoint("TOPRIGHT", form, "TOPRIGHT", -12, -10)
+  v.form = form
+
+  -- Below: the map, the whole width.
+  local note = panel(set, "sunk", 0, FORM_H + 12, MAIN_W, SET_LOW_H)
+  Kit:Label(note, "kitSection", BLUE, 0.22, "The play area"):SetPoint("TOPLEFT", note, "TOPLEFT", 14, -10)
+  note.area = buildArea(note, 14, 30, MAIN_W - 28, SET_LOW_H - 44)
+  note.help = helpButton(note, "How it plays", {
+    "Players join, then you start it. Everyone hides; then the seeker sets off.",
+    "A seeker who stands within " .. Hi.FIND .. " yards of a hider for " .. Hi.DWELL .. " seconds finds them, and they seek too.",
+    "10 seconds outside the play area and you're out.",
+    "Everyone found: the best seeker wins. Time up: everyone still hidden shares first.",
+  })
+  note.help:SetPoint("TOPLEFT", note, "TOPLEFT", 150, -6)
+  v.note = note
+  v.set = set
+  return v
+end
+
+local function refreshHide(v)
+  local Hi = MOTA.Hide
+  local isSetting = hideSetting()
+  v.play:SetShown(not isSetting)
+  v.set:SetShown(isSetting)
+
+  if isSetting then
+    local d = Hi:Draft()
+    local f = v.form
+    local drawing = MOTA.HideMap and MOTA.HideMap.drawing
+    local circling = MOTA.HideMap and MOTA.HideMap.circling
+    if not f.name:HasFocus() then f.name:SetText(d.name or "") end
+    f.draw:SetLabel(drawing and "Finish" or "Shape")
+    f.circle:SetLabel(circling and "Cancel" or "Circle")
+    local shaped = d.pts ~= nil or drawing
+    f.radius:SetText(shaped and ("Shape · " .. (d.pts and #d.pts or 0) .. " corners") or ("Circle · " .. d.rad .. " yd"))
+    f.radius.minus:SetShown(not shaped)
+    f.radius.plus:SetShown(not shaped)
+    f.undo:SetShown(shaped and d.pts ~= nil)
+    f.hs:SetText("Hiding " .. Hi.Clock(d.hs))
+    f.ss:SetText("Seeking " .. Hi.Clock(d.ss))
+    f.nm:SetLabel(d.nm and "Names off" or "Names on")
+    f.nmap:SetLabel(d.nmap and "Map off" or "Map on")
+    f.status:SetText((circling and "On the world map, click the middle, then click where the edge goes.")
+      or (drawing and "On the world map, click the corners one by one, then press Finish.")
+      or (d.cx and ("In |cff2A1F14" .. tostring(d.z) .. "|r: " .. (d.pts and (#d.pts .. " corners") or ("a circle, " .. d.rad .. " yards out")) .. "."))
+      or "Not set yet.")
+    local ready = d.cx ~= nil and (not d.pts or #d.pts >= Hi.MIN_PTS) and not drawing and not circling
+    f.open:SetEnabled(ready)
+    f.open:SetAlpha(ready and 1 or 0.45)
+    -- The map: the play area, or until there is one, the map round where you stand.
+    local area = v.note.area
+    local A = d.cx and d
+    if not A then
+      local inst, x, y = Hi:Where()
+      local m = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+      if x then A = { inst = inst, cx = math.floor(x / 20 + 0.5) * 20, cy = math.floor(y / 20 + 0.5) * 20, rad = PREVIEW_YARDS, m = m, preview = true } end
+    end
+    if A then
+      area:Show()
+      drawArea(area, A)
+    else
+      area.areaKey = nil
+      area:Hide()
+      area.note:SetText("No position here: go outdoors")
+    end
+    return
+  end
+
+  local G = Hi:Current()
+  local stage = Hi:Stage(G)
+  local game = v.game
+  local role = G and Hi:Role(MOTA.me, G)
+  local live = G ~= nil and Hi:Live(G)
+  game.warm:SetShown(Hi.warm and role == "hider" and stage == "seeking")
+  game.zone:SetText(live and (G.z .. " · " .. (G.pts and "drawn area" or (G.rad .. " yards out"))) or "")
+  local opts = G and ((G.nm and "Names hidden. " or "") .. (G.nmap and "No map. " or "")) or ""
+  if stage == "lobby" then
+    game.head:SetText(G.name .. " · open to join")
+    game.role:SetText(G.joined[MOTA.me] and "You've joined" or "Not joined yet")
+    game.text:SetText("Hiding " .. Hi.Clock(G.hs) .. ", seeking " .. Hi.Clock(G.ss) .. ". " .. opts
+      .. "Go to the play area: " .. MOTA:Short(G.by) .. " starts the game when everyone's ready.")
+  elseif stage == "hiding" or stage == "seeking" then
+    game.head:SetText(G.name .. " · " .. stage .. " " .. Hi.Clock(Hi:Left(G)))
+    if role == "seeker" then
+      game.role:SetText(stage == "hiding" and "You're seeking: wait" or "You're seeking")
+      game.text:SetText(stage == "hiding" and "Stay where you are while everyone hides." or
+        ("Stand within " .. G.fr .. " yards of a hider for " .. G.dw .. " seconds to find them. " .. #Hi:Hidden(G) .. " still hidden."))
+    elseif role == "hider" then
+      game.role:SetText(stage == "hiding" and "Hide!" or "Stay hidden")
+      game.text:SetText("Keep inside the play area. Nobody is told where you are; a glow warns you when a seeker is within " .. Hi.WARM .. " yards.")
+    elseif role == "out" then
+      game.role:SetText("You're out")
+      game.text:SetText("You left the play area.")
+    else
+      game.role:SetText("Watching")
+      game.text:SetText(#Hi:Hidden(G) .. " still hidden. " .. opts)
+    end
+  elseif stage == "done" then
+    local places = Hi:Places(G)
+    game.head:SetText(G.name .. " · over")
+    game.role:SetText(places[1] and ("Won by " .. MOTA:Short(places[1])) or "Over")
+    game.text:SetText("The result is in the games log, and counts for the District Cup.")
+  else
+    game.head:SetText("No game on")
+    game.role:SetText("")
+    game.text:SetText(stage == "closed" and (G.name .. " was ended with no result.") or "When the Minister of Games opens a game of Hide and Seek, join it here.")
+  end
+  local area = v.low.area
+  if live then
+    area:Show()
+    drawArea(area, G)
+  else
+    area.areaKey = nil
+    area:Hide()
+    area.note:SetText("Shown while a game is on")
+  end
+  local canJoin = stage == "lobby"
+  game.join:SetShown(canJoin)
+  if canJoin then game.join:SetLabel(G.joined[MOTA.me] and "Leave" or "Join") end
+
+  -- The players.
+  local list = {}
+  if G then
+    for _, p in ipairs(G.players) do
+      local r = Hi:Role(p, G)
+      local tag
+      if stage == "lobby" then tag = ""
+      elseif r == "out" then tag = "|cff8E1B1Bout|r"
+      elseif r == "seeker" then
+        tag = "seeking" .. ((G.finds[p] or 0) > 0 and (" · " .. G.finds[p] .. " found") or "")
+      else tag = "|cff2A1F14hidden|r" end
+      if G.flags[p] and G.flags[p].names then tag = tag .. " |cff8E1B1B(names on)|r" end
+      list[#list + 1] = MOTA:Short(p) .. ((tag ~= "") and (" |cff5E4B33· " .. tag .. "|r") or "")
+    end
+  end
+  for i, t in ipairs(v.players.rows) do
+    t:SetText(list[i] or (i == 1 and "|cff5E4B33Nobody yet.|r" or ""))
+  end
+  v.players.head:SetText("Players" .. (live and (" (" .. #G.players .. ")") or ""))
+  local organiser = G ~= nil and MOTA:IsMe(G.by)
+  local lobbyOrg = stage == "lobby" and organiser
+  v.players.start:SetShown(lobbyOrg)
+  v.players.pick:SetShown(lobbyOrg)
+  if lobbyOrg then
+    if v.players.seeker and not G.joined[v.players.seeker] then v.players.seeker = nil end
+    v.players.pick:SetLabel("Seeker: " .. (v.players.seeker and MOTA:Short(v.players.seeker) or "random"))
+    local ok = #G.players >= Hi.MIN_PLAYERS
+    v.players.start:SetEnabled(ok)
+    v.players.start:SetAlpha(ok and 1 or 0.45)
+  end
+  v.players.stop:SetShown(live and (organiser or MOTA:IsCrown(MOTA.me)))
+
+  -- Past games, from the games log.
+  local done = {}
+  for _, e in ipairs(MOTA.Games:Log()) do
+    if e.g == "hide" and #done < #v.low.rows then done[#done + 1] = e end
+  end
+  for i, t in ipairs(v.low.rows) do
+    local e = done[i]
+    t:SetText(e and MOTA.Games:Line(e) or (i == 1 and "|cff5E4B33No games played yet.|r" or ""))
+  end
+end
+
+-- For the simulator: the play area's square (the form's, or the game's).
+function Page._hideArea(setting)
+  return setting and views.hide.note.area or views.hide.low.area
+end
+
+local function buildHideAside()
+  local h = panel(aside, nil, 0, 0, ASIDE_W, HEIGHT - 66)
+  local plate = panel(h, nil, 0, 0, ASIDE_W, 178)
+  Kit:PlateArt(plate, "kitBlue", "BACKGROUND")
+  local seal = UI:Piece(plate, "hseal_official", "ARTWORK", nil, nil, nil, plate)
+  seal:ClearAllPoints()
+  seal:SetSize(50, 50)
+  seal:SetPoint("TOP", plate, "TOP", 0, -10)
+  Kit:Label(plate, "kitTiny", "C9D6F5", 0.28, "Hide and Seek"):SetPoint("TOP", plate, "TOP", 0, -66)
+  plate.name = Kit:Text(plate, "kitStage", "F3D98A", "CENTER")
+  plate.name:SetPoint("TOP", plate, "TOP", 0, -80)
+  plate.name:SetWidth(ASIDE_W - 16)
+  plate.name:SetMaxLines(1)
+  plate.big = Kit:Text(plate, "kitCofferBig", "F3D98A", "CENTER")
+  plate.big:SetPoint("TOP", plate, "TOP", 0, -104)
+  plate.when = Kit:Text(plate, "kitSmallest", "C9D5F0", "CENTER")
+  plate.when:SetPoint("TOP", plate, "TOP", 0, -146)
+  plate.when:SetWidth(ASIDE_W - 16)
+  h.plate = plate
+  local how = panel(h, "sunk", 0, 190, ASIDE_W, 170)
+  Kit:Label(how, "kitTiny", "7A5719", 0.2, "Scoring"):SetPoint("TOPLEFT", how, "TOPLEFT", 14, -12)
+  local t = line(how, "kitSmallest", nil, 14, 30, ASIDE_W - 28)
+  t:SetMaxLines(9)
+  t:SetText("Everyone found: 1st the seeker with most finds, 2nd the last found, 3rd the one before.\n\nTime up: everyone still hidden shares 1st, the best seeker 2nd, the last found 3rd.\n\nPoints count for the District Cup.")
+  aside.hide = h
+end
+
+local function refreshHideAside()
+  local Hi = MOTA.Hide
+  local p = aside.hide.plate
+  if hideSetting() then
+    p.name:SetText("Opening a game")
+    p.big:SetText(Hi:Draft().rad .. " yd")
+    p.when:SetText("play area")
+    return
+  end
+  local G = Hi:Current()
+  local s = Hi:Stage(G)
+  p.name:SetText(G and G.name or "No game yet")
+  if s == "hiding" or s == "seeking" then
+    p.big:SetText(Hi.Clock(Hi:Left(G)))
+    p.when:SetText(s == "hiding" and "until the seekers set off" or (#Hi:Hidden(G) .. " still hidden"))
+  elseif s == "lobby" then
+    p.big:SetText(#G.players)
+    p.when:SetText(#G.players == 1 and "player joined" or "players joined")
+  else
+    p.big:SetText("")
+    p.when:SetText(G and Hi:Line(G) or "The Minister of Games opens one")
+  end
+end
 
 ---------------------------------------------------------------------------
--- The page
+-- The Pub Quiz: teams and the scoreboard for players; the quizmaster's desk
 ---------------------------------------------------------------------------
 
-local VIEWS = {
-  { "lottery", 14 }, { "hunt", 15 }, { "cup", 16 }, { "honours", 17 },
+local QUIZ_TOP = 200                          -- the upper panels
+local QUIZ_LOW = HEIGHT - BODY_Y - QUIZ_TOP - 12
+local BOARD_ROWS = 8
+local PLAN_ROWS = 12
+local TEAM_ROWS = 8
+
+local function quizSetting()
+  return MOTA.Games:CanRun(MOTA.me) and not MOTA.Quiz:Live()
+end
+
+local function quizMaster()
+  local Qz = MOTA.Quiz
+  local Q = Qz:Current()
+  return Q ~= nil and Qz:Live(Q) and MOTA:IsMe(Q.by)
+end
+
+-- The scoreboard: rank, team, each round, the total.
+local function buildBoard(parent, x, y, w, h)
+  local b = panel(parent, "plain", x, y, w, h)
+  b.head = Kit:Label(b, "kitSection", BLUE, 0.22, "Scoreboard")
+  b.head:SetPoint("TOPLEFT", b, "TOPLEFT", 14, -12)
+  b.cols = line(b, "kitTiny", "7A5719", 14, 32, w - 28)
+  b.rows = {}
+  for i = 1, BOARD_ROWS do
+    local t = line(b, "kitSmall", nil, 14, 50 + (i - 1) * 21, w - 28)
+    t:SetMaxLines(1)
+    b.rows[i] = t
+  end
+  return b
+end
+
+local function pad(s, n) s = tostring(s) return s .. string.rep(" ", math.max(1, n - #s)) end
+
+local function refreshBoard(b, Q)
+  local Qz = MOTA.Quiz
+  local fmt = Qz.Fmt
+  if not Q then
+    b.cols:SetText("")
+    for i, t in ipairs(b.rows) do t:SetText(i == 1 and "|cff5E4B33No quiz yet.|r" or "") end
+    return
+  end
+  local head = {}
+  for r = 1, Q.rounds do head[#head + 1] = "R" .. r end
+  b.cols:SetText("Team · " .. table.concat(head, " · ") .. " · Total")
+  local board = Qz:Board(Q)
+  local mine = Qz:TeamOf(MOTA.me, Q)
+  for i, t in ipairs(b.rows) do
+    local row = board[i]
+    if row then
+      local by = {}
+      for r = 1, Q.rounds do
+        local p = row.rounds[r]
+        by[#by + 1] = (p and fmt(p) or "-") .. (row.joker == r and "J" or "")
+      end
+      local you = mine and mine.cap == row.cap
+      t:SetText(row.rank .. ". " .. (you and ("|cff1B3570" .. row.name .. "|r") or ("|cff2A1F14" .. row.name .. "|r"))
+        .. " |cff5E4B33· " .. table.concat(by, " · ") .. " ·|r |cff2A1F14" .. fmt(row.total) .. "|r")
+    else
+      t:SetText(i == 1 and "|cff5E4B33No teams yet.|r" or "")
+    end
+  end
+end
+
+local function buildQuiz()
+  local v = panel(root, nil, MAIN_X, BODY_Y, MAIN_W, HEIGHT - BODY_Y)
+  local Qz = MOTA.Quiz
+  local colW = (MAIN_W - 56) / 2
+  local rx = 16 + colW + 24
+
+  -------------------------------------------------------------------------
+  -- Players
+  -------------------------------------------------------------------------
+  local play = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local team = panel(play, "plain", 0, 0, CLUE_W, QUIZ_TOP)
+  team.head = Kit:Label(team, "kitSection", BLUE, 0.22, "Your team")
+  team.head:SetPoint("TOPLEFT", team, "TOPLEFT", 16, -14)
+  team.name = line(team, "kitNameSmall", nil, 16, 36, CLUE_W - 32)
+  team.text = line(team, "kitSmall", nil, 16, 58, CLUE_W - 32)
+  team.text:SetMaxLines(4)
+  team.field = field(team, "Team name", 16, 104, CLUE_W - 160, "")
+  team.make = Kit:Button(team, 120, 26, "Make team", "blue", function()
+    local rec, err = Qz:MakeTeam(team.field:GetText())
+    if rec then team.field:SetText("") end
+    report(rec, err)
+  end)
+  team.make:SetPoint("TOPLEFT", team, "TOPLEFT", CLUE_W - 136, -119)
+  team.leave = sureButton(team, 120, "Leave team", function() report(Qz:Leave()) end)
+  team.leave:SetPoint("BOTTOMLEFT", team, "BOTTOMLEFT", 16, 14)
+  team.joker = Kit:Button(team, 150, 26, "", "quiet", function()
+    team.jokerRound = (team.jokerRound or 1) % (Qz:Current() and Qz:Current().rounds or 1) + 1
+    Page:Refresh()
+  end)
+  team.joker:SetPoint("BOTTOMRIGHT", team, "BOTTOMRIGHT", -146, 14)
+  team.play = Kit:Button(team, 120, 26, "Play joker", "blue", function()
+    report(Qz:Joker(team.jokerRound or 1))
+  end)
+  team.play:SetPoint("BOTTOMRIGHT", team, "BOTTOMRIGHT", -16, 14)
+  team.jokerRound = 1
+  v.team = team
+
+  local teams = panel(play, "plain", MAIN_W - SIDE_W, 0, SIDE_W, QUIZ_TOP)
+  Kit:Label(teams, "kitSection", BLUE, 0.22, "Teams"):SetPoint("TOPLEFT", teams, "TOPLEFT", 14, -12)
+  teams.rows = {}
+  for i = 1, TEAM_ROWS do
+    local r = panel(teams, nil, 14, 32 + (i - 1) * 20, SIDE_W - 28, 18)
+    r.text = Kit:Text(r, "kitSmallest")
+    r.text:SetPoint("LEFT", r, "LEFT", 0, 0)
+    r.text:SetWidth(SIDE_W - 90)
+    r.text:SetMaxLines(1)
+    r.join = Kit:Button(r, 50, 18, "Join", "quiet", function() if r.cap then report(Qz:Join(r.cap)) end end)
+    r.join:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+    teams.rows[i] = r
+  end
+  v.teams = teams
+  v.board = buildBoard(play, 0, QUIZ_TOP + 12, MAIN_W, QUIZ_LOW)
+  v.play = play
+
+  -------------------------------------------------------------------------
+  -- The quizmaster: setting up (before a quiz is open)
+  -------------------------------------------------------------------------
+  local set = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local form = panel(set, "plain", 0, 0, MAIN_W, QUIZ_TOP)
+  Kit:Label(form, "kitSection", BLUE, 0.22, "Set a quiz"):SetPoint("TOPLEFT", form, "TOPLEFT", 16, -14)
+  form.name = field(form, "Name", 16, 36, colW, "")
+  form.name:SetScript("OnTextChanged", function(e) Qz:Desk().name = e:GetText() end)
+  local function stepper(y, get, put, lo, hi, step)
+    local l = Kit:Text(form, "kitSmall")
+    l:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -y)
+    l:SetWidth(colW - 70)
+    l:SetWordWrap(false)
+    l.minus = Kit:Button(form, 26, 20, "-", "quiet", function() put(math.max(lo, get() - step)) Page:Refresh() end)
+    l.minus:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + colW - 56, -(y - 3))
+    l.plus = Kit:Button(form, 26, 20, "+", "quiet", function() put(math.min(hi, get() + step)) Page:Refresh() end)
+    l.plus:SetPoint("TOPLEFT", form, "TOPLEFT", 16 + colW - 26, -(y - 3))
+    return l
+  end
+  local D = function() return Qz:Desk() end
+  form.rounds = stepper(92, function() return D().rounds end, function(n) D().rounds = n end, 1, Qz.MAX_ROUNDS, 1)
+  form.per = stepper(116, function() return D().per end, function(n) D().per = n end, 1, Qz.MAX_PER, 1)
+  form.secs = stepper(140, function() return D().secs end, function(n) D().secs = n end, 10, 300, 10)
+  form.open = Kit:Button(form, colW, 26, "Open the quiz", "blue", function() report(Qz:Open(form.name:GetText())) end)
+  form.open:SetPoint("TOPLEFT", form, "TOPLEFT", 16, -162)
+  -- Right: the questions, round by round.
+  Kit:Label(form, "kitTiny", "7A5719", 0.2, "Questions"):SetPoint("TOPLEFT", form, "TOPLEFT", rx, -36)
+  local third = (colW - 16) / 3
+  form.prev = Kit:Button(form, third, 24, "< Round", "quiet", function()
+    form.round = math.max(1, (form.round or 1) - 1) Page:Refresh()
+  end)
+  form.prev:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -52)
+  form.roundLabel = Kit:Text(form, "kitNameSmall", nil, "CENTER")
+  form.roundLabel:SetPoint("TOPLEFT", form, "TOPLEFT", rx + third + 8, -56)
+  form.roundLabel:SetWidth(third)
+  form.nextR = Kit:Button(form, third, 24, "Round >", "quiet", function()
+    form.round = math.min(D().rounds, (form.round or 1) + 1) Page:Refresh()
+  end)
+  form.nextR:SetPoint("TOPLEFT", form, "TOPLEFT", rx + 2 * (third + 8), -52)
+  local cats = { false }
+  for _, c in ipairs(MOTA.QuizBank.CATEGORIES) do cats[#cats + 1] = c end
+  form.cat = Kit:Button(form, (colW - 8) / 2, 24, "", "quiet", function()
+    form.catAt = (form.catAt or 1) % #cats + 1 Page:Refresh()
+  end)
+  form.cat:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -82)
+  form.fill = Kit:Button(form, (colW - 8) / 2, 24, "Fill from bank", "blue", function()
+    local c = cats[form.catAt or 1]
+    report(Qz:FillRandom(form.round or 1, c and c.key or nil))
+  end)
+  form.fill:SetPoint("TOPLEFT", form, "TOPLEFT", rx + (colW - 8) / 2 + 8, -82)
+  form.q = field(form, "Your own question", rx, 108, colW, "")
+  form.q:SetMaxLetters(200)
+  form.a = field(form, "", rx, 146, colW - 88, "")
+  form.a:ClearAllPoints()
+  form.a:SetPoint("TOPLEFT", form, "TOPLEFT", rx, -158)
+  form.add = Kit:Button(form, 80, 26, "Add", "quiet", function()
+    local n, err = Qz:AddOwn(form.round or 1, form.q:GetText(), form.a:GetText())
+    if n then form.q:SetText("") form.a:SetText("") end
+    report(n, err)
+  end)
+  form.add:SetPoint("TOPLEFT", form, "TOPLEFT", rx + colW - 80, -158)
+  form.cats = cats
+  form.round, form.catAt = 1, 1
+  form.help = helpButton(form, "Setting a quiz", {
+    "Pick each round's questions: fill it from the question bank (any category, or one), add your own, or both. Click a question below to take it out.",
+    "Your own questions stay on your computer until you ask them. Type the answer in the second box.",
+    "Then open the quiz: teams of up to " .. Qz.TEAM_MAX .. " join, each with a captain. A round with no questions picked is read out on Discord; captains still answer in the add-on.",
+  })
+  form.help:SetPoint("TOPRIGHT", form, "TOPRIGHT", -12, -10)
+  v.form = form
+
+  local plan = panel(set, "sunk", 0, QUIZ_TOP + 12, MAIN_W, QUIZ_LOW)
+  plan.head = Kit:Label(plan, "kitSection", BLUE, 0.22, "")
+  plan.head:SetPoint("TOPLEFT", plan, "TOPLEFT", 14, -10)
+  plan.rows = {}
+  for i = 1, PLAN_ROWS do
+    local b = CreateFrame("Button", nil, plan)
+    b:SetSize(MAIN_W - 28, 19)
+    b:SetPoint("TOPLEFT", plan, "TOPLEFT", 14, -(30 + (i - 1) * 20))
+    local glow = b:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetColorTexture(0.8, 0.2, 0.1, 0.12)
+    glow:SetAllPoints()
+    b.text = Kit:Text(b, "kitSmallest")
+    b.text:SetPoint("LEFT", b, "LEFT", 0, 0)
+    b.text:SetWidth(MAIN_W - 28)
+    b.text:SetMaxLines(1)
+    b:SetScript("OnClick", function() if b.i then report(Qz:Remove(form.round or 1, b.i)) end end)
+    plan.rows[i] = b
+  end
+  v.plan = plan
+  v.set = set
+
+  -------------------------------------------------------------------------
+  -- The quizmaster: running it
+  -------------------------------------------------------------------------
+  local run = panel(v, nil, 0, 0, MAIN_W, HEIGHT - BODY_Y)
+  local desk = panel(run, "plain", 0, 0, MAIN_W, QUIZ_TOP)
+  desk.head = Kit:Label(desk, "kitSection", BLUE, 0.22, "")
+  desk.head:SetPoint("TOPLEFT", desk, "TOPLEFT", 16, -14)
+  desk.q = line(desk, "kitSmall", nil, 16, 36, colW)
+  desk.q:SetMaxLines(3)
+  desk.a = line(desk, "kitSmallest", "5E4B33", 16, 92, colW)
+  desk.a:SetMaxLines(2)
+  desk.who = line(desk, "kitSmallest", nil, 16, 122, colW)
+  desk.who:SetMaxLines(3)
+  local bw = (colW - 8) / 2
+  local function deskButton(label, style, col, row, fn)
+    local b = Kit:Button(desk, bw, 26, label, style, fn)
+    b:SetPoint("TOPLEFT", desk, "TOPLEFT", rx + (col - 1) * (bw + 8), -(36 + (row - 1) * 32))
+    return b
+  end
+  desk.start = deskButton("Start round", "blue", 1, 1, function() report(Qz:StartRound()) end)
+  desk.ask = deskButton("Ask next", "blue", 2, 1, function() report(Qz:Ask()) end)
+  desk.closeQ = deskButton("Close question", "quiet", 1, 2, function() report(Qz:CloseQuestion()) end)
+  desk.publish = deskButton("Publish round", "blue", 2, 2, function() report(Qz:Publish()) end)
+  desk.tie = deskButton("Ask tie-break", "quiet", 1, 3, function() report(Qz:AskTie()) end)
+  desk.finish = Kit:Button(desk, bw, 26, "End quiz", "quiet", function(b)
+    if not b.sure then
+      b.sure = true
+      b:SetLabel("Sure?")
+      C_Timer.After(4, function() b.sure = nil; b:SetLabel("End quiz") end)
+      return
+    end
+    b.sure = nil
+    b:SetLabel("End quiz")
+    report(Qz:Finish())
+  end)
+  desk.finish:SetPoint("TOPLEFT", desk, "TOPLEFT", rx + bw + 8, -100)
+  desk.tieAns = field(desk, "", rx, 120, bw, "")
+  desk.tieAns:ClearAllPoints()
+  desk.tieAns:SetPoint("TOPLEFT", desk, "TOPLEFT", rx, -134)
+  desk.settle = Kit:Button(desk, bw, 26, "Settle tie", "quiet", function() report(Qz:SettleTie(desk.tieAns:GetText())) end)
+  desk.settle:SetPoint("TOPLEFT", desk, "TOPLEFT", rx + bw + 8, -134)
+  desk.cancel = sureButton(desk, colW, "Cancel the quiz", function() report(Qz:Close()) end)
+  desk.cancel:SetPoint("TOPLEFT", desk, "TOPLEFT", rx, -166)
+  desk.help = helpButton(desk, "Running the quiz", {
+    "Start round: teams are fixed once round 1 starts; a team's joker must be played before its round starts.",
+    "Ask next: read the question on Discord as you press it. Captains get it with an answer box until they answer, or you close it (it closes itself when time is up).",
+    "Marking: right answers are ticked for you. Click a team's answer to change it: right, half, wrong. Then Publish round.",
+    "Tie-break: ask it, read the question on Discord, then type the right number and Settle tie. Closest guess wins.",
+  })
+  desk.help:SetPoint("TOPRIGHT", desk, "TOPRIGHT", -12, -10)
+  v.desk = desk
+
+  local mark = panel(run, "sunk", 0, QUIZ_TOP + 12, CLUE_W, QUIZ_LOW)
+  mark.head = Kit:Label(mark, "kitSection", BLUE, 0.22, "")
+  mark.head:SetPoint("TOPLEFT", mark, "TOPLEFT", 14, -10)
+  mark.prev = Kit:Button(mark, 30, 20, "<", "quiet", function() mark.i = math.max(1, (mark.i or 1) - 1) Page:Refresh() end)
+  mark.prev:SetPoint("TOPRIGHT", mark, "TOPRIGHT", -48, -8)
+  mark.nextQ = Kit:Button(mark, 30, 20, ">", "quiet", function() mark.i = (mark.i or 1) + 1 Page:Refresh() end)
+  mark.nextQ:SetPoint("TOPRIGHT", mark, "TOPRIGHT", -12, -8)
+  mark.answer = line(mark, "kitSmallest", "5E4B33", 14, 32, CLUE_W - 28)
+  mark.answer:SetMaxLines(1)
+  mark.rows = {}
+  for i = 1, TEAM_ROWS do
+    local b = CreateFrame("Button", nil, mark)
+    b:SetSize(CLUE_W - 28, 20)
+    b:SetPoint("TOPLEFT", mark, "TOPLEFT", 14, -(52 + (i - 1) * 22))
+    local glow = b:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetColorTexture(1, 0.95, 0.7, 0.25)
+    glow:SetAllPoints()
+    b.text = Kit:Text(b, "kitSmall")
+    b.text:SetPoint("LEFT", b, "LEFT", 0, 0)
+    b.text:SetWidth(CLUE_W - 28)
+    b.text:SetMaxLines(1)
+    b:SetScript("OnClick", function() if b.key and b.cap then Qz:Mark(b.key, b.cap) end end)
+    mark.rows[i] = b
+  end
+  mark.i = 1
+  v.mark = mark
+  v.deskBoard = buildBoard(run, MAIN_W - SIDE_W, QUIZ_TOP + 12, SIDE_W, QUIZ_LOW)
+  v.run = run
+  return v
+end
+
+local MARK = { [1] = "|cff2E7D32right|r", [0.5] = "|cffB07A10half|r", [0] = "|cff8E1B1Bwrong|r" }
+
+local function refreshQuiz(v)
+  local Qz = MOTA.Quiz
+  local fmt = Qz.Fmt
+  local Q = Qz:Current()
+  local stage = Qz:Stage(Q)
+  local setting, master = quizSetting(), quizMaster()
+  v.set:SetShown(setting)
+  v.run:SetShown(master)
+  v.play:SetShown(not setting and not master)
+
+  if setting then
+    local d = Qz:Desk()
+    local f = v.form
+    if not f.name:HasFocus() then f.name:SetText(d.name or "") end
+    f.rounds:SetText(d.rounds .. (d.rounds == 1 and " round" or " rounds"))
+    f.per:SetText(d.per .. " questions a round")
+    f.secs:SetText(d.secs .. " seconds to answer")
+    f.round = math.min(f.round or 1, d.rounds)
+    f.roundLabel:SetText("Round " .. f.round)
+    local c = f.cats[f.catAt or 1]
+    f.cat:SetLabel(c and c.name or "Any category")
+    local plan = Qz:RoundPlan(f.round)
+    v.plan.head:SetText("Round " .. f.round .. " · " .. #plan .. " of " .. d.per .. " picked · " .. #Qz:Unused() .. " left in the bank")
+    for i, b in ipairs(v.plan.rows) do
+      local q = plan[i]
+      b.i = q and i or nil
+      b:SetShown(q ~= nil or i == 1)
+      b.text:SetText(q and (i .. ". " .. q.q .. " |cff5E4B33— " .. q.a .. (q.bank and "" or " (yours)") .. "|r")
+        or "|cff5E4B33No questions picked: fill from the bank or add your own (or read them out on Discord).|r")
+    end
+    return
+  end
+
+  if master then
+    local d = Qz:Desk()
+    local desk = v.desk
+    local o = d.open
+    desk.head:SetText(Q.name .. " · " .. (Q.round == 0 and "teams joining" or ("round " .. Q.round .. " of " .. Q.rounds)))
+    if o then
+      local left = math.max(0, o.ends - GetServerTime())
+      desk.q:SetText((o.key == "tie" and "Tie-break" or ("Q" .. o.i)) .. " · " .. string.format("%d:%02d", math.floor(left / 60), left % 60) .. " · " .. o.text)
+      local q = o.key ~= "tie" and Qz:RoundPlan(o.r)[o.i]
+      desk.a:SetText(q and ("Answer: " .. q.a) or "")
+    else
+      local i = Qz:NextQuestion()
+      local q = i and Qz:RoundPlan(Q.round)[i]
+      desk.q:SetText(Q.round == 0 and "Teams are joining. Start round 1 when everyone's in."
+        or (i and ("Next: Q" .. i .. (q and (" · " .. q.q) or " (read it out on Discord)")) or "Every question this round has been asked: mark and publish."))
+      desk.a:SetText(q and ("Answer: " .. q.a) or "")
+    end
+    local got, waiting = {}, {}
+    local answered = Qz:Answered()
+    for _, cap in ipairs(Q.order) do
+      local T = Q.teams[cap]
+      if T then
+        if answered[cap] then got[#got + 1] = T.name else waiting[#waiting + 1] = T.name end
+      end
+    end
+    desk.who:SetText(o and ("|cff2E7D32In:|r " .. (#got > 0 and table.concat(got, ", ") or "none yet")
+      .. (#waiting > 0 and ("\n|cff8E1B1BWaiting:|r " .. table.concat(waiting, ", ")) or "")) or (#Q.order .. (#Q.order == 1 and " team" or " teams")))
+    local canStart = not o and Q.round < Q.rounds and (Q.round == 0 or Q.scores[Q.round] ~= nil)
+    desk.start:SetLabel("Start round " .. math.min(Q.round + 1, Q.rounds))
+    desk.start:SetEnabled(canStart)
+    desk.start:SetAlpha(canStart and 1 or 0.45)
+    local canAsk = not o and Q.round > 0 and Qz:NextQuestion() ~= nil
+    desk.ask:SetEnabled(canAsk)
+    desk.ask:SetAlpha(canAsk and 1 or 0.45)
+    desk.closeQ:SetEnabled(o ~= nil)
+    desk.closeQ:SetAlpha(o and 1 or 0.45)
+    desk.publish:SetEnabled(Q.round > 0)
+    desk.publish:SetAlpha(Q.round > 0 and 1 or 0.45)
+
+    -- Marking: the round under way, question by question.
+    local mark = v.mark
+    local r = math.max(1, Q.round)
+    mark.i = math.max(1, math.min(mark.i or 1, Q.per))
+    local k = Qz.Key(r, mark.i)
+    local q = Qz:RoundPlan(r)[mark.i]
+    mark.head:SetText("Marking · round " .. r .. " · Q" .. mark.i)
+    mark.answer:SetText(q and ("Answer: " .. q.a) or (d.asked[k] and "Your own answer (read out)" or "Not asked yet"))
+    local answers, marks = d.answers[k] or {}, d.marks[k] or {}
+    local n = 0
+    for _, cap in ipairs(Q.order) do
+      local T = Q.teams[cap]
+      if T then
+        n = n + 1
+        local b = mark.rows[n]
+        if b then
+          b.key, b.cap = k, cap
+          local given = answers[cap]
+          b.text:SetText("|cff2A1F14" .. T.name .. "|r · " .. (given and ('"' .. given .. '"') or "|cff5E4B33no answer|r")
+            .. ((given or marks[cap]) and (" · " .. (MARK[marks[cap] or 0] or "")) or ""))
+          b:Show()
+        end
+      end
+    end
+    for i = n + 1, #mark.rows do mark.rows[i]:Hide() mark.rows[i].key = nil end
+    refreshBoard(v.deskBoard, Q)
+    return
+  end
+
+  -- Players.
+  local team = v.team
+  local mine = Q and Qz:TeamOf(MOTA.me, Q)
+  local lobby = stage == "lobby"
+  team.field:SetShown(lobby and not mine)
+  team.make:SetShown(lobby and not mine)
+  team.leave:SetShown(lobby and mine ~= nil)
+  local captain = mine and mine.cap == MOTA.me
+  local canJoker = captain and Qz:Live(Q) and not Q.jokers[MOTA.me]
+  team.joker:SetShown(canJoker)
+  team.play:SetShown(canJoker)
+  if canJoker then
+    team.jokerRound = team.jokerRound or 1
+    while team.jokerRound <= Q.rounds and Q.started[team.jokerRound] do team.jokerRound = team.jokerRound + 1 end
+    if team.jokerRound > Q.rounds then team.jokerRound = 1 end
+    team.joker:SetLabel("Joker: round " .. team.jokerRound)
+  end
+  if not Q or not Qz:Live(Q) then
+    team.head:SetText("The Pub Quiz")
+    team.name:SetText(stage == "done" and (Qz:Line(Q)) or "No quiz on")
+    team.text:SetText(stage == "closed" and (Q.name .. " was ended with no result.")
+      or "When the Minister of Games opens a pub quiz, make or join a team here. The questions are read out on Discord; your captain answers in the add-on.")
+  elseif mine then
+    team.head:SetText(Q.name .. " · " .. (lobby and "teams joining" or ("round " .. Q.round .. " of " .. Q.rounds)))
+    local names = {}
+    for _, m in ipairs(mine.members) do names[#names + 1] = MOTA:Short(m) .. (m == mine.cap and " (captain)" or "") end
+    team.name:SetText(mine.name)
+    local L = Qz.live
+    local status
+    if L and L.id == Q.id then
+      if captain then
+        status = Qz.sent[L.key] and ("You answered: " .. Qz.sent[L.key] .. (Qz.got[L.key] and " · received" or " · sending…")) or "A question is open: answer in the herald."
+      else
+        status = "Question open: " .. L.text .. "\nYour captain answers for the team."
+      end
+    end
+    team.text:SetText(table.concat(names, ", ") .. (Q.jokers[mine.cap] and (" · joker on round " .. Q.jokers[mine.cap]) or "")
+      .. (status and ("\n" .. status) or ""))
+  else
+    team.head:SetText(Q.name .. (lobby and " · teams joining" or (" · round " .. Q.round)))
+    team.name:SetText(lobby and "Not on a team yet" or "Watching")
+    team.text:SetText(lobby and ("Make a team (you'll be its captain) or join one, up to " .. Qz.TEAM_MAX .. " players. Quizmaster: " .. MOTA:Short(Q.by) .. ".") or "Teams were fixed when round 1 began.")
+  end
+
+  -- The teams.
+  local list = Q and Qz:Live(Q) and Q.order or {}
+  for i, r in ipairs(v.teams.rows) do
+    local cap = list[i]
+    local T = cap and Q.teams[cap]
+    r.cap = T and cap or nil
+    r:SetShown(T ~= nil or i == 1)
+    if T then
+      r.text:SetText(T.name .. " |cff5E4B33· " .. #T.members .. "/" .. Qz.TEAM_MAX .. " · " .. MOTA:Short(cap) .. "|r")
+      r.join:SetShown(lobby and not mine and #T.members < Qz.TEAM_MAX)
+    else
+      r.text:SetText("|cff5E4B33No teams yet.|r")
+      r.join:Hide()
+    end
+  end
+  refreshBoard(v.board, Q)
+end
+
+local function buildQuizAside()
+  local h = panel(aside, nil, 0, 0, ASIDE_W, HEIGHT - 66)
+  local plate = panel(h, nil, 0, 0, ASIDE_W, 178)
+  Kit:PlateArt(plate, "kitBlue", "BACKGROUND")
+  local seal = UI:Piece(plate, "hseal_official", "ARTWORK", nil, nil, nil, plate)
+  seal:ClearAllPoints()
+  seal:SetSize(50, 50)
+  seal:SetPoint("TOP", plate, "TOP", 0, -10)
+  Kit:Label(plate, "kitTiny", "C9D6F5", 0.28, "The Pub Quiz"):SetPoint("TOP", plate, "TOP", 0, -66)
+  plate.name = Kit:Text(plate, "kitStage", "F3D98A", "CENTER")
+  plate.name:SetPoint("TOP", plate, "TOP", 0, -80)
+  plate.name:SetWidth(ASIDE_W - 16)
+  plate.name:SetMaxLines(1)
+  plate.big = Kit:Text(plate, "kitCofferBig", "F3D98A", "CENTER")
+  plate.big:SetPoint("TOP", plate, "TOP", 0, -104)
+  plate.when = Kit:Text(plate, "kitSmallest", "C9D5F0", "CENTER")
+  plate.when:SetPoint("TOP", plate, "TOP", 0, -146)
+  plate.when:SetWidth(ASIDE_W - 16)
+  h.plate = plate
+  local how = panel(h, "sunk", 0, 190, ASIDE_W, 190)
+  Kit:Label(how, "kitTiny", "7A5719", 0.2, "How it works"):SetPoint("TOPLEFT", how, "TOPLEFT", 14, -12)
+  local t = line(how, "kitSmallest", nil, 14, 30, ASIDE_W - 28)
+  t:SetMaxLines(11)
+  t:SetText("Questions are read out on Discord. Each team's captain answers in the add-on; answers go to the quizmaster alone.\n\nPlay your joker on one round, before it starts: double points.\n\nThe top three teams score for the District Cup, every member.")
+  aside.quiz = h
+end
+
+local function refreshQuizAside()
+  local Qz = MOTA.Quiz
+  local p = aside.quiz.plate
+  local Q = Qz:Current()
+  if quizSetting() then
+    local d = Qz:Desk()
+    p.name:SetText("Setting a quiz")
+    p.big:SetText(d.rounds .. " x " .. d.per)
+    p.when:SetText("rounds x questions")
+    return
+  end
+  local s = Qz:Stage(Q)
+  p.name:SetText(Q and Q.name or "No quiz yet")
+  if s == "running" then
+    p.big:SetText(Q.round .. " / " .. Q.rounds)
+    p.when:SetText("rounds")
+  elseif s == "lobby" then
+    local n = #Q.order
+    p.big:SetText(n)
+    p.when:SetText(n == 1 and "team so far" or "teams so far")
+  else
+    p.big:SetText("")
+    p.when:SetText(Q and Qz:Line(Q) or "The Minister of Games opens one")
+  end
+end
+
+---------------------------------------------------------------------------
+-- The page: a game picker (a drop-down, as the games grow), then The Cup and
+-- Honours, which cover every game, as ribbons
+---------------------------------------------------------------------------
+
+local GAMES = {
+  { key = "lottery", label = "Royal Lottery" },
+  { key = "hunt", label = "Treasure Hunt" },
+  { key = "hide", label = "Hide and Seek" },
+  { key = "quiz", label = "Pub Quiz" },
 }
+local RIBBONS = { { "cup", 16 }, { "honours", 17 } }
+local PICKER_W, PICKER_H = 170, 37
+local lastGame = "lottery"
+
+local function isGame(name)
+  for _, g in ipairs(GAMES) do if g.key == name then return g end end
+end
+
+-- What's on in each game, for the picker's list.
+local function gameStatus(key)
+  if key == "lottery" then
+    local s = MOTA.Lottery and MOTA.Lottery.Stage and MOTA.Lottery:Stage()
+    return s == "selling" and "tickets on sale" or nil
+  elseif key == "hunt" then
+    return MOTA.Hunt:Stage() == "running" and "running" or nil
+  elseif key == "hide" then
+    local s = MOTA.Hide:Stage()
+    return (s == "lobby" and "open to join") or ((s == "hiding" or s == "seeking") and "playing") or nil
+  elseif key == "quiz" then
+    local s = MOTA.Quiz:Stage()
+    return (s == "lobby" and "teams joining") or (s == "running" and "under way") or nil
+  end
+end
+Page.GameStatus = gameStatus
+
+-- The game to open on: one that's on now, or the last one looked at.
+function Page:LiveGame()
+  for _, k in ipairs({ "quiz", "hide", "hunt", "lottery" }) do
+    if gameStatus(k) then return k end
+  end
+end
+
+local picker, menu
+
+local function buildPicker()
+  picker = Kit:Button(root, PICKER_W, PICKER_H, "", "blue", function()
+    menu:SetShown(not menu:IsShown())
+  end)
+  picker:SetPoint("TOPLEFT", root, "TOPLEFT", MAIN_X, 0)
+  picker.arrow = picker:CreateTexture(nil, "OVERLAY")
+  picker.arrow:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
+  picker.arrow:SetSize(12, 12)
+  picker.arrow:SetRotation(-math.pi / 2)
+  picker.arrow:SetPoint("RIGHT", picker, "RIGHT", -10, 0)
+
+  menu = CreateFrame("Frame", nil, root)
+  menu:SetSize(PICKER_W + 60, #GAMES * 30 + 12)
+  menu:SetPoint("TOPLEFT", picker, "BOTTOMLEFT", 0, -2)
+  menu:SetFrameLevel(root:GetFrameLevel() + 40)
+  Kit:Fill(menu, "FBF4E1", "F0E2BE")
+  Kit:Outline(menu, "6E4F17", 0.8)
+  menu.items = {}
+  for i, g in ipairs(GAMES) do
+    local b = Kit:Button(menu, PICKER_W + 44, 26, g.label, "quiet", function()
+      menu:Hide()
+      Page:Select(g.key)
+    end)
+    b:SetPoint("TOPLEFT", menu, "TOPLEFT", 8, -(6 + (i - 1) * 30))
+    b.key = g.key
+    menu.items[i] = b
+  end
+  menu:Hide()
+end
+
+local function refreshPicker()
+  local g = isGame(view) or isGame(lastGame)
+  picker:SetLabel(g.label)
+  picker:SetAlpha(isGame(view) and 1 or 0.75)
+  for i, b in ipairs(menu.items) do
+    local s = gameStatus(b.key)
+    b:SetLabel(GAMES[i].label .. (s and (" · " .. s) or ""))
+  end
+end
 
 function Page:Select(name)
+  -- "picker" opens the last game (and the old ribbon names still work).
+  if name == "picker" then name = lastGame end
   view = name
+  if isGame(name) then lastGame = name end
+  if menu then menu:Hide() end
   self:Refresh()
 end
 
@@ -997,15 +2198,23 @@ function Page:View() return view end
 
 function Page:Refresh()
   if not root or not root:IsShown() then return end
-  aside.lot:SetShown(view ~= "hunt")
+  aside.lot:SetShown(view ~= "hunt" and view ~= "hide" and view ~= "quiz")
   aside.hunt:SetShown(view == "hunt")
-  if view == "hunt" then refreshHuntAside() else refreshAside() end
+  aside.hide:SetShown(view == "hide")
+  aside.quiz:SetShown(view == "quiz")
+  if view == "hunt" then refreshHuntAside()
+  elseif view == "hide" then refreshHideAside()
+  elseif view == "quiz" then refreshQuizAside()
+  else refreshAside() end
   for name, v in pairs(views) do v:SetShown(name == view) end
   for name, t in pairs(tabs) do t:SetOn(name == view) end
+  refreshPicker()
   if view == "lottery" then refreshLottery(views.lottery)
   elseif view == "honours" then refreshHonours(views.honours)
   elseif view == "cup" then refreshCup(views.cup)
-  elseif view == "hunt" then refreshHunt(views.hunt) end
+  elseif view == "hunt" then refreshHunt(views.hunt)
+  elseif view == "hide" then refreshHide(views.hide)
+  elseif view == "quiz" then refreshQuiz(views.quiz) end
 end
 
 local function build()
@@ -1014,15 +2223,20 @@ local function build()
   root:SetPoint("TOPLEFT", UI.window, "TOPLEFT", LEFT, -TOP)
   buildAside()
   buildHuntAside()
+  buildHideAside()
+  buildQuizAside()
   views = {
     lottery = buildLottery(),
     hunt = buildHunt(),
+    hide = buildHide(),
+    quiz = buildQuiz(),
     cup = buildCup(),
     honours = buildHonours(),
   }
+  buildPicker()
   tabs = {}
-  local x = MAIN_X
-  for _, t in ipairs(VIEWS) do
+  local x = MAIN_X + PICKER_W + 6
+  for _, t in ipairs(RIBBONS) do
     local b = Kit:Ribbon(root, t[2], function() Page:Select(t[1]) end)
     b:SetPoint("TOPLEFT", root, "TOPLEFT", x, 0)
     x = x + b:GetWidth() + 2
@@ -1031,14 +2245,24 @@ local function build()
 end
 
 function Page:Show(show)
-  if show and not root then build() end
+  local first = show and not root
+  if first then build() end
   if not root then return end
   root:SetShown(show)
-  if show then self:Refresh() end
+  if show then
+    -- A game that's on now comes first.
+    local live = self:LiveGame()
+    if live and (first or isGame(view)) then view, lastGame = live, live end
+    self:Refresh()
+  end
 end
 
 MOTA:Listen("PAGE_SHOWN", function(_, id) Page:Show(id == PAGE_ID) end)
-for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED", "HUNT_CHANGED", "CUP_CHANGED", "RING_CHANGED" }) do
+for _, signal in ipairs({ "LOTTERY_CHANGED", "HONOURS_CHANGED", "GAMES_CHANGED", "PARTY_CHANGED", "ACCOUNT_CHANGED", "HUNT_CHANGED", "CUP_CHANGED", "RING_CHANGED", "HIDE_CHANGED", "QUIZ_CHANGED" }) do
   MOTA:Listen(signal, function() Page:Refresh() end)
 end
-MOTA:On("ZONE_CHANGED_NEW_AREA", function() if view == "hunt" then Page:Refresh() end end)
+MOTA:On("ZONE_CHANGED_NEW_AREA", function() if view == "hunt" or view == "hide" then Page:Refresh() end end)
+-- The clocks and your dot on the play area move each second.
+C_Timer.NewTicker(1, function()
+  if root and root:IsShown() and ((view == "hide" and MOTA.Hide:Live()) or (view == "quiz" and MOTA.Quiz:Live())) then Page:Refresh() end
+end)

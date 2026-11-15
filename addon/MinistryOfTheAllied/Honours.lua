@@ -71,7 +71,12 @@ local function build()
     elseif r.k == "honour.revoke" and byName[d.v] then
       byName[d.v][d.o] = nil
     elseif r.k == "game.result" and type(d.places) == "table" and str(d.places[1], 40) and d.g ~= "lottery" then
-      give(d.places[1], MEDAL_FOR[d.g] or "laurel", r.t)
+      -- Everyone in 1st (Hide and Seek's survivors share it).
+      local at = MOTA.Games:ValidAt(d.at, #d.places) and d.at or nil
+      for i, who in ipairs(d.places) do
+        if (at and at[i] or i) ~= 1 then break end
+        if str(who, 40) then give(who, MEDAL_FOR[d.g] or "laurel", r.t) end
+      end
     end
   end
   -- The Ring's finished tournaments: the champion and the losing finalist.

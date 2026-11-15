@@ -2,7 +2,7 @@
 ## Title: |cffC9A24AMinistry of the Allied|r
 ## Notes: The political state of the Ministry of the Allied
 ## Author: The Crown
-## Version: 0.8.8
+## Version: 0.9.0
 ## IconTexture: Interface\Icons\INV_Misc_Note_02
 ## SavedVariables: MOTADB
 ## OptionalDeps: ElvUI, EllesmereUI, EllesmereUIBlizzardSkin
@@ -26,6 +26,7 @@ Book.lua
 Hello.lua
 Sync.lua
 Probe.lua
+ProbeMarket.lua
 Media.lua
 Fonts.lua
 Charter.lua
@@ -41,6 +42,9 @@ Ledger.lua
 Contest.lua
 Bench.lua
 Elect.lua
+Calendar.lua
+Market.lua
+Workshop.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
@@ -51,6 +55,10 @@ Cup.lua
 Honours.lua
 Lottery.lua
 Hunt.lua
+MapReveal.lua
+Hide.lua
+QuizBank.lua
+Quiz.lua
 Dots.lua
 NPCMarkers.lua
 UI\Skin.lua
@@ -67,8 +75,10 @@ UI\Statutes.lua
 UI\Constitution.lua
 UI\Ring.lua
 UI\GamesHall.lua
+UI\HideMap.lua
 UI\HuntGlow.lua
 UI\BankPrompt.lua
+UI\QuizPrompt.lua
 UI\Parties.lua
 UI\Treasury.lua
 UI\Districts.lua
@@ -81,6 +91,9 @@ UI\NPCPlates.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
+UI\CalendarPage.lua
+UI\Workshop.lua
+UI\WorkshopMarket.lua
 UI\ChronicleBook.lua
 UI\FullText.lua
 UI\AdminControls.lua

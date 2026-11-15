@@ -213,7 +213,11 @@ add("ring", "", "who the Minister of War is (the Cabinet's, or the guild rank be
   MOTA:Print("Minister of War:", m and MOTA:Short(m) or "none appointed")
 end)
 
-add("probe", "[limits|bank|map|gossip [nohide|off]|quest [nohide|fade|page|button|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either), 'quest' whether the game's quest page can be hidden so our own could take its place ('quest fade' makes it invisible for 4 s, 'quest page' is a prototype of our own page whose Accept really accepts and where other add-ons cannot auto-accept or auto-pick a quest, 'quest button' tries adding our own test entry to the gossip window, 'quest nohide' is the control run that never touches it, 'quest off' stops any)", function(arg)
+add("workshop", "", "shows or hides the Workshop, the crafting guide beside the profession window", function()
+  MOTA.WorkshopPanel:Toggle()
+end)
+
+add("probe", "[limits|bank|map|craft|market|gossip [nohide|off]|quest [nohide|fade|page|button|off]]", "client facts for the add-on plan; 'limits' measures message limits, 'bank' what the guild bank shows, 'map' what the world map is made of, 'craft' what a profession window shows, 'market' Auctionator and an auction house search, 'gossip' whether a picked gossip option can open our own page ('gossip nohide' is the control run that never hides the window, 'gossip off' stops either), 'quest' whether the game's quest page can be hidden so our own could take its place ('quest fade' makes it invisible for 4 s, 'quest page' is a prototype of our own page whose Accept really accepts and where other add-ons cannot auto-accept or auto-pick a quest, 'quest button' tries adding our own test entry to the gossip window, 'quest nohide' is the control run that never touches it, 'quest off' stops any)", function(arg)
   local what, extra = arg:lower():match("^(%S*)%s*(.-)$")
   if what == "gossip" then
     if extra ~= "" and extra ~= "off" and extra ~= "nohide" then
@@ -225,6 +229,10 @@ add("probe", "[limits|bank|map|gossip [nohide|off]|quest [nohide|fade|page|butto
       return MOTA:Print("Use /mota probe quest, /mota probe quest fade (the page goes invisible for 4 s), /mota probe quest page (prototype: our own page instead of the game's, Accept really accepts, other add-ons cannot auto-accept or pick a quest for you), /mota probe quest button (research: our own test entry in the gossip window), /mota probe quest nohide (control run, we do not touch the page) or /mota probe quest off.")
     end
     MOTA.Probe:Quest(extra ~= "" and extra or nil)
+  elseif what == "craft" then
+    MOTA.Probe:Craft()
+  elseif what == "market" then
+    MOTA.Probe:Market()
   elseif arg == "limits" then
     MOTA.Probe:Limits()
   elseif arg == "map" then

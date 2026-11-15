@@ -347,7 +347,7 @@ end
 function Page:Open(view, monthKey)
   local f = UI:Build()
   f:Show()
-  self.view = view == "chronicle" and "chronicle" or "state"
+  self.view = (view == "chronicle" or view == "calendar") and view or "state"
   if self.view == "chronicle" then
     selKey, entryTop = monthKey, 0
     if filter ~= "all" and not monthKey then filter = "all" end
