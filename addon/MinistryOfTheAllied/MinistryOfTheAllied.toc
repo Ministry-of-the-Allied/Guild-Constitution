@@ -26,6 +26,7 @@ Book.lua
 Hello.lua
 Sync.lua
 Probe.lua
+ProbeMarket.lua
 Media.lua
 Fonts.lua
 Charter.lua
@@ -41,6 +42,9 @@ Ledger.lua
 Contest.lua
 Bench.lua
 Elect.lua
+Calendar.lua
+Market.lua
+Workshop.lua
 Confidence.lua
 Judiciary.lua
 Throne.lua
@@ -54,6 +58,7 @@ Hunt.lua
 MapReveal.lua
 Hide.lua
 Dots.lua
+NPCMarkers.lua
 UI\Skin.lua
 UI\LiveText.lua
 UI\MainWindow.lua
@@ -78,9 +83,14 @@ UI\WorldMap.lua
 UI\WorldMapSkin.lua
 UI\MapCompat.lua
 UI\Dots.lua
+UI\NPCMarkers.lua
+UI\NPCPlates.lua
 UI\BallotHall.lua
 UI\ThroneRoom.lua
 UI\ChroniclePage.lua
+UI\CalendarPage.lua
+UI\Workshop.lua
+UI\WorkshopMarket.lua
 UI\ChronicleBook.lua
 UI\FullText.lua
 UI\AdminControls.lua
