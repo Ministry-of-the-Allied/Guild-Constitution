@@ -452,6 +452,15 @@ check("Workshop: the scan stores each price level, cheapest first", ws('local l 
 check("Workshop: the scan finishes and says when", ws(MKT + 'return MinistryOfTheAllied.Market:Scanning() == nil and G.page.status.text:find("just now") ~= nil'))
 check("Workshop: another tab hides the Market page", ws(MKT + 'AuctionHouseFrame:SetDisplayMode({ "ItemBuy" }) return not G.page.shown and not G.tab.selected'))
 check("Workshop: the Crafts view compares cost and price, most profitable first", ws(MKT + 'G:Select() G:View("crafts") local l = G:Rows() return #l >= 2 and l[1].profit >= l[2].profit and l[1].cost ~= nil and l[1].sale ~= nil'))
+check("Workshop: a craft's tooltip shows the sale, the cut and the materials", ws(MKT + 'local r = G.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r) local it = G:Rows()[1] return it.gross ~= nil and it.cut == it.gross - it.sale and G.page.status.text:find("5%% cut") ~= nil'))
+SF = MKT + 'local Mk = MinistryOfTheAllied.Market local d = MinistryOfTheAllied.db.market local today = date("%Y-%m-%d", GetServerTime()) '
+ws(SF + 'sf_saved = { d[2835].hist, d[2840].hist } d[2835].hist = { [today] = { median = 200, sold = 48, hours = 24 } } d[2840].hist = { [today] = { median = 1 } } return true')
+check("Straight flips: an item listed below its usual price shows in the Crafts view, per unit after the cut", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then return it.cost == 50 and it.sale == 190 and it.profit == 140 and it.name == "Flip: " .. it.itemName end end return false') is True)
+check("Straight flips: one that would lose money isn't listed", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2840 then return false end end return true') is True)
+check("Straight flips: profit a day from how fast it sells", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then return it.perDay == 140 * 48 end end') is True)
+check("Straight flips: Profit a day ranks them with the crafts, in their own colour", ws(MKT + 'local b = G.page.quick.day b.scripts.OnClick(b) for i, r in ipairs(G.rows) do if r.shown and r.it.straight then r.scripts.OnEnter(r) r.scripts.OnLeave(r) return r.cells[1].text:find("^Flip: ") ~= nil end end return false') is True)
+check("Straight flips: a bigger batch buys up the dearer listings", ws(MKT + 'W:SetBatch(30) local p for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then p = it.profit end end W:SetBatch(1) return p') == 123)  # 190 less (20 at 50 + 10 at 100) / 30
+ws(SF + 'd[2835].hist, d[2840].hist = sf_saved[1], sf_saved[2] return true')
 check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
 check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
@@ -5251,6 +5260,148 @@ Q(mk, 'M.UI:HideAdmin()')
 check("Nameplates: nothing in 19b raised a Lua error", len(errors) == 0)
 check("Marker: nothing in this section raised a Lua error", len(errors) == 0)
 
+# --- The flipping ledger (Flips.lua; Duncan, 15 Nov) ----------------------------------------------------
+errs_before_fl = len(errors)
+fl = mk
+Q(fl, '''
+fl_saved = { GetItemInfo = GetItemInfo, C_AuctionHouse = C_AuctionHouse, C_Item = C_Item }
+local names = { [2772] = "Iron Ore", [3575] = "Iron Bar" }
+GetItemInfo = function(id) return names[id] end
+C_Item = { GetItemID = function(loc) return type(loc) == "table" and loc.id or nil end }
+fl_posted = 0
+C_AuctionHouse = {
+  StartCommoditiesPurchase = function() end, ConfirmCommoditiesPurchase = function() end,
+  PlaceBid = function() end, CancelAuction = function() end, SendSearchQuery = function() end, GetCommoditySearchResultInfo = function() end,
+  PostCommodity = function() fl_posted = fl_posted + 1 end, PostItem = function() end,
+  CalculateCommodityDeposit = function(_, _, q) return q * 2 end,
+  GetAuctionInfoByID = function() return { itemKey = { itemID = 3575 } } end,
+}
+local W = M.Workshop
+W:Mine()[999] = { name = "Mining", recipes = { [1] = { name = "Smelt Iron", learned = true, item = 3575, made = 1, mats = { { item = 2772, count = 1 } } } } }
+M.db.market = M.db.market or {}
+M.db.market[3575] = { at = GetServerTime(), levels = { { p = 320, q = 40 }, { p = 330, q = 60 } },
+  hist = { [date("%Y-%m-%d", GetServerTime())] = { low = 320, median = 330 } } }
+mock_fire("AUCTION_HOUSE_SHOW")
+''')
+FL = 'local F = M.Flips '
+check("Flips: with flipping mode off, a purchase isn't logged", Q(fl, FL + 'return F:Bought(2772, 5, 1500) == nil and #F:All() == 0') is True)
+Q(fl, FL + 'F:SetOn(true)')
+check("Flips: the toggle is on, and says so", Q(fl, FL + 'return F:On()') is True and fl.said(r"flipping mode on"))
+Q(fl, '''C_AuctionHouse.StartCommoditiesPurchase(2772, 35)
+mock_fire("COMMODITY_PRICE_UPDATED", 300, 10500)
+C_AuctionHouse.ConfirmCommoditiesPurchase(2772, 35)
+mock_fire("COMMODITY_PURCHASE_SUCCEEDED")''')
+check("Flips: a commodity purchase starts a flip with its price", Q(fl, FL + 'local f = F:All()[1] return f and f.item == 2772 and f.buys[1].q == 35 and f.buys[1].c == 10500') is True and fl.said(r"bought 35 Iron Ore for"))
+check("Flips: the chat line for the same purchase isn't logged twice", Q(fl, FL + 'mock_fire("CHAT_MSG_SYSTEM", "You won an auction for Iron Ore") return true') is True)
+run(1.5)
+check("Flips: ...still one purchase", Q(fl, FL + 'return #F:All()[1].buys') == 1)
+Q(fl, '''C_AuctionHouse.PostCommodity({ id = 3575 }, 2, 12, 320) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 501)
+C_AuctionHouse.PostCommodity({ id = 3575 }, 2, 12, 330) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 502)
+C_AuctionHouse.PostCommodity({ id = 3575 }, 2, 11, 360) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 503)''')
+check("Flips: bars posted join the ore's flip through the smelting recipe", Q(fl, FL + 'local f = F:All()[1] return #F:All() == 1 and f.makes == 3575 and f.ratio == 1 and #f.lists == 3') is True)
+check("Flips: each listing's price is placed against the market", Q(fl, FL + 'local l = F:All()[1].lists return l[1].tier .. l[2].tier .. l[3].tier') == "lowusualhigh")
+check("Flips: deposits and auction IDs are kept", Q(fl, FL + 'local l = F:All()[1].lists return l[1].dep == 24 and l[1].aid == 501 and l[3].aid == 503') is True)
+# The mail
+Q(fl, '''
+local now = GetServerTime()
+fl_mail = {
+  { "Stormwind Auction House", "Auction successful: Iron Bar (12)", 3648 + 24, 29.9 },
+  { "Stormwind Auction House", "Auction expired: Iron Bar (12)", 0, 29.5 },
+}
+GetInboxHeaderInfo = function(i) local m = fl_mail[i] if m then return nil, nil, m[1], m[2], m[3], 0, m[4] end end
+GetInboxInvoiceInfo = function(i) if i == 1 then return "seller", "Iron Bar", "Someone", 3840, 3840, 24, 192, 0, 0, nil, 12 end end
+GetInboxItem = function(i) if i == 2 then return "Iron Bar", 3575, nil, 12 end end
+TakeInboxMoney = function() end
+TakeInboxItem = function() end
+AutoLootMailItem = function() end
+mock_fire("MAIL_SHOW")
+mock_fire("CHAT_MSG_SYSTEM", "A buyer has been found for your auction of Iron Bar.")
+TakeInboxMoney(1)
+''')
+check("Flips: the sale mail sells the cheapest listing, money and all", Q(fl, FL + 'local l = F:All()[1].lists return l[1].sold == 12 and l[1].got == 3672 and l[2].sold == 0') is True)
+check("Flips: the sale keeps its parts: sales, the 5% cut, the deposit refunded", Q(fl, FL + 'local l = F:All()[1].lists[1] return l.gross == 3840 and l.cut == 192 and l.refund == 24') is True)
+check("Flips: the score adds up: sales less cut, cost and deposits not refunded", Q(fl, FL + 'local s = F:Sum(F:All()[1]) return s.profit == s.gross - s.cut - s.cost - s.lost') is True)
+check("Flips: the sale's time is when the buyer was found", Q(fl, FL + 'local l = F:All()[1].lists[1] return l.first ~= nil and l.first - l.at < 60') is True)
+Q(fl, 'TakeInboxMoney(1) AutoLootMailItem(1)')
+check("Flips: the same mail isn't counted twice", Q(fl, FL + 'return F:All()[1].lists[1].sold') == 12)
+Q(fl, 'TakeInboxItem(2, 1)')
+check("Flips: an expired mail brings the whole listing's units back", Q(fl, FL + 'local l = F:All()[1].lists return l[2].back == 12 and l[3].back == 0') is True)
+Q(fl, 'C_AuctionHouse.CancelAuction(503)')
+check("Flips: a cancelled auction comes off the market", Q(fl, FL + 'local l = F:All()[1].lists[3] return l.cancelled == true and l.back == 11') is True)
+check("Flips: the score: received less cost and every deposit", Q(fl, FL + 'local s = F:Sum(F:All()[1]) return s.cost == 10500 and s.got == 3672 and s.deps == 70 and s.profit == 3672 - 10500 - 70') is True)
+check("Flips: still open while units are unsold", Q(fl, FL + 'return F:All()[1].closed == nil') is True)
+# Relisting the returned bars, and selling out
+Q(fl, '''C_AuctionHouse.PostCommodity({ id = 3575 }, 2, 23, 330) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 504)
+fl_mail[3] = { "Stormwind Auction House", "Auction successful: Iron Bar (23)", 7210 + 46, 29.8 }
+GetInboxInvoiceInfo = function(i) if i == 3 then return "seller", "Iron Bar", "Someone", 7590, 7590, 46, 380, 0, 0, nil, 23 end end
+TakeInboxMoney(3)''')
+check("Flips: selling every unit finishes the flip", Q(fl, FL + 'local f = F:All()[1] return f.closed ~= nil and F:Sum(f).sold == 35') is True and fl.said(r"Flip done: Iron Ore, profit"))
+check("Flips: the totals count it", Q(fl, FL + 'local t = F:Totals() return t.done == 1 and t.profit == F:Sum(F:All()[1]).profit') is True)
+# Stock that wasn't bought as a flip
+Q(fl, '''GetItemInfo = function(id) return ({ [2772] = "Iron Ore", [3575] = "Iron Bar", [2840] = "Copper Bar" })[id] end
+C_AuctionHouse.PostCommodity({ id = 2840 }, 1, 5, 100)''')
+check("Flips: with the mode on, posting your own stock starts a flip with no cost", Q(fl, FL + 'local f = F:All()[1] return f.item == 2840 and f.own == true and F:Sum(f).cost == 0') is True)
+Q(fl, FL + 'F:SetOn(false) C_AuctionHouse.PostCommodity({ id = 2772 }, 1, 5, 400)')
+check("Flips: with the mode off, an item with no open flip isn't logged", Q(fl, FL + 'return #F:All()') == 2)
+# The chat fallback
+run(6)
+Q(fl, FL + 'F:SetOn(true) mock_fire("CHAT_MSG_SYSTEM", "You won an auction for Iron Ore")')
+run(1.5)
+check("Flips: a purchase only the chat saw is logged at the market's price, marked estimated", Q(fl, FL + 'local f = F:ForBuy(2772) return f ~= nil and f.buys[1].est == true and f.buys[1].q == 1') is True)
+# The page at the auction house
+Q(fl, '''AuctionHouseFrame = CreateFrame("Frame")
+AuctionHouseFrame.Tabs = { CreateFrame("Button") }
+AuctionHouseFrame.SetDisplayMode = function(self, mode) self.mode = mode end
+AuctionHouseFrame.SetTitle = function() end
+AuctionHouseFrame:Show()
+mock_fire("AUCTION_HOUSE_SHOW")''')
+run(1)
+G = 'local G = M.WorkshopMarket '
+check("Flips: the Workshop tab has a Flips view listing them", Q(fl, G + 'G:Select() G:View("flips") return #G:Rows() == 3 and G.rows[1].shown and G.page.flipping.shown and not G.page.quick.hot.shown') is True)
+check("Flips: the finished flip's row shows what sold", Q(fl, G + 'for _, r in ipairs(G.rows) do if r.shown and r.it.flip.closed then return r.cells[5].text end end') == "35/35")
+check("Flips: the toggle button turns the mode off", Q(fl, G + 'local b = G.page.flipping b.scripts.OnClick(b) return not M.Flips:On() and G.page.flipping.text:find("off") ~= nil') is True)
+Q(fl, G + 'for _, r in ipairs(G.rows) do if r.shown and r.it.flip.closed then r.scripts.OnEnter(r) r.scripts.OnLeave(r) end end')
+Q(fl, 'IsShiftKeyDown = function() return true end')
+check("Flips: shift-click reopens a finished flip", Q(fl, G + 'for _, r in ipairs(G.rows) do if r.shown and r.it.flip.closed then local f = r.it.flip r.scripts.OnClick(r) return f.closed == nil end end') is True)
+Q(fl, 'IsShiftKeyDown = nil')
+fl.slash("flip")
+check("Flips: /mota flip lists them", fl.said(r"#1 Iron Ore: 35/35 sold"))
+fl_tip = Q(fl, 'local l = M.WorkshopTooltip:Lines(3575) local t = {} for _, x in ipairs(l) do t[#t + 1] = x[1] .. "=" .. x[2] end t = table.concat(t, ";") return t')
+check("Tooltips: an item's tooltip shows craft profit and your flips' sales", "Craft profit (after 5% cut)=" in str(fl_tip) and "Your flips (1)=35 sold, +" in str(fl_tip))
+fl.slash("flip delete 3")
+check("Flips: /mota flip delete removes one", Q(fl, FL + 'return #F:All()') == 2)
+check("Flips: kept per character", Q(fl, 'return M.db.flips[M.me] ~= nil') is True)
+# Linked materials: ore smelted to bars, then bars and stone made into a sharpening stone
+Q(fl, FL + '''GetItemInfo = function(id) return ({ [2772] = "Iron Ore", [3575] = "Iron Bar", [2840] = "Copper Bar",
+  [2770] = "Copper Ore", [2835] = "Rough Stone", [2862] = "Sharpening Stone" })[id] end
+F:SetOn(true)
+fl_ore = F:Bought(2770, 20, 2000).id
+fl_stone = F:Bought(2835, 10, 500).id
+C_AuctionHouse.PostCommodity({ id = 2862 }, 1, 10, 300) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 601)
+fl_wheel = F:All()[1].id''')
+check("Links: a two-step craft starts its own flip, at no cost", Q(fl, FL + 'local f = F:Get(fl_wheel) return f.item == 2862 and f.own == true and F:Sum(f).cost == 0') is True)
+check("Links: both materials can be linked to it", Q(fl, FL + 'local n = 0 for _, s in ipairs(F:Sources(F:Get(fl_wheel))) do if s.id == fl_ore or s.id == fl_stone then n = n + 1 end end return n') == 2)
+Q(fl, FL + 'F:Link(fl_wheel, fl_ore, 10)')
+check("Links: part of a purchase links at the price paid", Q(fl, FL + 'local w, o = F:Get(fl_wheel), F:Get(fl_ore) return F:Sum(w).cost == 1000 and F:Sum(o).cost == 1000 and F:Free(o) == 10 and not o.closed') is True and fl.said(r"linked 10 Copper Ore to Sharpening Stone"))
+check("Links: more than is free is refused", Q(fl, FL + 'local ok, err = F:Link(fl_wheel, fl_ore, 11) return ok == nil and err:find("Only 10") ~= nil') is True)
+Q(fl, G + 'G:Select() G:View("flips") for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then r.scripts.OnClick(r, "RightButton") end end')
+check("Links: right-click opens the menu with what can be linked", Q(fl, G + 'local m = G.menu if not (m and m.shown) then return false end for _, b in ipairs(m.rows) do if b.shown and b.text.text:find("Rough Stone: 10 free") then return true end end return false') is True)
+Q(fl, G + 'for _, b in ipairs(G.menu.rows) do if b.shown and b.text.text:find("Rough Stone") then b.scripts.OnClick(b) break end end')
+check("Links: clicking a material links all of it, and the material flip closes as used", Q(fl, FL + 'local s = F:Get(fl_stone) return F:Sum(F:Get(fl_wheel)).cost == 1500 and s.closed ~= nil and s.usedIn == fl_wheel and F:Sum(s).cost == 0') is True)
+check("Links: the menu now offers to unlink them", Q(fl, G + 'local n = 0 for _, b in ipairs(G.menu.rows) do if b.shown and b.text.text:find("Unlink") then n = n + 1 end end return n') == 2)
+check("Links: a material in use can't be deleted", Q(fl, FL + 'local ok, err = F:Delete(fl_ore) return ok == nil and err:find("unlink") ~= nil') is True)
+Q(fl, FL + 'F:Unlink(fl_wheel, 2)')
+check("Links: unlinking gives the units back and reopens the material", Q(fl, FL + 'local s = F:Get(fl_stone) return F:Sum(F:Get(fl_wheel)).cost == 1000 and s.closed == nil and s.usedIn == nil and F:Free(s) == 10') is True)
+Q(fl, FL + 'F:Link(fl_wheel, fl_stone) F:Sold("Sharpening Stone", 10, 2850 + 20, GetServerTime(), 3000, 150, 20)')
+check("Links: the craft sells out and its profit counts the linked materials", Q(fl, FL + 'local f = F:Get(fl_wheel) local s = F:Sum(f) return f.closed ~= nil and s.units == 10 and s.profit == 2870 - 1500 - s.deps') is True)
+check("Links: the Flips view shows the craft as linked", Q(fl, G + 'G:Refresh() for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then return r.cells[2].text end end') == "linked")
+Q(fl, G + 'for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then r.scripts.OnEnter(r) r.scripts.OnLeave(r) end end')
+fl.slash("flip")
+check("Links: /mota flip lists a craft's links", fl.said(r"link 1: 10 Copper Ore from #"))
+Q(fl, '''mock_fire("AUCTION_HOUSE_CLOSED") AuctionHouseFrame = nil
+GetItemInfo, C_AuctionHouse, C_Item = fl_saved.GetItemInfo, fl_saved.C_AuctionHouse, fl_saved.C_Item
+GetInboxHeaderInfo, GetInboxInvoiceInfo, GetInboxItem, TakeInboxMoney, TakeInboxItem, AutoLootMailItem = nil, nil, nil, nil, nil, nil''')
+check("Flips: nothing in it raised a Lua error", len(errors) == errs_before_fl)
 print("== 20. The gossip probe: /mota probe gossip (Crown-only, off by default, hears a picked option)")
 # A pretend client with the gossip functions; the Crown (mk) runs the probe, a citizen (bm) is refused.
 GOSSIP_LUA = '''
