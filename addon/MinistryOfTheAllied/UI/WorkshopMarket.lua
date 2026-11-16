@@ -103,7 +103,46 @@ function Page:Crafts()
       end
     end
   end
+  for _, f in ipairs(self:StraightFlips()) do out[#out + 1] = f end
   return out
+end
+
+-- Straight flips: every watched item (materials and crafts) bought from the cheapest listings at
+-- the batch size and relisted at its usual price, after the cut. Priced per unit, so they rank
+-- with the crafts (per craft) on the same columns. Only those that make money are listed.
+Page.FLIP_COLOUR = "66CCFF"
+function Page:StraightFlips()
+  local out, M, n, seen = {}, MOTA.Market, W:Batch(), {}
+  for _, id in ipairs(scanList()) do
+    if not seen[id] then
+      seen[id] = true
+      local usual = M:Normal(id)
+      local cost, got = M:Buy(id, n)
+      if usual and cost and got and got > 0 then
+        local each = cost / got
+        local net = math.floor(usual * (1 - W.CUT))
+        local profit = math.floor(net - each + 0.5)
+        if profit > 0 then
+          local rate = (M:SellRate(id))
+          local name = W.ItemInfo(id) or ("item " .. id)
+          out[#out + 1] = { id = id, straight = true, name = "Flip: " .. name, itemName = name,
+            cost = math.floor(each + 0.5), sale = net, gross = usual, cut = usual - net, profit = profit,
+            margin = each > 0 and profit / each or nil, rate = rate, sells = M:RateText(id),
+            perDay = rate and profit * rate or nil, missing = 0, short = got < n, low = M:Lowest(id) }
+        end
+      end
+    end
+  end
+  return out
+end
+
+function Page:StraightTip(it)
+  GameTooltip:AddLine(it.name, 0.4, 0.8, 1)
+  GameTooltip:AddDoubleLine("Buy at (cheapest " .. W:Batch() .. ")", money(it.cost) .. " each", 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine("Relist at the usual price", money(it.gross), 0.8, 0.8, 0.8, 1, 1, 1)
+  GameTooltip:AddDoubleLine("Auction house cut (5%)", "-" .. money(it.cut), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Profit each", signed(it.profit), 1, 1, 1, MOTA:RGB(GAIN))
+  GameTooltip:AddLine("The usual price is the last week's median: a low price today may be a bargain, or the market falling. Check how fast it sells.", 0.6, 0.6, 0.6, true)
 end
 
 -- The flips (Flips.lua), newest first: what each cost, what's sold, the profit so far.
@@ -135,7 +174,7 @@ local COLS = {
   },
   crafts = {
     { key = "name", label = "Craft", w = 210, justify = "LEFT", text = function(it) return it.name end,
-      colour = function(it) return COLOUR[it.colour] or "FFD100" end },
+      colour = function(it) return it.straight and Page.FLIP_COLOUR or COLOUR[it.colour] or "FFD100" end },
     { key = "cost", label = "Materials", w = 86, text = function(it) return money(it.cost) .. (it.missing > 0 and "*" or "") end },
     { key = "sale", label = "Sells for", w = 86, text = function(it) return money(it.sale) end },
     { key = "profit", label = "Profit", w = 86, text = function(it) return signed(it.profit) end,
@@ -296,6 +335,7 @@ local function buildPage(ah)
       local it = self.it
       if it and it.flip then Page:FlipTip(it) GameTooltip:Show() return end
       if it and it.recipe then Page:CraftTip(it) end
+      if it and it.straight then Page:StraightTip(it) end
       if it and it.short then GameTooltip:AddLine("Not enough materials listed for the whole batch.", 1, 0.5, 0.3) end
       if it and it.missing and it.missing > 0 then GameTooltip:AddLine("* Some materials have no price.", 1, 0.5, 0.3) end
       GameTooltip:AddLine("Click to search the auction house for it.", 0.6, 0.6, 0.6)
@@ -372,7 +412,7 @@ function Page:Refresh()
     local newest = Panel:NewestScan()
     local n = #W:Materials()
     page.status:SetText(n == 0 and "Open a profession once so the Workshop knows your recipes."
-      or (("Your crafts and their materials. Last scan %s. Crafts priced at a batch of %d. Profit is after the auction house's 5%% cut: green makes money, red loses it. Deposits come back when it sells.")
+      or (("Your crafts, and in blue the straight flips worth making (buy the cheapest, relist at the usual price). Last scan %s. Priced at a batch of %d. Profit is after the auction house's 5%% cut: green makes money, red loses it. Deposits come back when it sells.")
         :format(newest and Panel:Ago(newest) or "never", W:Batch())))
     page.go:SetShown(n > 0); page.stop:Hide()
   end
@@ -399,7 +439,7 @@ function Page:Refresh()
     page.foot:SetText(#list == 0 and "No flips yet." or (#list .. " flips · hover for each price's sales · shift-click to close or reopen · right-click to link materials"))
     return
   end
-  local what = view == "crafts" and "crafts" or "items"
+  local what = view == "crafts" and "crafts and flips" or "items"
   page.foot:SetText(#list == 0 and (view == "crafts" and "No priced crafts yet: scan, or visit the auction house with Auctionator." or "Nothing watched yet.")
     or (#list > ROWS and ("%d to %d of %d %s · scroll for more · click a heading to sort"):format(top + 1, math.min(#list, top + ROWS), #list, what)
       or ("%d %s · click a heading to sort · click a row to search for it"):format(#list, what)))

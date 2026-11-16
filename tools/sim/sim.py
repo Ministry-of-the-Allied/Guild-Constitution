@@ -453,6 +453,14 @@ check("Workshop: the scan finishes and says when", ws(MKT + 'return MinistryOfTh
 check("Workshop: another tab hides the Market page", ws(MKT + 'AuctionHouseFrame:SetDisplayMode({ "ItemBuy" }) return not G.page.shown and not G.tab.selected'))
 check("Workshop: the Crafts view compares cost and price, most profitable first", ws(MKT + 'G:Select() G:View("crafts") local l = G:Rows() return #l >= 2 and l[1].profit >= l[2].profit and l[1].cost ~= nil and l[1].sale ~= nil'))
 check("Workshop: a craft's tooltip shows the sale, the cut and the materials", ws(MKT + 'local r = G.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r) local it = G:Rows()[1] return it.gross ~= nil and it.cut == it.gross - it.sale and G.page.status.text:find("5%% cut") ~= nil'))
+SF = MKT + 'local Mk = MinistryOfTheAllied.Market local d = MinistryOfTheAllied.db.market local today = date("%Y-%m-%d", GetServerTime()) '
+ws(SF + 'sf_saved = { d[2835].hist, d[2840].hist } d[2835].hist = { [today] = { median = 200, sold = 48, hours = 24 } } d[2840].hist = { [today] = { median = 1 } } return true')
+check("Straight flips: an item listed below its usual price shows in the Crafts view, per unit after the cut", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then return it.cost == 50 and it.sale == 190 and it.profit == 140 and it.name == "Flip: " .. it.itemName end end return false') is True)
+check("Straight flips: one that would lose money isn't listed", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2840 then return false end end return true') is True)
+check("Straight flips: profit a day from how fast it sells", ws(MKT + 'for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then return it.perDay == 140 * 48 end end') is True)
+check("Straight flips: Profit a day ranks them with the crafts, in their own colour", ws(MKT + 'local b = G.page.quick.day b.scripts.OnClick(b) for i, r in ipairs(G.rows) do if r.shown and r.it.straight then r.scripts.OnEnter(r) r.scripts.OnLeave(r) return r.cells[1].text:find("^Flip: ") ~= nil end end return false') is True)
+check("Straight flips: a bigger batch buys up the dearer listings", ws(MKT + 'W:SetBatch(30) local p for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then p = it.profit end end W:SetBatch(1) return p') == 123)  # 190 less (20 at 50 + 10 at 100) / 30
+ws(SF + 'd[2835].hist, d[2840].hist = sf_saved[1], sf_saved[2] return true')
 check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
 check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
