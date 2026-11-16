@@ -1011,7 +1011,7 @@ local FAKE_PAGE = {
   title = "A test quest (probe)",
   body = "This is not a real quest. You are looking at a page of ours, opened from an entry we added to the gossip window. "
     .. "Nothing can be accepted here: Accept, Decline and Close only close this page.",
-  objective = "Objective: tell Max whether this entry looked like it belonged in the list.",
+  objective = "Objective: report whether this entry looked like it belonged in the list.",
   rewards = "Rewards: none (a test page)",
 }
 local QUEST_PAGE_EVENTS = { QUEST_DETAIL = "detail", QUEST_PROGRESS = "progress", QUEST_COMPLETE = "complete",

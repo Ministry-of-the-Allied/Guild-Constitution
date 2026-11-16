@@ -39,8 +39,10 @@ A World of Warcraft (WoW Forever, Interface 16001) guild add-on that runs the gu
 | Guild dots on the maps | `Dots.lua` | `UI/Dots.lua` | §10.17 |
 | NPC quest markers and nameplates | `NPCMarkers.lua` | `UI/NPCMarkers.lua`, `UI/NPCPlates.lua` | §10.18 |
 | Games: hunt, lottery, honours, games log | `Games.lua`, `Hunt.lua`, `Lottery.lua` (+`Sha256.lua`), `Honours.lua` | `UI/GamesHall.lua`, `UI/HuntGlow.lua` | §19 |
+| Hide and Seek | `Hide.lua`, `MapReveal.lua` (generated zone maps) | `UI/HideMap.lua` | §19 |
+| Pub Quiz | `Quiz.lua`, `QuizBank.lua` (questions) | `UI/QuizPrompt.lua`, `UI/GamesHall.lua` | §17b |
 | The Ring (duelling) | `Ring.lua` | `UI/Ring.lua` | §11 |
-| Workshop (crafting guide) and market | `Workshop.lua`, `Market.lua`, `ProbeMarket.lua` | `UI/Workshop.lua`, `UI/WorkshopMarket.lua` | — |
+| Workshop (crafting guide), market, flipping ledger | `Workshop.lua`, `Market.lua`, `ProbeMarket.lua`, `Flips.lua` | `UI/Workshop.lua`, `UI/WorkshopMarket.lua`, `UI/WorkshopTooltip.lua` | — |
 | Heralds (pop-ups) | — | `UI/Herald.lua`, `UI/HeraldPreview.lua` | §10.2 |
 | Minimap seal, online tooltip, crests | — | `UI/Minimap.lua`, `UI/OnlineTip.lua`, `UI/Crests.lua` | — |
 | Settings and Admin Controls | — | `UI/Settings.lua`, `UI/AdminControls.lua` | — |
