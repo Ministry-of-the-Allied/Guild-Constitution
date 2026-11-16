@@ -1378,8 +1378,16 @@ function Probe:QuestOwnClick(action)
   self:QuestStep("own page: " .. action)
   P(tag .. ": our page: " .. action .. " clicked")
   if page.fake then
-    -- A test page has no quest behind it: every button only closes it. The gossip window is left alone.
+    -- A test page has no quest behind it: every button only closes it. Accept and Decline go back to the gossip
+    -- window; Close (and Escape) end the whole conversation like the game's own Close, so the gossip window goes too.
     if self.questOwn and self.questOwn.IsShown and self.questOwn:IsShown() then self.questOwn:Hide() end
+    if action == "close" or action == "escape" then
+      if C_GossipInfo and type(C_GossipInfo.CloseGossip) == "function" then
+        pcall(C_GossipInfo.CloseGossip)
+      end
+      local g = rawget(_G, "GossipFrame")
+      if type(g) == "table" and g.IsShown and g:IsShown() and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, g) end
+    end
     return
   end
   if action == "accept" then

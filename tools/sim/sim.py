@@ -5971,7 +5971,11 @@ Q(mk, 'mock_advance(1); M.Probe.questBtnOverlay.scripts.OnClick(M.Probe.questBtn
 check("Button mode: a click on the overlay button opens a second test page and counts on the overlay",
       Q(mk, 'local o = M.db.probe.quest.button.overlay return o.clicks == 1 and o.routes.overlay == 1') is True
       and Q(mk, 'return M.Probe.questOwn:IsShown()') is True and Q(mk, 'return #M.db.probe.quest.pages') == 2)
-Q(mk, 'M.Probe.questOwn.close.scripts.OnClick(M.Probe.questOwn.close)')
+Q(mk, 'GossipFrame:Show(); M.Probe.questOwn.close.scripts.OnClick(M.Probe.questOwn.close)')
+check("Button mode: Close on the test page closes our page AND the gossip window (not back to the gossip page)",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return GossipFrame:IsShown()') is False
+      and Q(mk, 'return M.db.probe.quest.pages[2].ownAction') == "close")
+Q(mk, 'GossipFrame:Show(); mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
 # Combat: a quest pick made while fighting is counted and marked in the steps.
 Q(mk, 'COMBAT = true; C_GossipInfo.SelectAvailableQuest(5001); mock_advance(0.1); COMBAT = false')
 check("Button mode: a quest pick made in combat is counted and marked [combat] in the steps",
