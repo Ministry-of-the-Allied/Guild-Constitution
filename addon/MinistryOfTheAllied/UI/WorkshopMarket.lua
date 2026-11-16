@@ -150,7 +150,7 @@ local COLS = {
   flips = {
     { key = "name", label = "Flip", w = 220, justify = "LEFT", text = function(it) return it.name end,
       colour = function(it) return it.flip.closed and "808080" or "FFD100" end },
-    { key = "bought", label = "Bought", w = 60, text = function(it) return it.flip.own and "own" or tostring(it.bought) end },
+    { key = "bought", label = "Bought", w = 60, text = function(it) return it.flip.mats and "linked" or it.flip.usedIn and "used" or it.flip.own and "own" or tostring(it.bought) end },
     { key = "cost", label = "Cost", w = 84, text = function(it) return money(it.cost) .. (it.sum.est and "*" or "") end },
     { key = "up", label = "Listed", w = 60, text = function(it) return tostring(it.up) end },
     { key = "sold", label = "Sold", w = 70, text = function(it) return it.sold .. "/" .. it.units end },
@@ -302,7 +302,9 @@ local function buildPage(ah)
       GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    r:SetScript("OnClick", function(self)
+    if r.RegisterForClicks then r:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    r:SetScript("OnClick", function(self, mouse)
+      if self.it and self.it.flip and mouse == "RightButton" then Page:LinkMenu(self.it.flip, self) return end
       if self.it and self.it.flip and IsShiftKeyDown() then MOTA.Flips:Close(self.it.flip.id) return end
       if self.id then Panel:SearchAuctions(self.id, W.ItemInfo(self.id) or (self.it and self.it.name)) end end)
     rows[i] = r
@@ -394,7 +396,7 @@ function Page:Refresh()
     page.status:SetText((MOTA.Flips:On() and "Flipping mode is on: what you buy here is logged as a flip. "
       or "Turn flipping mode on before buying to log a flip. ")
       .. ("%d finished, %s profit in all. ? = so far, if what's listed sells."):format(t.done, signed(t.profit)))
-    page.foot:SetText(#list == 0 and "No flips yet." or (#list .. " flips · hover for each price's sales · shift-click to close or reopen"))
+    page.foot:SetText(#list == 0 and "No flips yet." or (#list .. " flips · hover for each price's sales · shift-click to close or reopen · right-click to link materials"))
     return
   end
   local what = view == "crafts" and "crafts" or "items"
@@ -421,6 +423,103 @@ function Page:CraftTip(it)
 end
 
 -- A flip's tooltip: its listings by price, what sold and how fast.
+---------------------------------------------------------------------------
+-- Linking materials to a flip (right-click a flip): the materials bought as flips of their own,
+-- linked at the price paid, and the links already made, to undo.
+---------------------------------------------------------------------------
+
+local MENU_ROWS = 10
+local menu
+
+local function buildMenu()
+  menu = CreateFrame("Frame", "MOTAFlipLinkMenu", page, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  menu:SetSize(320, 80)
+  menu:SetFrameStrata("DIALOG")
+  menu:SetClampedToScreen(true)
+  menu:EnableMouse(true)
+  local bg = menu:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  bg:SetColorTexture(0.08, 0.07, 0.05, 0.97)
+  local rim = menu:CreateTexture(nil, "BORDER")
+  rim:SetPoint("TOPLEFT", -1, 1); rim:SetPoint("BOTTOMRIGHT", 1, -1)
+  rim:SetColorTexture(1, 0.82, 0, 0.5)
+  rim:SetDrawLayer("BACKGROUND", -1)
+  menu.title = fontString(menu, "GameFontNormal", "LEFT")
+  menu.title:SetPoint("TOPLEFT", 10, -8)
+  menu.title:SetWidth(270)
+  menu.close = button(menu, 22, 20, "x", function() menu:Hide() end)
+  menu.close:SetPoint("TOPRIGHT", -4, -4)
+  menu.countLabel = fontString(menu, "GameFontHighlightSmall", "LEFT")
+  menu.countLabel:SetPoint("TOPLEFT", 10, -30)
+  menu.countLabel:SetText("How many (blank links all):")
+  menu.count = CreateFrame("EditBox", nil, menu, "InputBoxTemplate")
+  menu.count:SetSize(50, 18)
+  menu.count:SetPoint("LEFT", menu.countLabel, "RIGHT", 10, 0)
+  menu.count:SetAutoFocus(false)
+  if menu.count.SetNumeric then menu.count:SetNumeric(true) end
+  menu.count:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  menu.rows = {}
+  for i = 1, MENU_ROWS do
+    local b = CreateFrame("Button", nil, menu)
+    b:SetHeight(18)
+    b:SetPoint("TOPLEFT", 8, -50 - (i - 1) * 19)
+    b:SetPoint("TOPRIGHT", -8, -50 - (i - 1) * 19)
+    b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    b.text = fontString(b, "GameFontHighlightSmall", "LEFT")
+    b.text:SetAllPoints()
+    b:SetScript("OnClick", function(self) if self.act then self.act() end end)
+    menu.rows[i] = b
+  end
+  menu.note = fontString(menu, "GameFontDisableSmall", "LEFT")
+  menu.note:SetWidth(300)
+  menu:Hide()
+  Page.menu = menu
+end
+
+-- Fills the menu for flip f: unlinks first, then what can be linked.
+function Page:FillMenu(f)
+  local F = MOTA.Flips
+  local items = {}
+  for i, m in ipairs(f.mats or {}) do
+    items[#items + 1] = { text = ("|cffFF6060Unlink|r %d %s (%s each)"):format(m.q, m.name, money(math.floor(m.each + 0.5))),
+      act = function() F:Unlink(f.id, i); Page:FillMenu(f) end }
+  end
+  for _, src in ipairs(F:Sources(f)) do
+    local each = F:Each(src)
+    items[#items + 1] = { text = ("|cff1EFF00Link|r %s: %d free at %s each"):format(src.name, F:Free(src), money(math.floor(each + 0.5))),
+      act = function()
+        local n = tonumber(menu.count:GetText() or "")
+        local ok, err = F:Link(f.id, src.id, n)
+        if not ok and err then MOTA:Print(err) end
+        menu.count:SetText("")
+        Page:FillMenu(f)
+      end }
+  end
+  menu.title:SetText("Materials for " .. (f.makesName or f.name))
+  for i, b in ipairs(menu.rows) do
+    local it = items[i]
+    b:SetShown(it ~= nil)
+    b.act = it and it.act
+    b.text:SetText(it and it.text or "")
+  end
+  local shown = math.min(#items, MENU_ROWS)
+  menu.note:ClearAllPoints()
+  menu.note:SetPoint("TOPLEFT", 10, -54 - shown * 19)
+  menu.note:SetText(#items == 0 and "No other flips have materials free to link. Buy them with flipping mode on."
+    or "Linked materials count at the price you paid, locked in.")
+  menu:SetHeight(80 + shown * 19)
+end
+
+function Page:LinkMenu(f, anchor)
+  if not menu then buildMenu() end
+  menu.flip = f
+  menu.count:SetText("")
+  menu:ClearAllPoints()
+  menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 40, 0)
+  self:FillMenu(f)
+  menu:Show()
+end
+
 function Page:FlipTip(it)
   local f, s = it.flip, it.sum
   GameTooltip:AddLine(it.name, 1, 0.82, 0)
@@ -435,13 +534,20 @@ function Page:FlipTip(it)
   GameTooltip:AddLine(" ")
   GameTooltip:AddDoubleLine("Sales", money(s.gross), 0.8, 0.8, 0.8, 1, 1, 1)
   GameTooltip:AddDoubleLine("Auction house cut (5%)", "-" .. money(s.cut), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
-  GameTooltip:AddDoubleLine("Bought for", "-" .. money(s.cost), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  GameTooltip:AddDoubleLine("Bought for", "-" .. money(s.cost - s.mats), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  for _, m in ipairs(f.mats or {}) do
+    GameTooltip:AddDoubleLine(("  %d %s (linked)"):format(m.q, m.name), "-" .. money(math.floor(m.q * m.each + 0.5)), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
+  end
+  if f.out then
+    local to = MOTA.Flips:Get(f.usedIn or -1)
+    GameTooltip:AddLine(("%d linked to %s at what they cost."):format(f.out, to and (to.makesName or to.name) or "crafts"), 0.6, 0.6, 0.6, true)
+  end
   GameTooltip:AddDoubleLine("Deposits paid", "-" .. money(s.deps), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
   GameTooltip:AddDoubleLine("Deposits refunded on sale", "+" .. money(s.refund), 0.8, 0.8, 0.8, MOTA:RGB(GAIN))
   if s.up > 0 then GameTooltip:AddLine(("Deposits on the %d still listed come back if they sell."):format(s.up), 0.6, 0.6, 0.6, true) end
   GameTooltip:AddDoubleLine(f.closed and "Profit" or "Profit so far", signed(s.profit), 1, 1, 1, MOTA:RGB(s.profit >= 0 and GAIN or LOSS))
   if not f.closed then GameTooltip:AddDoubleLine("If the rest sells", signed(s.outlook), 0.8, 0.8, 0.8, MOTA:RGB(s.outlook >= 0 and GAIN or LOSS)) end
-  GameTooltip:AddLine(f.closed and "Shift-click to reopen." or "Shift-click to close it.", 0.6, 0.6, 0.6)
+  GameTooltip:AddLine((f.closed and "Shift-click to reopen." or "Shift-click to close it.") .. " Right-click to link materials.", 0.6, 0.6, 0.6)
 end
 
 ---------------------------------------------------------------------------
@@ -564,4 +670,7 @@ MOTA:Listen("AUCTION_OPEN", onOpen)
 MOTA:Listen("AUCTION_CLOSED", function() Page:Deselect() Panel:Refresh() end)
 MOTA:Listen("MARKET_CHANGED", function() Page:Refresh(); Panel:Refresh() end)
 MOTA:Listen("WORKSHOP_CHANGED", function() Page:Refresh() end)
-MOTA:Listen("FLIPS_CHANGED", function() Page:Refresh() end)
+MOTA:Listen("FLIPS_CHANGED", function()
+  Page:Refresh()
+  if menu and menu:IsShown() and menu.flip then Page:FillMenu(menu.flip) end
+end)

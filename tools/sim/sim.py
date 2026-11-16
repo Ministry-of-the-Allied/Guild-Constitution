@@ -5363,6 +5363,33 @@ check("Tooltips: an item's tooltip shows craft profit and your flips' sales", "C
 fl.slash("flip delete 3")
 check("Flips: /mota flip delete removes one", Q(fl, FL + 'return #F:All()') == 2)
 check("Flips: kept per character", Q(fl, 'return M.db.flips[M.me] ~= nil') is True)
+# Linked materials: ore smelted to bars, then bars and stone made into a sharpening stone
+Q(fl, FL + '''GetItemInfo = function(id) return ({ [2772] = "Iron Ore", [3575] = "Iron Bar", [2840] = "Copper Bar",
+  [2770] = "Copper Ore", [2835] = "Rough Stone", [2862] = "Sharpening Stone" })[id] end
+F:SetOn(true)
+fl_ore = F:Bought(2770, 20, 2000).id
+fl_stone = F:Bought(2835, 10, 500).id
+C_AuctionHouse.PostCommodity({ id = 2862 }, 1, 10, 300) mock_fire("AUCTION_HOUSE_AUCTION_CREATED", 601)
+fl_wheel = F:All()[1].id''')
+check("Links: a two-step craft starts its own flip, at no cost", Q(fl, FL + 'local f = F:Get(fl_wheel) return f.item == 2862 and f.own == true and F:Sum(f).cost == 0') is True)
+check("Links: both materials can be linked to it", Q(fl, FL + 'local n = 0 for _, s in ipairs(F:Sources(F:Get(fl_wheel))) do if s.id == fl_ore or s.id == fl_stone then n = n + 1 end end return n') == 2)
+Q(fl, FL + 'F:Link(fl_wheel, fl_ore, 10)')
+check("Links: part of a purchase links at the price paid", Q(fl, FL + 'local w, o = F:Get(fl_wheel), F:Get(fl_ore) return F:Sum(w).cost == 1000 and F:Sum(o).cost == 1000 and F:Free(o) == 10 and not o.closed') is True and fl.said(r"linked 10 Copper Ore to Sharpening Stone"))
+check("Links: more than is free is refused", Q(fl, FL + 'local ok, err = F:Link(fl_wheel, fl_ore, 11) return ok == nil and err:find("Only 10") ~= nil') is True)
+Q(fl, G + 'G:Select() G:View("flips") for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then r.scripts.OnClick(r, "RightButton") end end')
+check("Links: right-click opens the menu with what can be linked", Q(fl, G + 'local m = G.menu if not (m and m.shown) then return false end for _, b in ipairs(m.rows) do if b.shown and b.text.text:find("Rough Stone: 10 free") then return true end end return false') is True)
+Q(fl, G + 'for _, b in ipairs(G.menu.rows) do if b.shown and b.text.text:find("Rough Stone") then b.scripts.OnClick(b) break end end')
+check("Links: clicking a material links all of it, and the material flip closes as used", Q(fl, FL + 'local s = F:Get(fl_stone) return F:Sum(F:Get(fl_wheel)).cost == 1500 and s.closed ~= nil and s.usedIn == fl_wheel and F:Sum(s).cost == 0') is True)
+check("Links: the menu now offers to unlink them", Q(fl, G + 'local n = 0 for _, b in ipairs(G.menu.rows) do if b.shown and b.text.text:find("Unlink") then n = n + 1 end end return n') == 2)
+check("Links: a material in use can't be deleted", Q(fl, FL + 'local ok, err = F:Delete(fl_ore) return ok == nil and err:find("unlink") ~= nil') is True)
+Q(fl, FL + 'F:Unlink(fl_wheel, 2)')
+check("Links: unlinking gives the units back and reopens the material", Q(fl, FL + 'local s = F:Get(fl_stone) return F:Sum(F:Get(fl_wheel)).cost == 1000 and s.closed == nil and s.usedIn == nil and F:Free(s) == 10') is True)
+Q(fl, FL + 'F:Link(fl_wheel, fl_stone) F:Sold("Sharpening Stone", 10, 2850 + 20, GetServerTime(), 3000, 150, 20)')
+check("Links: the craft sells out and its profit counts the linked materials", Q(fl, FL + 'local f = F:Get(fl_wheel) local s = F:Sum(f) return f.closed ~= nil and s.units == 10 and s.profit == 2870 - 1500 - s.deps') is True)
+check("Links: the Flips view shows the craft as linked", Q(fl, G + 'G:Refresh() for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then return r.cells[2].text end end') == "linked")
+Q(fl, G + 'for _, r in ipairs(G.rows) do if r.shown and r.it.flip.id == fl_wheel then r.scripts.OnEnter(r) r.scripts.OnLeave(r) end end')
+fl.slash("flip")
+check("Links: /mota flip lists a craft's links", fl.said(r"link 1: 10 Copper Ore from #"))
 Q(fl, '''mock_fire("AUCTION_HOUSE_CLOSED") AuctionHouseFrame = nil
 GetItemInfo, C_AuctionHouse, C_Item = fl_saved.GetItemInfo, fl_saved.C_AuctionHouse, fl_saved.C_Item
 GetInboxHeaderInfo, GetInboxInvoiceInfo, GetInboxItem, TakeInboxMoney, TakeInboxItem, AutoLootMailItem = nil, nil, nil, nil, nil, nil''')

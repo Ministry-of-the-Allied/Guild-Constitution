@@ -217,8 +217,16 @@ add("workshop", "", "shows or hides the Workshop, the crafting guide beside the 
   MOTA.WorkshopPanel:Toggle()
 end)
 
-add("flip", "[on|off|close <n>|delete <n>]", "flipping mode: logs auction house purchases, listings and sales as flips (the Workshop tab's Flips view); with no word, lists them", function(arg)
+add("flip", "[on|off|close <n>|delete <n>|link <craft> <material> [count]|unlink <craft> <link>]", "flipping mode: logs auction house purchases, listings and sales as flips (the Workshop tab's Flips view; right-click a flip there to link materials); with no word, lists them", function(arg)
   local F = MOTA.Flips
+  local lw, a, b, c = (arg or ""):match("^(%a+)%s+(%d+)%s+(%d+)%s*(%d*)")
+  if lw == "link" then
+    local ok, err = F:Link(tonumber(a), tonumber(b), tonumber(c))
+    if not ok then MOTA:Print(err) end
+    return
+  elseif lw == "unlink" then
+    return MOTA:Print(F:Unlink(tonumber(a), tonumber(b)) and "Unlinked." or "No such link.")
+  end
   local word, n = (arg or ""):match("^(%S*)%s*(%d*)")
   if word == "on" or word == "off" then return F:SetOn(word == "on") end
   if word == "close" or word == "delete" then
@@ -229,6 +237,9 @@ add("flip", "[on|off|close <n>|delete <n>]", "flipping mode: logs auction house 
   for _, f in ipairs(F:All()) do
     local s = F:Sum(f)
     MOTA:Print(("#%d %s: %d/%d sold, %s %s"):format(f.id, f.name, s.sold, s.units, f.closed and "profit" or "so far", MOTA.Workshop:Money(s.profit)))
+    for i, m in ipairs(f.mats or {}) do
+      MOTA:Print(("    link %d: %d %s from #%d at %s each"):format(i, m.q, m.name, m.from, MOTA.Workshop:Money(math.floor(m.each + 0.5))))
+    end
   end
 end)
 

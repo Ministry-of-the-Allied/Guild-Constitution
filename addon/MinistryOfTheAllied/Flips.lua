@@ -9,7 +9,8 @@
 -- Saved in MOTADB.flips[character] = { on, n, list = { flip, ... } }:
 --   flip = { id, item, name, makes, makesName, ratio, at, closed,
 --            buys  = { { q, c (copper, all of them), at, est (price guessed) } },
---            lists = { { item, name, q, p (each), dur, dep, at, aid, tier, sold, back, got, first, last } } }
+--            lists = { { item, name, q, p (each), dur, dep, at, aid, tier, sold, back, got, first, last } },
+--            mats  = { { from, item, name, q, each } }, out, usedIn }   (linked materials, below)
 --
 -- Where things come from (the modern auction house API, which Forever has):
 --   buys       C_AuctionHouse.ConfirmCommoditiesPurchase / PlaceBid, confirmed by the purchase
@@ -166,6 +167,87 @@ end
 
 local function active(l) return l.q - l.sold - l.back end
 
+---------------------------------------------------------------------------
+-- Linked materials
+--
+-- A craft made from several materials, or in more than one step (Copper Ore smelted to Copper
+-- Bar, then the bar and Rough Stone made into a Sharpening Stone), can't be matched by recipe.
+-- So materials bought as flips of their own are linked by hand to the flip that sells the
+-- craft, at the price paid for them, locked in when linked:
+--   product.mats = { { from (the material flip's id), item, name, q, each (copper) } }
+--   material.out = units linked away; material.usedIn = the product's id once all are used
+-- Linked units leave the material flip's cost and stock, so nothing is counted twice.
+---------------------------------------------------------------------------
+
+-- What each unit bought cost, on average.
+function Flips:Each(f)
+  local q, c = 0, 0
+  for _, b in ipairs(f.buys) do q, c = q + b.q, c + (b.c or 0) end
+  return q > 0 and c / q or 0, q, c
+end
+
+-- Units bought (in the bought item) still free to link: not linked away and not posted.
+function Flips:Free(f)
+  local _, q = self:Each(f)
+  local posted = 0
+  for _, l in ipairs(f.lists) do posted = posted + (l.q - l.back) end
+  posted = math.ceil(posted / (f.ratio or 1))
+  return math.max(0, q - (f.out or 0) - posted)
+end
+
+-- The flips that can give materials to flip `to`: any other with units free.
+function Flips:Sources(to)
+  local out = {}
+  for _, f in ipairs(db().list) do
+    if f.id ~= to.id and not (f.closed and not f.usedIn) and self:Free(f) > 0 then out[#out + 1] = f end
+  end
+  return out
+end
+
+-- Links q units (all that are free if q is nil) of flip `fromId`'s purchase to flip `toId`.
+function Flips:Link(toId, fromId, q)
+  local to, from = self:Get(toId), self:Get(fromId)
+  if not (to and from) or to == from then return nil, "No such flips to link." end
+  local free = self:Free(from)
+  q = math.floor(q or free)
+  if q <= 0 or q > free then return nil, ("Only %d %s free to link."):format(free, from.name) end
+  local each = self:Each(from)
+  to.mats = to.mats or {}
+  local m
+  for _, x in ipairs(to.mats) do if x.from == from.id and x.each == each then m = x end end
+  if m then m.q = m.q + q
+  else
+    m = { from = from.id, item = from.item, name = from.name, q = q, each = each }
+    to.mats[#to.mats + 1] = m
+  end
+  from.out = (from.out or 0) + q
+  if self:Free(from) == 0 and not from.closed then
+    local left = 0
+    for _, l in ipairs(from.lists) do left = left + active(l) end
+    if left == 0 then from.closed, from.usedIn = now(), to.id end
+  end
+  MOTA:Print(MOTA:Color("leaf", "Flip:"), ("linked %d %s to %s at %s each."):format(q, from.name, to.makesName or to.name, MOTA.Workshop:Money(math.floor(each + 0.5))))
+  changed()
+  return m
+end
+
+-- Undoes link i of flip `toId`: the units go back to the flip they came from.
+function Flips:Unlink(toId, i)
+  local to = self:Get(toId)
+  local m = to and to.mats and to.mats[i]
+  if not m then return nil end
+  table.remove(to.mats, i)
+  if #to.mats == 0 then to.mats = nil end
+  local from = self:Get(m.from)
+  if from then
+    from.out = math.max(0, (from.out or 0) - m.q)
+    if from.out == 0 then from.out = nil end
+    if from.usedIn then from.closed, from.usedIn = nil, nil end
+  end
+  changed()
+  return m
+end
+
 -- The listings still up, cheapest first (buyers take the cheapest first).
 local function up(name)
   local out = {}
@@ -182,8 +264,15 @@ end
 function Flips:Units(f)
   local n = 0
   for _, b in ipairs(f.buys) do n = n + b.q end
+  n = n - (f.out or 0)
   if f.own then
     for _, l in ipairs(f.lists) do n = math.max(n, l.q) end
+  end
+  if f.mats then
+    -- a craft from linked materials: what was listed of it (less what came back) is what it has
+    local listed = 0
+    for _, l in ipairs(f.lists) do listed = listed + l.q - l.back end
+    return math.max(math.floor(n * (f.ratio or 1) + 0.5), listed)
   end
   return math.floor(n * (f.ratio or 1) + 0.5)
 end
@@ -277,7 +366,11 @@ end
 function Flips:Delete(id)
   local list = db().list
   for i, f in ipairs(list) do
-    if f.id == id then table.remove(list, i); changed() return true end
+    if f.id == id then
+      if (f.out or 0) > 0 then return nil, "Its materials are linked to a craft: unlink them first." end
+      while f.mats do self:Unlink(f.id, 1) end
+      table.remove(list, i); changed() return true
+    end
   end
 end
 
@@ -295,6 +388,14 @@ function Flips:Sum(f)
     s.bought, s.cost = s.bought + b.q, s.cost + (b.c or 0)
     if b.est then s.est = true end
   end
+  -- units linked away to a craft carry their cost with them; linked materials bring theirs
+  if f.out then
+    local each = self:Each(f)
+    s.bought, s.cost = s.bought - f.out, s.cost - math.floor(f.out * each + 0.5)
+  end
+  s.mats = 0
+  for _, m in ipairs(f.mats or {}) do s.mats = s.mats + math.floor(m.q * m.each + 0.5) end
+  s.cost = s.cost + s.mats
   for _, l in ipairs(f.lists) do
     s.listed, s.sold, s.up = s.listed + l.q, s.sold + l.sold, s.up + active(l)
     s.got, s.deps = s.got + l.got, s.deps + (l.dep or 0)
