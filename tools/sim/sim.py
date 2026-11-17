@@ -462,6 +462,8 @@ check("Straight flips: Profit a day ranks them with the crafts, in their own col
 check("Straight flips: a bigger batch buys up the dearer listings", ws(MKT + 'W:SetBatch(30) local p for _, it in ipairs(G:Crafts()) do if it.straight and it.id == 2835 then p = it.profit end end W:SetBatch(1) return p') == 123)  # 190 less (20 at 50 + 10 at 100) / 30
 ws(SF + 'd[2835].hist, d[2840].hist = sf_saved[1], sf_saved[2] return true')
 check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
+check("Workshop: the Market view prices each item as a flip: usual less the cut, less the lowest", ws(MKT + 'for _, it in ipairs(G:Items()) do if it.low and it.usual then return it.profit == math.floor(it.usual * 0.95) - it.low and it.margin == it.profit / it.low end end return "no priced item"') is True)
+check("Workshop: the Flips button hides the straight flips from Crafts, and shows them again", ws(MKT + 'G:View("crafts") local function n() local k = 0 for _, it in ipairs(G:Rows()) do if it.straight then k = k + 1 end end return k end local b = G.page.quick.flips b.scripts.OnClick(b) local off = n() == 0 and not G:ShowFlips() b.scripts.OnClick(b) return off and G:ShowFlips() and b.text:find("on") ~= nil') is True)
 check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
 check("Workshop: at the auction house, a row searches for its item", ws('P:Tab("profit") local r = P.rows[1] r.scripts.OnClick(r) return ws_searched ~= nil and ws_searched == W.ItemInfo(r.v.r.item)') is True)
@@ -477,12 +479,12 @@ MK = '(function() local M = MinistryOfTheAllied.Market '
 def mk(code):
     return max_.lua.eval(MK + code + ' end)()')
 check("Market watch: cheaper levels gone and the cheapest shrunk count as sold", mk(
-    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
-    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600)') == 18)
+    'return (M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
+    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600))') == 18)
 check("Market watch: a level about to expire isn't counted", mk(
-    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600)') == 0)
+    'return (M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600))') == 0)
 check("Market watch: a listing gone with hours still left was bought", mk(
-    'return M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600)') == 2)
+    'return (M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600))') == 2)
 check("Market watch: a week of scans gives a rate a day", mk(
     'local prev = { at = GetServerTime() - 6 * 3600, levels = { { p = 50, q = 30 } } } '
     'local new = { at = GetServerTime(), levels = { { p = 50, q = 24 } } } '
@@ -492,7 +494,18 @@ check("Market watch: the rate reads as words", mk('return M:RateText(9999)') == 
 check("Market watch: too little watching gives no rate", mk(
     'local new = { at = GetServerTime(), levels = { { p = 5, q = 1 } } } M:Record(9998, { at = GetServerTime() - 3600, levels = { { p = 5, q = 2 } } }, new) '
     'MinistryOfTheAllied.db.market[9998] = new return M:SellRate(9998) == nil') is True)
-check("Market watch: the usual price is this week's median", mk('return M:Normal(9999)') == 50)
+check("Market watch: the usual price is what sold, and says so", mk('local p, sold = M:Normal(9999) return p == 50 and sold') is True)
+check("Market watch: the sales are kept with their price and time", mk('local s = MinistryOfTheAllied.db.market[9999].sales return #s == 1 and s[1].p == 50 and s[1].q == 6') is True)
+check("Market watch: the usual price is the recent sales' median, not the listings'", mk(
+    'local now = GetServerTime() MinistryOfTheAllied.db.market[9997] = { at = now, levels = { { p = 400, q = 100 } }, '
+    'hist = { [date("%Y-%m-%d", now)] = { median = 400 } }, '
+    'sales = { { t = now - 3600, p = 330, q = 30 }, { t = now - 3600, p = 340, q = 10 }, { t = now - 40 * 3600, p = 300, q = 25 }, { t = now - 60 * 3600, p = 200, q = 999 } } } '
+    'local p, sold = M:Normal(9997) return p == 330 and sold') is True)
+check("Market watch: with no recent sales, the listings stand in, marked as such", mk(
+    'local now = GetServerTime() MinistryOfTheAllied.db.market[9996] = { at = now, levels = { { p = 400, q = 1 } }, hist = { [date("%Y-%m-%d", now)] = { median = 400 } } } '
+    'local p, sold = M:Normal(9996) return p == 400 and sold == false') is True)
+check("Market watch: a gear listing that sold is recorded at its price", mk(
+    'local _, at = M:SoldSingle({ auctions = { [1] = 3 }, prices = { [1] = { p = 800, q = 1 } } }, { auctions = {} }, 3600) return at[800]') == 1)
 max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
 max_.lua.execute('mock_fire("TRADE_SKILL_CLOSE")')
 run(1)
