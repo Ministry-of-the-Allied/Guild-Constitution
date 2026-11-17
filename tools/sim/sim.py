@@ -463,6 +463,7 @@ check("Straight flips: a bigger batch buys up the dearer listings", ws(MKT + 'W:
 ws(SF + 'd[2835].hist, d[2840].hist = sf_saved[1], sf_saved[2] return true')
 check("Workshop: a heading sorts by its column, twice turns it round", ws(MKT + 'G:SortBy("name") local a = G:Rows()[1].name G:SortBy("name") local b = G:Rows()[1].name return a ~= b'))
 check("Workshop: the Market view prices each item as a flip: usual less the cut, less the lowest", ws(MKT + 'for _, it in ipairs(G:Items()) do if it.low and it.usual then return it.profit == math.floor(it.usual * 0.95) - it.low and it.margin == it.profit / it.low end end return "no priced item"') is True)
+check("Workshop: the Flips button hides the straight flips from Crafts, and shows them again", ws(MKT + 'G:View("crafts") local function n() local k = 0 for _, it in ipairs(G:Rows()) do if it.straight then k = k + 1 end end return k end local b = G.page.quick.flips b.scripts.OnClick(b) local off = n() == 0 and not G:ShowFlips() b.scripts.OnClick(b) return off and G:ShowFlips() and b.text:find("on") ~= nil') is True)
 check("Workshop: the Market view lists every watched item", ws(MKT + 'G:View("market") return #G:Rows() >= 3 and G.rows[1].shown'))
 max_.lua.execute('Auctionator.API.v1.MultiSearchExact = function(_, terms) ws_searched = terms[1] end')
 check("Workshop: at the auction house, a row searches for its item", ws('P:Tab("profit") local r = P.rows[1] r.scripts.OnClick(r) return ws_searched ~= nil and ws_searched == W.ItemInfo(r.v.r.item)') is True)

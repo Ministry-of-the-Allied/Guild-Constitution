@@ -107,8 +107,23 @@ function Page:Crafts()
       end
     end
   end
-  for _, f in ipairs(self:StraightFlips()) do out[#out + 1] = f end
+  if self:ShowFlips() then
+    for _, f in ipairs(self:StraightFlips()) do out[#out + 1] = f end
+  end
   return out
+end
+
+-- Whether the Crafts view lists the straight flips (on unless turned off; saved).
+function Page:ShowFlips()
+  local s = MOTA.db and MOTA.db.settings
+  return not (s and s.workshopFlips == false)
+end
+
+function Page:SetShowFlips(on)
+  MOTA.db.settings = MOTA.db.settings or {}
+  MOTA.db.settings.workshopFlips = on and true or false
+  top = 0
+  self:Refresh()
 end
 
 -- Straight flips: every watched item (materials and crafts) bought from the cheapest listings at
@@ -308,6 +323,8 @@ local function buildPage(ah)
   page.quick.day:SetPoint("TOPRIGHT", page, "TOPRIGHT", -14, -68)
   page.quick.hot:SetPoint("RIGHT", page.quick.day, "LEFT", -4, 0)
   page.quick.profit:SetPoint("RIGHT", page.quick.hot, "LEFT", -4, 0)
+  page.quick.flips = button(page, 100, 22, "Flips: on", function() Page:SetShowFlips(not Page:ShowFlips()) end)
+  page.quick.flips:SetPoint("RIGHT", page.quick.profit, "LEFT", -12, 0)
 
   -- headings: each a button that sorts by its column
   page.heads = {}
@@ -415,6 +432,8 @@ function Page:Refresh()
   hold(page.quick.profit, view == "crafts" and s.key == "profit")
   hold(page.quick.hot, view == "crafts" and s.key == "rate")
   hold(page.quick.day, view == "crafts" and s.key == "perDay")
+  page.quick.flips:SetText("Flips: " .. (self:ShowFlips() and "|cff66CCFFon|r" or "off"))
+  hold(page.quick.flips, self:ShowFlips())
   local flips = view == "flips"
   for _, b in pairs(page.quick) do b:SetShown(not flips) end
   page.flipping:SetShown(flips)
