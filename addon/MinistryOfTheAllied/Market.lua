@@ -22,7 +22,7 @@ local _, MOTA = ...
 local Market = {}
 MOTA.Market = Market
 
-Market.FRESH = 3600       -- a scan younger than this isn't repeated
+Market.FRESH = -1         -- scans are never skipped for being recent (Duncan, 17 Nov: the market moves all the time; more data is better)
 Market.STALE = 48 * 3600  -- older than this, it's not used for prices at all
 Market.GAP = 1.5          -- seconds between searches
 Market.WAIT = 6           -- give up on one search after this
