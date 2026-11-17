@@ -135,17 +135,18 @@ end
 -- whether a listing that's gone was bought or simply ran out.
 local function readItem(id, key)
   local AH = C_AuctionHouse
-  local levels, auctions = {}, {}
+  local levels, auctions, prices = {}, {}, {}
   for i = 1, AH.GetNumItemSearchResults(key) or 0 do
     local info = AH.GetItemSearchResultInfo(key, i)
     if info and info.buyoutAmount and info.buyoutAmount > 0 then
       local q = info.quantity or 1
-      levels[#levels + 1] = { p = math.floor(info.buyoutAmount / q), q = q }
-      if info.auctionID then auctions[info.auctionID] = info.timeLeft or 3 end
+      local each = math.floor(info.buyoutAmount / q)
+      levels[#levels + 1] = { p = each, q = q }
+      if info.auctionID then auctions[info.auctionID] = info.timeLeft or 3; prices[info.auctionID] = { p = each, q = q } end
     end
   end
   table.sort(levels, function(a, b) return a.p < b.p end)
-  return { levels = levels, auctions = auctions, single = true }
+  return { levels = levels, auctions = auctions, prices = prices, single = true }
 end
 Market.readItem = readItem
 
@@ -234,6 +235,8 @@ end)
 Market.KEEP_DAYS = 14
 Market.PAIR_MAX = 36 * 3600 -- two scans further apart than this aren't compared
 Market.MIN_HOURS = 4        -- below this much watching, no sell rate is given
+Market.KEEP_SALES = 7 * 86400 -- sales kept for the usual price
+Market.RECENT = 48 * 3600     -- the usual price is what sold in this long
 local BAND_MIN = { [0] = 0, [1] = 1800, [2] = 7200, [3] = 43200 } -- the least a band can have left
 
 -- The units-weighted median of what's listed.
@@ -247,34 +250,44 @@ local function median(levels)
   end
 end
 
--- Units bought between two stackable scans.
+-- Units bought between two stackable scans, and how many at each price.
 function Market:SoldStack(prev, new, elapsed)
   local low = new.levels[1] and new.levels[1].p or math.huge
   local now = {}
   for _, l in ipairs(new.levels) do now[l.p] = l.q end
-  local sold = 0
+  local sold, at = 0, {}
   for _, l in ipairs(prev.levels or {}) do
     if not (l.left and l.left <= elapsed) then -- could have run out: not counted
-      if l.p < low then sold = sold + l.q
-      elseif l.p == low then sold = sold + math.max(0, l.q - (now[l.p] or 0)) end
+      local q = 0
+      if l.p < low then q = l.q
+      elseif l.p == low then q = math.max(0, l.q - (now[l.p] or 0)) end
+      if q > 0 then sold, at[l.p] = sold + q, (at[l.p] or 0) + q end
     end
   end
-  return sold
+  return sold, at
 end
 
--- Listings bought between two scans of single listings.
+-- Listings bought between two scans of single listings, and how many at each price.
 function Market:SoldSingle(prev, new, elapsed)
-  local sold = 0
+  local sold, at = 0, {}
   for aid, band in pairs(prev.auctions or {}) do
-    if not new.auctions[aid] and elapsed < (BAND_MIN[band] or 0) then sold = sold + 1 end
+    if not new.auctions[aid] and elapsed < (BAND_MIN[band] or 0) then
+      sold = sold + 1
+      local pr = prev.prices and prev.prices[aid]
+      if pr then at[pr.p] = (at[pr.p] or 0) + (pr.q or 1) end
+    end
   end
-  return sold
+  return sold, at
 end
 
 local function day(t) return date("%Y-%m-%d", t) end
 
 function Market:Record(id, prev, new)
   new.hist = (prev and prev.hist) or {}
+  new.sales = {}
+  for _, x in ipairs(prev and prev.sales or {}) do
+    if x.t >= new.at - self.KEEP_SALES then new.sales[#new.sales + 1] = x end
+  end
   local h = new.hist[day(new.at)] or {}
   new.hist[day(new.at)] = h
   if new.levels[1] then
@@ -287,9 +300,12 @@ function Market:Record(id, prev, new)
   if prev and prev.at and prev.levels then
     local elapsed = new.at - prev.at
     if elapsed > 0 and elapsed <= self.PAIR_MAX then
-      local sold = new.single and self:SoldSingle(prev, new, elapsed) or self:SoldStack(prev, new, elapsed)
+      local sold, at
+      if new.single then sold, at = self:SoldSingle(prev, new, elapsed) else sold, at = self:SoldStack(prev, new, elapsed) end
       h.sold = (h.sold or 0) + sold
       h.hours = (h.hours or 0) + elapsed / 3600
+      -- the sales themselves, for the usual price (Duncan, 17 Nov): when and at what
+      for p, q in pairs(at or {}) do new.sales[#new.sales + 1] = { t = new.at, p = p, q = q } end
     end
   end
   local oldest = day(new.at - self.KEEP_DAYS * 86400)
@@ -309,8 +325,34 @@ function Market:SellRate(id)
   return sold / hours * 24, hours
 end
 
--- The usual price: the median of the last week's daily medians.
+-- The usual price (Duncan, 17 Nov): what it's actually selling for. The median of the units sold
+-- in the last RECENT hours, each weighted by how recent it is (a sale now counts twice one two
+-- days old). Second value: true when it rests on sales; with none seen, the listings' median
+-- (what sellers ask) stands in, and that's false.
 function Market:Normal(id)
+  local e = id and db()[id]
+  local now, list, total = GetServerTime(), {}, 0
+  for _, x in ipairs(e and e.sales or {}) do
+    local age = now - x.t
+    if age >= 0 and age <= self.RECENT then
+      local w = x.q * (1 - 0.5 * age / self.RECENT)
+      list[#list + 1] = { p = x.p, w = w }
+      total = total + w
+    end
+  end
+  if total > 0 then
+    table.sort(list, function(a, b) return a.p < b.p end)
+    local seen = 0
+    for _, x in ipairs(list) do
+      seen = seen + x.w
+      if seen >= total / 2 then return x.p, true end
+    end
+  end
+  return self:Listed(id), false
+end
+
+-- What sellers ask: the median of the last week's daily listing medians.
+function Market:Listed(id)
   local e = id and db()[id]
   if not e or not e.hist then return nil end
   local from, list = day(GetServerTime() - 7 * 86400), {}

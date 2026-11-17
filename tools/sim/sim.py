@@ -479,12 +479,12 @@ MK = '(function() local M = MinistryOfTheAllied.Market '
 def mk(code):
     return max_.lua.eval(MK + code + ' end)()')
 check("Market watch: cheaper levels gone and the cheapest shrunk count as sold", mk(
-    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
-    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600)') == 18)
+    'return (M:SoldStack({ levels = { { p = 50, q = 10, left = 80000 }, { p = 60, q = 20, left = 80000 }, { p = 70, q = 5 } } },'
+    ' { levels = { { p = 60, q = 12 }, { p = 70, q = 5 } } }, 3600))') == 18)
 check("Market watch: a level about to expire isn't counted", mk(
-    'return M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600)') == 0)
+    'return (M:SoldStack({ levels = { { p = 50, q = 10, left = 1000 }, { p = 60, q = 20 } } }, { levels = { { p = 60, q = 20 } } }, 3600))') == 0)
 check("Market watch: a listing gone with hours still left was bought", mk(
-    'return M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600)') == 2)
+    'return (M:SoldSingle({ auctions = { [1] = 3, [2] = 2, [3] = 1, [4] = 3 } }, { auctions = { [4] = 3 } }, 3600))') == 2)
 check("Market watch: a week of scans gives a rate a day", mk(
     'local prev = { at = GetServerTime() - 6 * 3600, levels = { { p = 50, q = 30 } } } '
     'local new = { at = GetServerTime(), levels = { { p = 50, q = 24 } } } '
@@ -494,7 +494,18 @@ check("Market watch: the rate reads as words", mk('return M:RateText(9999)') == 
 check("Market watch: too little watching gives no rate", mk(
     'local new = { at = GetServerTime(), levels = { { p = 5, q = 1 } } } M:Record(9998, { at = GetServerTime() - 3600, levels = { { p = 5, q = 2 } } }, new) '
     'MinistryOfTheAllied.db.market[9998] = new return M:SellRate(9998) == nil') is True)
-check("Market watch: the usual price is this week's median", mk('return M:Normal(9999)') == 50)
+check("Market watch: the usual price is what sold, and says so", mk('local p, sold = M:Normal(9999) return p == 50 and sold') is True)
+check("Market watch: the sales are kept with their price and time", mk('local s = MinistryOfTheAllied.db.market[9999].sales return #s == 1 and s[1].p == 50 and s[1].q == 6') is True)
+check("Market watch: the usual price is the recent sales' median, not the listings'", mk(
+    'local now = GetServerTime() MinistryOfTheAllied.db.market[9997] = { at = now, levels = { { p = 400, q = 100 } }, '
+    'hist = { [date("%Y-%m-%d", now)] = { median = 400 } }, '
+    'sales = { { t = now - 3600, p = 330, q = 30 }, { t = now - 3600, p = 340, q = 10 }, { t = now - 40 * 3600, p = 300, q = 25 }, { t = now - 60 * 3600, p = 200, q = 999 } } } '
+    'local p, sold = M:Normal(9997) return p == 330 and sold') is True)
+check("Market watch: with no recent sales, the listings stand in, marked as such", mk(
+    'local now = GetServerTime() MinistryOfTheAllied.db.market[9996] = { at = now, levels = { { p = 400, q = 1 } }, hist = { [date("%Y-%m-%d", now)] = { median = 400 } } } '
+    'local p, sold = M:Normal(9996) return p == 400 and sold == false') is True)
+check("Market watch: a gear listing that sold is recorded at its price", mk(
+    'local _, at = M:SoldSingle({ auctions = { [1] = 3 }, prices = { [1] = { p = 800, q = 1 } } }, { auctions = {} }, 3600) return at[800]') == 1)
 max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
 max_.lua.execute('mock_fire("TRADE_SKILL_CLOSE")')
 run(1)

@@ -75,10 +75,11 @@ function Page:Items()
       local listed = 0
       for _, l in ipairs(levels or {}) do listed = listed + l.q end
       -- a flip: bought at the cheapest, sold at the usual price less the 5% cut
-      local low, usual = M:Lowest(id), M:Normal(id)
+      local low = M:Lowest(id)
+      local usual, fromSales = M:Normal(id)
       local profit = low and usual and (math.floor(usual * (1 - W.CUT)) - low) or nil
       out[#out + 1] = { id = id, name = W.ItemInfo(id) or ("item " .. id), craft = crafts[id],
-        low = low, usual = usual, profit = profit, margin = profit and low > 0 and profit / low or nil,
+        low = low, usual = usual, fromSales = fromSales, profit = profit, margin = profit and low > 0 and profit / low or nil,
         listed = levels and listed or nil,
         rate = (M:SellRate(id)), sells = M:RateText(id), age = M:Age(id) }
     end
@@ -184,7 +185,8 @@ local COLS = {
     { key = "name", label = "Item", w = 190, justify = "LEFT", text = function(it) return it.name end,
       colour = function(it) return it.craft and "FFD100" or "FFFFFF" end },
     { key = "low", label = "Lowest", w = 76, text = function(it) return money(it.low) end },
-    { key = "usual", label = "Usual", w = 76, text = function(it) return money(it.usual) end },
+    { key = "usual", label = "Usual", w = 76, text = function(it) return money(it.usual) end,
+      colour = function(it) return it.fromSales and "FFFFFF" or "808080" end },
     { key = "profit", label = "Profit", w = 76, text = function(it) return signed(it.profit) end,
       colour = function(it) return not it.profit and "808080" or (it.profit >= 0 and GAIN or LOSS) end },
     { key = "margin", label = "Margin", w = 56, text = function(it) return it.margin and (math.floor(it.margin * 100 + 0.5) .. "%") or "-" end,
@@ -363,6 +365,8 @@ local function buildPage(ah)
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine("As a flip: bought at the lowest, sold at the usual price", 0.6, 0.6, 0.6)
         GameTooltip:AddDoubleLine("Sells for (usual)", money(it.usual), 0.8, 0.8, 0.8, 1, 1, 1)
+        GameTooltip:AddLine(it.fromSales and "Usual: the median price it sold at over the last 48 hours."
+          or "Usual (grey): no sales seen in 48 hours yet, so this is what sellers are asking. Scan a few hours apart.", 0.6, 0.6, 0.6, true)
         GameTooltip:AddDoubleLine("Auction house cut (5%)", "-" .. money(it.usual - math.floor(it.usual * (1 - W.CUT))), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
         GameTooltip:AddDoubleLine("Bought at (lowest)", "-" .. money(it.low), 0.8, 0.8, 0.8, MOTA:RGB(LOSS))
         GameTooltip:AddDoubleLine("Profit each", signed(it.profit), 1, 1, 1, MOTA:RGB(it.profit >= 0 and GAIN or LOSS))
