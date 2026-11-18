@@ -324,13 +324,23 @@ local function build()
   swap:SetScript("OnLeave", function() GameTooltip:Hide() end)
   f.swap = swap
 
-  local tw = math.floor((WIDTH - 28 - 2 * 4) / 3)
+  -- Profit, Level, Learn, and Market: Market opens the auction house page in its own window,
+  -- with the figures on file (Duncan, 17 Nov 2026)
+  local tw = math.floor((WIDTH - 28 - 3 * 4) / 4)
   for i, t in ipairs(TABS) do
     local key = t.key
     local b = button(f, tw, TABS_H, t.label, function() Panel:Tab(key) end)
     b:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + (i - 1) * (tw + 4), -HEAD_H)
     tabs[key] = b
   end
+  -- the small panel steps aside for the big window (Duncan, 17 Nov); only hidden for now, so it
+  -- still opens with the profession window next time
+  f.market = button(f, tw, TABS_H, "Market", function()
+    f:Hide()
+    if side then side.lit:Hide() end
+    MOTA.WorkshopMarket:OpenWindow()
+  end)
+  f.market:SetPoint("TOPLEFT", f, "TOPLEFT", 14 + #TABS * (tw + 4), -HEAD_H)
 
   -- the batch size: how many you mean to make
   local by = HEAD_H + TABS_H + 6

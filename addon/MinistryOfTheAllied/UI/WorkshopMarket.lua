@@ -275,11 +275,19 @@ end
 
 local MAXCOLS = 8
 
+-- The one page lives in the auction house or in its own window (below), moved between them.
+local function attach(host)
+  page:SetParent(host)
+  page:ClearAllPoints()
+  page:SetPoint("TOPLEFT", host, "TOPLEFT", 6, -24)
+  page:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -6, 28)
+  page:SetFrameLevel(host:GetFrameLevel() + 20)
+  Page.host = host
+end
+
 local function buildPage(ah)
   page = CreateFrame("Frame", "MOTAWorkshopMarket", ah)
-  page:SetPoint("TOPLEFT", ah, "TOPLEFT", 6, -24)
-  page:SetPoint("BOTTOMRIGHT", ah, "BOTTOMRIGHT", -6, 28)
-  page:SetFrameLevel(ah:GetFrameLevel() + 20)
+  attach(ah)
   page:EnableMouse(true)
   -- the auction house's own dark backing, so the page reads as part of the window
   local bg = page:CreateTexture(nil, "BACKGROUND")
@@ -375,7 +383,7 @@ local function buildPage(ah)
       if it and it.straight then Page:StraightTip(it) end
       if it and it.short then GameTooltip:AddLine("Not enough materials listed for the whole batch.", 1, 0.5, 0.3) end
       if it and it.missing and it.missing > 0 then GameTooltip:AddLine("* Some materials have no price.", 1, 0.5, 0.3) end
-      GameTooltip:AddLine("Click to search the auction house for it.", 0.6, 0.6, 0.6)
+      GameTooltip:AddLine(MOTA.Market.atAuctionHouse and "Click to search the auction house for it." or "Shift-click to link it.", 0.6, 0.6, 0.6)
       GameTooltip:Show()
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -383,7 +391,12 @@ local function buildPage(ah)
     r:SetScript("OnClick", function(self, mouse)
       if self.it and self.it.flip and mouse == "RightButton" then Page:LinkMenu(self.it.flip, self) return end
       if self.it and self.it.flip and IsShiftKeyDown() then MOTA.Flips:Close(self.it.flip.id) return end
-      if self.id then Panel:SearchAuctions(self.id, W.ItemInfo(self.id) or (self.it and self.it.name)) end end)
+      if IsShiftKeyDown() and self.id then
+        local link = select(2, W.ItemInfo(self.id))
+        if link and ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
+        return
+      end
+      if self.id and MOTA.Market.atAuctionHouse then Panel:SearchAuctions(self.id, W.ItemInfo(self.id) or (self.it and self.it.name)) end end)
     rows[i] = r
   end
   page.foot = fontString(page, "GameFontDisableSmall", "CENTER")
@@ -444,16 +457,18 @@ function Page:Refresh()
   page.flipping:SetText("Flipping mode: " .. (MOTA.Flips:On() and "|cff1EFF00on|r" or "off"))
   hold(page.flipping, MOTA.Flips:On())
 
-  if left then
+  local away = Page.host ~= AuctionHouseFrame or not M.atAuctionHouse
+  if left and not away then
     page.status:SetText(("Scanning: %d to go. Each search shows briefly on the Buy tab."):format(left))
     page.go:Hide(); page.stop:Show()
   else
     local newest = Panel:NewestScan()
     local n = #W:Materials()
     page.status:SetText(n == 0 and "Open a profession once so the Workshop knows your recipes."
-      or (("Your crafts, and in blue the straight flips worth making (buy the cheapest, relist at the usual price). Last scan %s. Priced at a batch of %d. Profit is after the auction house's 5%% cut: green makes money, red loses it. Deposits come back when it sells.")
+      or ((away and "Away from the auction house: the figures from your last scan (%s), priced at a batch of %d. Scan there to freshen them. Profit is after the 5%% cut; blue rows are straight flips."
+        or "Your crafts, and in blue the straight flips worth making (buy the cheapest, relist at the usual price). Last scan %s. Priced at a batch of %d. Profit is after the auction house's 5%% cut: green makes money, red loses it. Deposits come back when it sells.")
         :format(newest and Panel:Ago(newest) or "never", W:Batch())))
-    page.go:SetShown(n > 0); page.stop:Hide()
+    page.go:SetShown(n > 0 and not away); page.stop:Hide()
   end
 
   layout(cols)
@@ -481,7 +496,7 @@ function Page:Refresh()
   local what = view == "crafts" and "crafts and flips" or "items"
   page.foot:SetText(#list == 0 and (view == "crafts" and "No priced crafts yet: scan, or visit the auction house with Auctionator." or "Nothing watched yet.")
     or (#list > ROWS and ("%d to %d of %d %s · scroll for more · click a heading to sort"):format(top + 1, math.min(#list, top + ROWS), #list, what)
-      or ("%d %s · click a heading to sort · click a row to search for it"):format(#list, what)))
+      or ("%d %s · click a heading to sort · %s"):format(#list, what, away and "shift-click a row to link it" or "click a row to search for it")))
 end
 
 -- A craft's sums: the sale, the cut, the materials and the deposit that's only lost unsold.
@@ -665,9 +680,71 @@ local function deselectOthers(ah)
   end
 end
 
+---------------------------------------------------------------------------
+-- The window: the same page away from the auction house (Duncan, 17 Nov 2026), with the
+-- figures on file. Opened from the Workshop's Market button or /mota market.
+---------------------------------------------------------------------------
+
+local win
+local function buildWindow()
+  local ok, frame = pcall(CreateFrame, "Frame", "MOTAMarketWindow", UIParent, "ButtonFrameTemplate")
+  win = ok and frame or CreateFrame("Frame", "MOTAMarketWindow", UIParent)
+  win:SetSize(800, 560)
+  win:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+  win:SetFrameStrata("HIGH")
+  win:SetClampedToScreen(true)
+  win:EnableMouse(true)
+  win:SetMovable(true)
+  win:RegisterForDrag("LeftButton")
+  win:SetScript("OnDragStart", win.StartMoving)
+  win:SetScript("OnDragStop", win.StopMovingOrSizing)
+  if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, win) end
+  if ButtonFrameTemplate_HideButtonBar then pcall(ButtonFrameTemplate_HideButtonBar, win) end
+  if win.SetTitle then pcall(win.SetTitle, win, "The Workshop: Market") end
+  if type(win.TitleText) == "table" and win.TitleText.SetText then win.TitleText:SetText("The Workshop: Market") end
+  local close = type(win.CloseButton) == "table" and win.CloseButton or CreateFrame("Button", nil, win, "UIPanelCloseButton")
+  if close ~= win.CloseButton then close:SetPoint("TOPRIGHT", win, "TOPRIGHT", 0, 0) end
+  close:SetScript("OnClick", function() Page:CloseWindow() end)
+  win.close = close
+  -- Escape closes it, as the game's own windows
+  if UISpecialFrames then table.insert(UISpecialFrames, "MOTAMarketWindow") end
+  win:Hide()
+  Page.window = win
+end
+
+function Page:OpenWindow()
+  if not win then buildWindow() end
+  if not page then buildPage(win) end
+  if Page.host ~= win then
+    light(false)
+    if Page.host == AuctionHouseFrame and AuctionHouseFrame and AuctionHouseFrame.SetDisplayMode then
+      -- give the auction house its Buy tab back, rather than leave it empty
+      pcall(AuctionHouseFrame.SetDisplayMode, AuctionHouseFrame, AuctionHouseFrameDisplayMode and AuctionHouseFrameDisplayMode.Buy or {})
+    end
+    attach(win)
+  end
+  win:Show()
+  page:Show()
+  top = 0
+  self:Refresh()
+end
+
+function Page:CloseWindow()
+  if win then win:Hide() end
+  if page and Page.host == win then page:Hide() end
+end
+
+function Page:ToggleWindow()
+  if win and win:IsShown() then self:CloseWindow() else self:OpenWindow() end
+end
+
 function Page:Select()
   local ah = AuctionHouseFrame
   if not ah or not page then return end
+  if Page.host ~= ah then
+    if win then win:Hide() end
+    attach(ah)
+  end
   if ah.SetDisplayMode then pcall(ah.SetDisplayMode, ah, {}) end
   ah.displayMode = nil
   deselectOthers(ah)
@@ -678,7 +755,7 @@ function Page:Select()
 end
 
 function Page:Deselect()
-  if page then page:Hide() end
+  if page and Page.host ~= win then page:Hide() end -- the window keeps it
   light(false)
 end
 
@@ -739,14 +816,15 @@ local function onOpen()
   if not ah or not MOTA.Market:Available() then return end
   local s = MOTA.db and MOTA.db.settings
   if s and s.workshop == false then return end
-  if not tab then buildTab(ah); buildPage(ah) end
+  if not tab then buildTab(ah) end
+  if not page then buildPage(ah) end
   tab:Show()
   placeTab(ah)
   C_Timer.After(0.5, function() if tab then placeTab(ah) end end)
 end
 
 MOTA:Listen("AUCTION_OPEN", onOpen)
-MOTA:Listen("AUCTION_CLOSED", function() Page:Deselect() Panel:Refresh() end)
+MOTA:Listen("AUCTION_CLOSED", function() Page:Deselect() Page:Refresh() Panel:Refresh() end)
 MOTA:Listen("MARKET_CHANGED", function() Page:Refresh(); Panel:Refresh() end)
 MOTA:Listen("WORKSHOP_CHANGED", function() Page:Refresh() end)
 MOTA:Listen("FLIPS_CHANGED", function()
