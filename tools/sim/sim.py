@@ -430,6 +430,19 @@ check("Workshop: the row says how many are listed", ws('P:Tab("profit") for _, r
 check("Workshop: materials without a scan stay on Auctionator's price", ws('local _, _, _, mats = W:Cost(W.current.recipes[1], 20) return mats[1].src') == "auctionator")
 max_.lua.execute('local r = MinistryOfTheAllied.WorkshopPanel.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
 max_.lua.execute('MinistryOfTheAllied.Workshop:SetBatch(1)')
+# The market window: the auction house page away from the auction house (Duncan, 17 Nov)
+MW = '(function() local M, P = MinistryOfTheAllied.WorkshopMarket, MinistryOfTheAllied.WorkshopPanel '
+def mw(code):
+    return max_.lua.eval(MW + code + ' end)()')
+check("Market window: the Workshop's Market button opens it", mw('P.frame.market.scripts.OnClick(P.frame.market) return M.window and M.window.shown and M.page.shown and M.host == M.window and not P.frame.shown'))
+check("Market window: crafts listed from the figures on file", mw('M:View("crafts") for _, r in ipairs(M.rows) do if r.shown and r.cells[1].text == "Copper Bracers" then return true end end return false'))
+check("Market window: says it's away, and offers no scan", mw('return M.page.status.text:find("^Away from the auction house") ~= nil and not M.page.go.shown'))
+check("Market window: the prices view shows the scanned bars", mw('M:View("market") for _, r in ipairs(M.rows) do if r.shown and r.cells[6].text == "20" then return true end end return false'))
+max_.lua.execute('local r = MinistryOfTheAllied.WorkshopMarket.rows[1] r.scripts.OnEnter(r) r.scripts.OnLeave(r)')
+check("Market window: the flips view opens", mw('M:View("flips") return M.page.foot.text ~= nil'))
+max_.slash("market")
+check("Market window: /mota market closes it", mw('return not M.window.shown and not M.page.shown'))
+max_.lua.execute('MinistryOfTheAllied.WorkshopMarket:View("crafts")')
 # The scan at the auction house
 max_.lua.execute('''
 AuctionHouseFrame = CreateFrame("Frame")

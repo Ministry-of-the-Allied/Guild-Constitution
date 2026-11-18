@@ -217,6 +217,10 @@ add("workshop", "", "shows or hides the Workshop, the crafting guide beside the 
   MOTA.WorkshopPanel:Toggle()
 end)
 
+add("market", "", "shows or hides the Workshop's market (crafts, prices, flips) from your last auction house scan, anywhere", function()
+  MOTA.WorkshopMarket:ToggleWindow()
+end)
+
 add("flip", "[on|off|close <n>|delete <n>|link <craft> <material> [count]|unlink <craft> <link>]", "flipping mode: logs auction house purchases, listings and sales as flips (the Workshop tab's Flips view; right-click a flip there to link materials); with no word, lists them", function(arg)
   local F = MOTA.Flips
   local lw, a, b, c = (arg or ""):match("^(%a+)%s+(%d+)%s+(%d+)%s*(%d*)")
