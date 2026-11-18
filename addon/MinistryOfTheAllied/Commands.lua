@@ -256,7 +256,7 @@ add("probe", "[limits|bank|map|craft|market|gossip [nohide|off]|quest [nohide|fa
     MOTA.Probe:Gossip(extra ~= "" and extra or nil)
   elseif what == "quest" then
     if extra ~= "" and extra ~= "off" and extra ~= "nohide" and extra ~= "fade" and extra ~= "page" and extra ~= "button" then
-      return MOTA:Print("Use /mota probe quest, /mota probe quest fade (the page goes invisible for 4 s), /mota probe quest page (prototype: our own page instead of the game's, Accept really accepts, other add-ons cannot auto-accept or pick a quest for you), /mota probe quest button (research: our own test entry in the gossip window), /mota probe quest nohide (control run, we do not touch the page) or /mota probe quest off.")
+      return MOTA:Print("Use /mota probe quest, /mota probe quest fade (the page goes invisible for 4 s), /mota probe quest page (prototype: our own page instead of the game's, Accept really accepts, other add-ons cannot auto-accept or pick a quest for you), /mota probe quest button (research: our own test entry in the gossip window; it also says whether Dialogue UI or Immersion is on, and then shows a small prompt of ours instead), /mota probe quest nohide (control run, we do not touch the page) or /mota probe quest off.")
     end
     MOTA.Probe:Quest(extra ~= "" and extra or nil)
   elseif what == "craft" then

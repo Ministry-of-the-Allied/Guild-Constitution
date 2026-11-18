@@ -1382,11 +1382,8 @@ function Probe:QuestOwnClick(action)
     -- window; Close (and Escape) end the whole conversation like the game's own Close, so the gossip window goes too.
     if self.questOwn and self.questOwn.IsShown and self.questOwn:IsShown() then self.questOwn:Hide() end
     if action == "close" or action == "escape" then
-      if C_GossipInfo and type(C_GossipInfo.CloseGossip) == "function" then
-        pcall(C_GossipInfo.CloseGossip)
-      end
-      local g = rawget(_G, "GossipFrame")
-      if type(g) == "table" and g.IsShown and g:IsShown() and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, g) end
+      self:QuestCloseConversation()
+      self:QuestPromptHide() -- our prompt goes with the conversation
     end
     return
   end
@@ -1723,7 +1720,13 @@ end
 function Probe:QuestButtonResults()
   local r = self.questRun
   r.button = r.button or { overlay = { clicks = 0, routes = {} }, inject = { clicks = 0, attempts = 0, routes = {} } }
-  return r.button
+  local b = r.button
+  -- Added with the replacement add-on checks: our own prompt, raw hits against counted clicks, the gossip windows seen.
+  b.prompt = b.prompt or { shown = 0, clicks = 0, routes = {}, closed = 0, skippedCombat = 0 }
+  b.rawHits, b.counted = b.rawHits or 0, b.counted or 0
+  b.fakeStopped = b.fakeStopped or { SelectAvailableQuest = 0, SelectOption = 0 }
+  b.shows = b.shows or {}
+  return b
 end
 
 local function frameRect(f)
@@ -1740,6 +1743,328 @@ local function sortedKeys(t, cap)
   table.sort(keys)
   while #keys > (cap or 24) do table.remove(keys) end
   return keys
+end
+
+---------------------------------------------------------------------------
+-- Replacement add-ons: Dialogue UI, Immersion and friends take over the gossip and quest windows. They stop the
+-- game's own window receiving its events and read the lists through C_GossipInfo, so a row we add to the game's
+-- window may never be seen. Every access to another add-on's insides is in a pcall: it must never error.
+---------------------------------------------------------------------------
+-- Names are not assumed: several globals are tested and the ones that exist are recorded.
+local REPLACERS = {
+  { key = "dui", label = "Dialogue UI", addons = { "DialogueUI" },
+    globals = { "DialogueUIAPI", "DUIDialogueFrame", "DUIQuestFrame", "DUIGossipFrame", "DUIFrame", "DialogueUI", "DUI", "DUIAPI" },
+    frames = { "DUIDialogueFrame", "DUIQuestFrame", "DUIGossipFrame", "DUIFrame" } },
+  { key = "immersion", label = "Immersion", addons = { "Immersion" }, globals = { "ImmersionFrame", "Immersion" },
+    frames = { "ImmersionFrame" } },
+}
+local OTHER_REPLACERS = { "Storyline" } -- other known gossip/quest window replacements (the list is not complete)
+
+-- obj[method](obj, ...) with every step in a pcall (another add-on's frame may have an __index that errors).
+local function pcallValue(obj, method, ...)
+  if type(obj) ~= "table" then return nil end
+  local n, args = select("#", ...), { ... }
+  local unpackFn = unpack or table.unpack
+  local ok, v = pcall(function()
+    local fn = obj[method]
+    if type(fn) ~= "function" then return nil end
+    return fn(obj, unpackFn(args, 1, n))
+  end)
+  if ok then return v end
+  return nil
+end
+
+local function frameName(f)
+  if f == nil then return nil end
+  if type(f) ~= "table" then return tostring(f) end
+  local n = pcallValue(f, "GetName")
+  if type(n) == "string" and n ~= "" then return n end
+  return "(unnamed)"
+end
+
+-- Does a replacement add-on's frame (or what hangs off it) mention our made-up quest or label anywhere? Bounded.
+local function holdsFake(root, ours)
+  local seen, nodes, hit = {}, 0, false
+  for _, f in pairs(ours or {}) do seen[f] = true end -- our own frames (the made-up label is on them) are not theirs
+  local function walk(v, depth)
+    if hit or nodes >= 600 then return end
+    local t = type(v)
+    if t == "number" then
+      if v == FAKE_QUEST_ID or v == FAKE_OPTION_ID then hit = true end
+    elseif t == "string" then
+      if v:find(FAKE_LABEL, 1, true) then hit = true end
+    elseif t == "table" and not seen[v] and depth <= 4 then
+      seen[v] = true
+      nodes = nodes + 1
+      for k, x in pairs(v) do
+        if k ~= "parent" then walk(x, depth + 1) end
+        if hit then return end
+      end
+    end
+  end
+  pcall(walk, root, 0)
+  return hit
+end
+
+-- Which replacement add-ons are loaded now, which of their globals exist and whether their frames are shown.
+function Probe:QuestReplacers()
+  local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or rawget(_G, "IsAddOnLoaded")
+  local function loaded(name)
+    if type(isLoaded) ~= "function" then return false end
+    local ok, v = pcall(isLoaded, name)
+    return ok and v and true or false
+  end
+  local out = { found = {}, other = {}, names = {}, hasFake = false }
+  for _, rp in ipairs(REPLACERS) do
+    local e = { label = rp.label, loaded = false, globals = {}, frames = {} }
+    for _, a in ipairs(rp.addons) do if loaded(a) then e.loaded = true end end
+    for _, g in ipairs(rp.globals) do
+      if rawget(_G, g) ~= nil then e.globals[#e.globals + 1] = g end
+    end
+    if rp.key == "dui" then -- anything else the add-on's name prefix left behind
+      local extra = 0
+      pcall(function()
+        for k in pairs(_G) do
+          if type(k) == "string" and k:find("^DUI") and extra < 12 then
+            local have = false
+            for _, g in ipairs(e.globals) do if g == k then have = true end end
+            if not have then e.globals[#e.globals + 1] = k; extra = extra + 1 end
+          end
+        end
+      end)
+      table.sort(e.globals)
+    end
+    for _, fname in ipairs(rp.frames) do
+      local f = rawget(_G, fname)
+      local state = type(f) == "table" and pcallValue(f, "IsShown") or nil
+      if type(f) == "table" then
+        e.frames[fname] = { shown = state and true or false, visible = pcallValue(f, "IsVisible") and true or false }
+        if holdsFake(f, { self.questPrompt, self.questOwn, self.questBtnOverlay }) then out.hasFake = true end
+      end
+    end
+    e.detected = e.loaded or #e.globals > 0
+    if e.detected then out.names[#out.names + 1] = rp.label end
+    out.found[rp.key] = e
+  end
+  for _, a in ipairs(OTHER_REPLACERS) do
+    if loaded(a) then out.other[#out.other + 1] = a end
+  end
+  if #out.other > 0 then out.names[#out.names + 1] = "other (" .. table.concat(out.other, ", ") .. ")" end
+  out.detected = #out.names > 0
+  -- the headline: the first one found, in the order Dialogue UI, Immersion, other
+  out.name = out.found.dui.detected and "Dialogue UI" or out.found.immersion.detected and "Immersion"
+    or #out.other > 0 and "other" or "none"
+  return out
+end
+
+local function replacersText(rep)
+  if not rep.detected then return "none" end
+  return table.concat(rep.names, " + ")
+end
+
+-- Is this button our injected row? By the made-up ID in its own data, else by the label it shows.
+local function isFakeRow(btn)
+  if type(btn.GetElementData) == "function" then
+    local okd, d = pcall(btn.GetElementData, btn)
+    local info = okd and type(d) == "table" and (type(d.info) == "table" and d.info or d) or nil
+    if info and (info.questID == FAKE_QUEST_ID or info.gossipOptionID == FAKE_OPTION_ID) then return true end
+  end
+  local _, name = buttonOption(btn)
+  return type(name) == "string" and name:find(FAKE_LABEL, 1, true) ~= nil
+end
+
+-- A rectangle that is not on the screen at all is not seen by the player (nil: the game gave no rectangle).
+local function rectOnScreen(rect)
+  if not rect then return nil end
+  local up = rawget(_G, "UIParent")
+  local w, h = pcallValue(up, "GetWidth"), pcallValue(up, "GetHeight")
+  if type(w) ~= "number" or type(h) ~= "number" or w <= 0 or h <= 0 then w, h = 1e9, 1e9 end
+  return rect[3] > 0 and rect[4] > 0 and rect[1] + rect[3] > 0 and rect[2] + rect[4] > 0 and rect[1] < w and rect[2] < h
+end
+
+-- At each GOSSIP_SHOW: is the game's window there, and is our row in it where the player can see it?
+function Probe:QuestReplaceSample()
+  local r = self.questRun
+  local res = self:QuestButtonResults()
+  local rep = self:QuestReplacers()
+  local gf = rawget(_G, "GossipFrame")
+  local s = { at = GetServerTime(), t = questRound1(GetTime() - r.t0), replacement = rep.name, replacementList = replacersText(rep) }
+  if type(gf) == "table" then
+    s.gfShown, s.gfVisible = pcallValue(gf, "IsShown") and true or false, pcallValue(gf, "IsVisible") and true or false
+    s.gfAlpha = pcallValue(gf, "GetAlpha")
+    local parent = pcallValue(gf, "GetParent")
+    s.gfParent = parent ~= nil and frameName(parent) or "none"
+    s.gfParentIsUIParent = parent ~= nil and parent == rawget(_G, "UIParent")
+    local chain, p = {}, parent
+    for _ = 1, 4 do
+      if p == nil then break end
+      chain[#chain + 1] = frameName(p)
+      p = pcallValue(p, "GetParent")
+    end
+    s.gfParents = table.concat(chain, " < ")
+    s.gfRegShow = pcallValue(gf, "IsEventRegistered", "GOSSIP_SHOW") -- nil: the game gave no answer
+  else
+    s.gfMissing = true
+  end
+  -- our row: in the list's data, and among the buttons
+  local panel = type(gf) == "table" and gf.GreetingPanel or nil
+  local box = type(panel) == "table" and panel.ScrollBox or nil
+  s.rowInList = false
+  local dp = type(box) == "table" and pcallValue(box, "GetDataProvider") or nil
+  if type(dp) == "table" and type(dp.GetSize) == "function" and type(dp.Find) == "function" then
+    pcall(function()
+      for i = 1, dp:GetSize() do
+        local e = dp:Find(i)
+        local info = type(e) == "table" and type(e.info) == "table" and e.info or nil
+        if info and (info.questID == FAKE_QUEST_ID or info.gossipOptionID == FAKE_OPTION_ID) then s.rowInList = true end
+      end
+    end)
+  end
+  s.rowShown, s.rowVisible = false, false
+  for _, btn in ipairs((gossipButtons())) do
+    if isFakeRow(btn) then
+      s.rowShown, s.rowVisible = pcallValue(btn, "IsShown") and true or false, pcallValue(btn, "IsVisible") and true or false
+      s.rowRect = frameRect(btn)
+      s.rowOnScreen = rectOnScreen(s.rowRect)
+    end
+  end
+  s.windowSeen = s.gfVisible == true and (s.gfAlpha == nil or s.gfAlpha > 0.01)
+  s.playerSeesRow = (s.rowVisible and s.windowSeen and s.rowOnScreen ~= false) and true or false
+  s.replacerFrames, s.replacerHasFake = rep.found, rep.hasFake
+  r.replacers = rep
+  keep(res.shows, s)
+  P(MOTA:Color("leaf", "Quest probe") .. (": gossip window check: Blizzard window shown %s (parent %s, registered for GOSSIP_SHOW %s, alpha %s) · "
+    .. "our row in its list %s, visible %s · replacement add-on: %s"):format(yesno(s.windowSeen),
+    tostring(s.gfParent), s.gfRegShow == nil and "unknown" or yesno(s.gfRegShow), s.gfAlpha ~= nil and ("%g"):format(s.gfAlpha) or "?",
+    yesno(s.rowInList), yesno(s.playerSeesRow), replacersText(rep)))
+  return s
+end
+
+-- Our own small prompt, for when a replacement add-on has taken the gossip window over (our row cannot be used then).
+-- The made-up ID is never sent anywhere from here: the button just opens our test page.
+function Probe:QuestPromptFrame()
+  if self.questPrompt then return self.questPrompt end
+  local f = CreateFrame("Frame", "MOTAQuestProbePrompt", UIParent)
+  f:SetFrameStrata("DIALOG")
+  f:SetSize(320, 96)
+  f:EnableMouse(true)
+  f:ClearAllPoints()
+  f:SetPoint("TOP", UIParent, "TOP", 0, -140)
+  local bg = f:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  bg:SetColorTexture(0.06, 0.05, 0.08, 0.97)
+  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -14)
+  f.title:SetWidth(288)
+  f.title:SetJustifyH("LEFT")
+  f.title:SetText(FAKE_LABEL)
+  f.note = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  f.note:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)
+  f.note:SetWidth(288)
+  f.note:SetJustifyH("LEFT")
+  f.note:SetText("Our own prompt (a gossip replacement add-on is on). Not a real quest.")
+  local function button(label, x, fn)
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetSize(130, 24)
+    b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, 12)
+    b:SetText(label)
+    b:SetScript("OnClick", function()
+      local ok, err = pcall(fn)
+      if not ok then P("Quest probe error:", safeString(err)) end
+    end)
+    return b
+  end
+  f.open = button("Open test page", 16, function() self:QuestButtonClicked("prompt") end)
+  f.close = button("Close", 174, function() self:QuestPromptClose() end)
+  f:Hide()
+  self.questPrompt = f
+  return f
+end
+
+function Probe:QuestPromptShow(rep)
+  local res = self:QuestButtonResults().prompt
+  local tag = MOTA:Color("leaf", "Quest probe")
+  if inCombat() then
+    res.skippedCombat = res.skippedCombat + 1
+    self:QuestStep("prompt not shown (in combat)")
+    return P(tag .. ": a replacement add-on is on (" .. replacersText(rep) .. ") but you are in combat: our prompt is not shown (frames are left alone in combat)")
+  end
+  local f = self:QuestPromptFrame()
+  f:Show()
+  res.shown = res.shown + 1
+  self:QuestStep("prompt shown")
+  P(tag .. ": a replacement add-on is on (" .. replacersText(rep) .. "): our own prompt is up near the top of the screen. Click its button to open our test page.")
+end
+
+function Probe:QuestPromptHide()
+  local f = self.questPrompt
+  if f and f.IsShown and f:IsShown() then f:Hide() end
+end
+
+-- Closes the conversation the way the game's Close does: the gossip window and, if need be, a hide of its frame.
+function Probe:QuestCloseConversation()
+  if C_GossipInfo and type(C_GossipInfo.CloseGossip) == "function" then pcall(C_GossipInfo.CloseGossip) end
+  local g = rawget(_G, "GossipFrame")
+  if type(g) == "table" and g.IsShown and g:IsShown() and rawget(_G, "HideUIPanel") then pcall(HideUIPanel, g) end
+end
+
+-- The prompt's Close: our page and the prompt go, and so does the conversation.
+function Probe:QuestPromptClose()
+  local res = self:QuestButtonResults().prompt
+  res.closed = res.closed + 1
+  self:QuestStep("prompt: close")
+  if self.questOwnPage then
+    pcall(self.QuestOwnClick, self, "close") -- hides our page and closes the conversation
+  else
+    if self.questOwn and self.questOwn.IsShown and self.questOwn:IsShown() then self.questOwn:Hide() end
+    self:QuestCloseConversation()
+  end
+  self:QuestPromptHide()
+end
+
+-- The made-up IDs must never reach the game: the row's own click handler calls SelectAvailableQuest / SelectOption
+-- with them. A hook runs after the real function (so the game would still hear the made-up ID); these wrappers see
+-- the call first and, for our ID only, do not pass it on. Every other call goes straight through.
+function Probe:QuestFakeStopped(fname, route)
+  local res = self:QuestButtonResults()
+  res.fakeStopped[fname] = (res.fakeStopped[fname] or 0) + 1
+  self:QuestStep("made-up ID kept from " .. fname .. " (not sent to the game)")
+  self:QuestButtonClicked(route)
+end
+
+function Probe:QuestWrapFakeIds()
+  self.questFakeWrapped = self.questFakeWrapped or {}
+  local probe, n = self, 0
+  local tbl = rawget(_G, "C_GossipInfo")
+  for _, ep in ipairs({ { "SelectAvailableQuest", FAKE_QUEST_ID, "inject-quest" }, { "SelectOption", FAKE_OPTION_ID, "inject-option" } }) do
+    local fname, fake, route = ep[1], ep[2], ep[3]
+    if self.questFakeWrapped[fname] then
+      n = n + 1
+    elseif type(tbl) == "table" and type(tbl[fname]) == "function" then
+      local real = tbl[fname]
+      local wrapper
+      wrapper = function(id, ...)
+        if probe.questOn and probe.questMode == "button" and id == fake then
+          local ok, err = pcall(probe.QuestFakeStopped, probe, fname, route)
+          if not ok then P("Quest probe error:", safeString(err)) end
+          return
+        end
+        return real(id, ...)
+      end
+      tbl[fname] = wrapper
+      self.questFakeWrapped[fname] = { tbl, fname, real, wrapper }
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function Probe:QuestUnwrapFakeIds()
+  for fname, e in pairs(self.questFakeWrapped or {}) do
+    local tbl, name, real, wrapper = e[1], e[2], e[3], e[4]
+    if tbl[name] == wrapper then tbl[name] = real end
+    self.questFakeWrapped[fname] = nil
+  end
 end
 
 -- (2) overlay: our own button just under the gossip window. Never overlaps the list, so it only shows whether a
@@ -1846,6 +2171,9 @@ function Probe:QuestButtonShow()
     if not self.questOn or self.questMode ~= "button" then return end
     local ok, err = pcall(function()
       self:QuestButtonOverlay()
+      -- A replacement add-on has taken the window over: our row cannot be used, so our own prompt is the route.
+      local rep = self:QuestReplacers()
+      if rep.detected then self:QuestPromptShow(rep) end
       -- Fallback for a window the hook missed (or one that was already open): add the row from here.
       local gf = rawget(_G, "GossipFrame")
       local panel = type(gf) == "table" and gf.GreetingPanel or nil
@@ -1869,17 +2197,7 @@ function Probe:QuestButtonShow()
       self.questRowHooked = self.questRowHooked or setmetatable({}, { __mode = "k" })
       for _, btn in ipairs(list) do
         -- our row: by the made-up ID in the row's own data, else by the label the button shows
-        local isOurs = false
-        if type(btn.GetElementData) == "function" then
-          local okd, d = pcall(btn.GetElementData, btn)
-          local info = okd and type(d) == "table" and (type(d.info) == "table" and d.info or d) or nil
-          if info and (info.questID == FAKE_QUEST_ID or info.gossipOptionID == FAKE_OPTION_ID) then isOurs = true end
-        end
-        if not isOurs then
-          local _, name = buttonOption(btn)
-          isOurs = type(name) == "string" and name:find(FAKE_LABEL, 1, true) ~= nil
-        end
-        if isOurs then
+        if isFakeRow(btn) then
           res.rowSeen = true
           res.rowRect = frameRect(btn)
           if not self.questRowHooked[btn] and type(btn.HookScript) == "function" then
@@ -1899,6 +2217,8 @@ function Probe:QuestButtonShow()
       P(tag .. ": our entry: overlay button placed: " .. yesno(ov.placed) .. (ov.error and (" (" .. ov.error .. ")") or "")
         .. " · row added to the list: " .. yesno(res.inserted) .. (res.error and (" (" .. res.error .. ")") or "")
         .. " · row seen among the window's buttons: " .. yesno(res.rowSeen))
+      local okS, errS = pcall(self.QuestReplaceSample, self)
+      if not okS then P("Quest probe error:", safeString(errS)) end
     end)
     if not ok then P("Quest probe error:", safeString(err)) end
   end)
@@ -1907,6 +2227,7 @@ end
 function Probe:QuestButtonClosed()
   local b = self.questBtnOverlay
   if b and b.Hide then pcall(b.Hide, b) end
+  self:QuestPromptHide()
   local pg = self.questOwnPage
   if pg and pg.fake then
     pg.ownEndedBy = "the gossip window closed"
@@ -1920,13 +2241,16 @@ function Probe:QuestButtonClicked(route)
   if not self.questOn or self.questMode ~= "button" then return end
   local r = self.questRun
   local res = self:QuestButtonResults()
-  local part = route == "overlay" and res.overlay or res.inject
+  local part = route == "overlay" and res.overlay or route == "prompt" and res.prompt or res.inject
   part.clicks = part.clicks + 1
   part.routes[route] = (part.routes[route] or 0) + 1
+  res.rawHits = res.rawHits + 1
   self:QuestStep("our entry clicked (" .. route .. ")")
   local now = GetTime()
+  -- One click can arrive by several routes at once (PreClick, OnClick and the quest pick): only the first counts.
   if self.questFakeAt and now - self.questFakeAt < 0.5 then return end
   self.questFakeAt = now
+  res.counted = res.counted + 1
   local tag = MOTA:Color("leaf", "Quest probe")
   P(tag .. ": our entry was clicked (" .. route .. ")")
   local page = { at = GetServerTime(), t = now, kind = "detail", event = "button", mode = "button", samples = {}, fake = FAKE_PAGE,
@@ -1989,6 +2313,60 @@ function Probe:QuestButtonVerdict()
     :format(word, why, r.overlayVerdict), lines
 end
 
+-- The replacement add-on verdict of a button run: three plain lines, a meaning, and the details behind them.
+function Probe:QuestReplaceVerdict()
+  local r = self.questRun
+  local b = self:QuestButtonResults()
+  local rep = r.replacers or self:QuestReplacers()
+  local seenRow, seenWindow = false, false
+  for _, s in ipairs(b.shows) do
+    if s.playerSeesRow then seenRow = true end
+    if s.windowSeen then seenWindow = true end
+  end
+  local tested = #b.shows > 0
+  local pr = b.prompt
+  local pageFromPrompt = false
+  for _, p in ipairs(r.pages) do if p.fake and p.ownShown and p.via == "prompt" then pageFromPrompt = true end end
+  local meaning
+  if not tested then
+    meaning = "No gossip window was opened in this run, so nothing is known: talk to an NPC with the probe on."
+  elseif rep.detected and not seenRow then
+    meaning = "Our row cannot be used with this add-on, use our own prompt instead."
+  elseif rep.detected then
+    meaning = "A replacement add-on is on, yet our row was visible in the game's window: the row works here too."
+  elseif seenRow then
+    meaning = "No replacement add-on: our row in the gossip window works."
+  else
+    meaning = "No replacement add-on was found, yet our row was not visible: see the row lines above."
+  end
+  local rowVisible, gossipShown
+  if tested then rowVisible, gossipShown = seenRow, seenWindow end
+  r.replaceVerdict = { replacement = rep.name, rowVisible = rowVisible, gossipShown = gossipShown,
+    meaning = meaning, promptShown = pr.shown, promptClicks = pr.clicks, promptPageOpened = pageFromPrompt,
+    rawHits = b.rawHits, countedClicks = b.counted, fakeStopped = b.fakeStopped, replacerHasFake = rep.hasFake }
+  local lines = {}
+  lines[#lines + 1] = "Replacement addon detected: " .. (rep.name == "none" and "none" or replacersText(rep))
+  lines[#lines + 1] = "Our injected row visible to the player: " .. (tested and (seenRow and "yes" or "no") or "unknown (no gossip window)")
+  lines[#lines + 1] = "Blizzard gossip window shown: " .. (tested and (seenWindow and "yes" or "no") or "unknown (no gossip window)")
+  lines[#lines + 1] = "Meaning: " .. meaning
+  for key, e in pairs(rep.found) do
+    if e.detected then
+      local fr = {}
+      for name, st in pairs(e.frames) do fr[#fr + 1] = name .. (st.shown and " shown" or " hidden") end
+      table.sort(fr)
+      lines[#lines + 1] = ("  %s: loaded %s, globals found: %s, frames: %s"):format(e.label, yesno(e.loaded),
+        #e.globals > 0 and table.concat(e.globals, ", ") or "none", #fr > 0 and table.concat(fr, ", ") or "none found")
+    end
+  end
+  if rep.detected then lines[#lines + 1] = "  our made-up quest found anywhere in their frames: " .. yesno(rep.hasFake) end
+  lines[#lines + 1] = ("  our prompt: shown %d time%s, clicked %d time%s, test page opened from it: %s%s"):format(pr.shown, pr.shown == 1 and "" or "s",
+    pr.clicks, pr.clicks == 1 and "" or "s", yesno(pageFromPrompt), pr.skippedCombat > 0 and (" (not shown in combat: " .. pr.skippedCombat .. ")") or "")
+  lines[#lines + 1] = ("  clicks: %d raw route hit%s, %d counted (one click is counted once)"):format(b.rawHits, b.rawHits == 1 and "" or "s", b.counted)
+  lines[#lines + 1] = ("  made-up IDs kept from the game: quest pick %d, option pick %d (never sent)"):format(
+    b.fakeStopped.SelectAvailableQuest or 0, b.fakeStopped.SelectOption or 0)
+  return lines
+end
+
 function Probe:QuestOff()
   local tag = MOTA:Color("leaf", "Quest probe")
   local r = self.questRun
@@ -1996,6 +2374,8 @@ function Probe:QuestOff()
   self:QuestRestore("probe off")
   self:QuestUnwrapAccept()
   self:QuestUnwrapSelects()
+  self:QuestUnwrapFakeIds()
+  self:QuestPromptHide()
   local ob = self.questBtnOverlay
   if ob and ob.Hide then pcall(ob.Hide, ob) end
   if r then
@@ -2035,6 +2415,9 @@ function Probe:QuestOff()
       local line, lines = self:QuestVerdict()
       for _, l in ipairs(lines) do P(tag .. ": " .. l) end
       P(tag .. ": " .. line)
+      if r.mode == "button" then
+        for _, l in ipairs(self:QuestReplaceVerdict()) do P(tag .. ": " .. l) end
+      end
     end
   end
 end
@@ -2057,6 +2440,8 @@ function Probe:Quest(arg)
   self:QuestRestore("a new run started")
   self:QuestUnwrapAccept()
   self:QuestUnwrapSelects()
+  self:QuestUnwrapFakeIds()
+  self:QuestPromptHide()
   local mode = (arg == "nohide" or arg == "fade" or arg == "page" or arg == "button") and arg or "hide"
   MOTA.db.probe = MOTA.db.probe or {}
   local probe = MOTA.db.probe
@@ -2085,6 +2470,8 @@ function Probe:Quest(arg)
   P(tag .. ":", #missing == 0 and "every quest function is present" or ("missing: " .. table.concat(missing, ", ")))
 
   self.questOn = true
+  r.replacers = self:QuestReplacers()
+  P(tag .. ": replacement gossip/quest add-ons loaded: " .. replacersText(r.replacers) .. (r.replacers.detected and (" (in button mode our own prompt is shown for them)") or ""))
   if mode == "fade" or mode == "page" then
     r.frameHooked = self:QuestHookFrame()
     P(tag .. ": hook on the game's quest frame (fades it the instant it shows):", yesno(r.frameHooked))
@@ -2125,6 +2512,8 @@ function Probe:Quest(arg)
   if mode == "button" then
     r.boxHooked = self:QuestButtonHookBox()
     r.optionHooked = self:QuestButtonHookOption()
+    r.fakeWrapped = self:QuestWrapFakeIds()
+    P(tag .. ": made-up ID guard (our fake quest and option IDs are never passed on to the game): " .. r.fakeWrapped .. " of 2")
     P(tag .. ": hook on the gossip list's data (adds our row each time the list is rebuilt):", yesno(r.boxHooked),
       "· hook on option clicks:", yesno(r.optionHooked))
     -- A gossip window that is already open.

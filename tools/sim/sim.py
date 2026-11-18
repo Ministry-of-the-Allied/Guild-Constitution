@@ -6223,6 +6223,168 @@ check("Button mode: the usage text and the help name it",
       any(("page|button|off" in c.usage) for c in mk.lua.globals().MinistryOfTheAllied.Commands.list.values() if c.name == "probe"))
 check("Button mode: nothing in this section raised a Lua error", len(errors) == 0)
 
+print("== 20j. Quest probe button mode: replacement add-ons (Dialogue UI, Immersion), our own prompt, debounce, made-up IDs kept from the game")
+Q(mk, '''
+  COMBAT = false
+  QuestFrame:Hide(); QuestFrame:SetAlpha(1); QUEST_ALIVE = false
+  GossipFrame.parent = UIParent
+  GossipFrame.events = { GOSSIP_SHOW = true }
+  CLOSE_CALLS, REAL_SAQ, REAL_SO = 0, {}, {}
+  ACC2_0 = ACC2
+  C_GossipInfo.CloseGossip = function() CLOSE_CALLS = CLOSE_CALLS + 1 end
+  REAL_SAQ_FN = function(q) REAL_SAQ[#REAL_SAQ + 1] = q end
+  REAL_SO_FN = function(id) REAL_SO[#REAL_SO + 1] = id end
+  C_GossipInfo.SelectAvailableQuest = REAL_SAQ_FN
+  C_GossipInfo.SelectOption = REAL_SO_FN
+  C_AddOns.IsAddOnLoaded = function(n) return n == "QuickQuest" end
+  HIDDEN = CreateFrame("Frame", "MOTAHiddenParent", UIParent)
+  HIDDEN:Hide()
+''')
+# (a) no replacement add-on: the injected row is the route, no prompt
+mk.log.clear()
+mk.slash("probe quest button")
+check("Replacement check: every run says which replacement add-ons are loaded (none here) and keeps it in the run",
+      mk.said(r"replacement gossip/quest add-ons loaded: none") and Q(mk, 'return M.db.probe.quest.replacers.name') == "none"
+      and Q(mk, 'return M.db.probe.quest.replacers.detected') is False)
+check("Fake IDs: the guard is on in button mode (both wrappers), says so, and the real functions sit under it",
+      mk.said(r"made-up ID guard .*: 2 of 2") and Q(mk, 'return C_GossipInfo.SelectAvailableQuest ~= REAL_SAQ_FN and C_GossipInfo.SelectOption ~= REAL_SO_FN') is True)
+Q(mk, 'GossipFrame:Show(); BOX:SetDataProvider(NEWDP({ QROW(), OROW() })); mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("No replacement add-on: no prompt of ours is shown",
+      Q(mk, 'return MOTAQuestProbePrompt == nil or not MOTAQuestProbePrompt:IsShown()') is True
+      and Q(mk, 'return M.db.probe.quest.button.prompt.shown') == 0 and Q(mk, 'return M.Probe.questBtnOverlay:IsShown()') is True)
+check("Gossip window check: it records the window, its parent, the event and our row at GOSSIP_SHOW",
+      Q(mk, 'local s = M.db.probe.quest.button.shows[1] return s.gfShown == true and s.gfVisible == true and s.gfParentIsUIParent == true and s.gfParent == "UIParent" and s.gfRegShow == true and s.gfAlpha == 1 and s.rowInList == true and s.rowShown == true and s.rowVisible == true and s.playerSeesRow == true and s.windowSeen == true and s.replacement == "none"') is True
+      and mk.said(r"gossip window check: Blizzard window shown yes \(parent UIParent, registered for GOSSIP_SHOW yes, alpha 1\) . our row in its list yes, visible yes . replacement add-on: none"))
+# (d) one click, three routes: 3 raw hits, 1 counted, one test page. (e) the made-up ID never reaches the real function.
+Q(mk, 'CLICK(BBTNS[3]); C_GossipInfo.SelectAvailableQuest(99999901); mock_advance(0.1)')
+check("Fake IDs: the made-up quest ID is NOT passed on to the real SelectAvailableQuest (it only counts as our click)",
+      Q(mk, 'return #REAL_SAQ') == 0 and Q(mk, 'local b = M.db.probe.quest.button return b.fakeStopped.SelectAvailableQuest == 1 and b.inject.routes["inject-quest"] == 1') is True)
+check("Debounce: one click by three routes is 3 raw hits but 1 counted click, and one test page",
+      Q(mk, 'local b = M.db.probe.quest.button return b.rawHits == 3 and b.counted == 1') is True
+      and Q(mk, 'local n = 0 for _, p in ipairs(M.db.probe.quest.pages) do if p.fake then n = n + 1 end end return n') == 1)
+Q(mk, 'M.Probe.questOwn.accept.scripts.OnClick(M.Probe.questOwn.accept); mock_advance(1); C_GossipInfo.SelectAvailableQuest(99999901); mock_advance(0.1)')
+check("Debounce: a second click a moment later counts again (2 counted, 4 raw), and still goes nowhere",
+      Q(mk, 'local b = M.db.probe.quest.button return b.rawHits == 4 and b.counted == 2') is True and Q(mk, 'return #REAL_SAQ') == 0)
+Q(mk, 'M.Probe.questOwn.accept.scripts.OnClick(M.Probe.questOwn.accept); C_GossipInfo.SelectAvailableQuest(5001); C_GossipInfo.SelectOption(111); C_GossipInfo.SelectOption(99999902); mock_advance(0.1)')
+check("Fake IDs: real quest and option IDs pass straight through; the made-up option ID is kept back too",
+      Q(mk, 'return #REAL_SAQ') == 1 and Q(mk, 'return REAL_SAQ[1]') == 5001
+      and Q(mk, 'return #REAL_SO') == 1 and Q(mk, 'return REAL_SO[1]') == 111
+      and Q(mk, 'return M.db.probe.quest.button.fakeStopped.SelectOption') == 1)
+Q(mk, 'mock_advance(1); GossipFrame:Hide(); mock_fire("GOSSIP_CLOSED"); M.Probe.questOwn:Hide()')
+mk.log.clear()
+mk.slash("probe quest off")
+check("Verdict (none): replacement none, our row visible yes, Blizzard window shown yes, and what it means",
+      mk.said(r"Replacement addon detected: none") and mk.said(r"Our injected row visible to the player: yes")
+      and mk.said(r"Blizzard gossip window shown: yes") and mk.said(r"Meaning: No replacement add-on: our row in the gossip window works\.")
+      and mk.said(r"our prompt: shown 0 times, clicked 0 times") and mk.said(r"5 raw route hits, 2 counted")
+      and mk.said(r"made-up IDs kept from the game: quest pick 2, option pick 1")
+      and Q(mk, 'local v = M.db.probe.quest.replaceVerdict return v.replacement == "none" and v.rowVisible == true and v.gossipShown == true') is True)
+check("Fake IDs: off puts the real functions back",
+      Q(mk, 'return C_GossipInfo.SelectAvailableQuest == REAL_SAQ_FN and C_GossipInfo.SelectOption == REAL_SO_FN') is True)
+
+# (b) Dialogue UI: its folder is loaded, the game's window is hidden and no longer hears GOSSIP_SHOW, the list is never built.
+Q(mk, '''
+  C_AddOns.IsAddOnLoaded = function(n) return n == "DialogueUI" end
+  DUIDialogueFrame = CreateFrame("Frame", "DUIDialogueFrame", UIParent)
+  DUIDialogueFrame:Show()
+  DialogueUIAPI = {}
+  BOX.dp = nil; BBTNS = {}
+  GossipFrame:Hide(); GossipFrame.events = {}
+  CLOSE_CALLS = 0
+  REAL_SAQ, REAL_SO = {}, {}
+''')
+mk.log.clear()
+mk.slash("probe quest button")
+check("Dialogue UI: the run start names it and records its globals and frame",
+      mk.said(r"replacement gossip/quest add-ons loaded: Dialogue UI") and Q(mk, 'local d = M.db.probe.quest.replacers.found.dui return d.loaded == true and d.detected == true and #d.globals >= 2 and d.frames.DUIDialogueFrame.shown == true') is True)
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("Dialogue UI: our own prompt is shown, titled as asked, near the top centre of the screen, once",
+      Q(mk, 'local f = MOTAQuestProbePrompt return f ~= nil and f:IsShown() and f.title.text == "[probe] Our own test quest" and f.points[1][1] == "TOP"') is True
+      and Q(mk, 'return M.db.probe.quest.button.prompt.shown') == 1 and mk.said(r"a replacement add-on is on \(Dialogue UI\): our own prompt is up"))
+check("Dialogue UI: the check records the hidden window, its missing event and no row",
+      Q(mk, 'local s = M.db.probe.quest.button.shows[1] return s.gfShown == false and s.gfRegShow == false and s.rowInList == false and s.rowVisible == false and s.playerSeesRow == false and s.windowSeen == false and s.replacement == "Dialogue UI" and s.replacerFrames.dui.frames.DUIDialogueFrame.shown == true') is True)
+Q(mk, 'MOTAQuestProbePrompt.open.scripts.OnClick(MOTAQuestProbePrompt.open); mock_advance(0.1)')
+check("Dialogue UI: the prompt's button opens the TEST page, counted as a prompt click, nothing sent to the game",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is True and Q(mk, 'return M.Probe.questOwn.title:GetText()') == "A test quest (probe)"
+      and Q(mk, 'local p = M.db.probe.quest.button.prompt return p.clicks == 1 and p.routes.prompt == 1') is True
+      and Q(mk, 'return #REAL_SAQ + #REAL_SO') == 0 and Q(mk, 'return M.db.probe.quest.pages[1].via') == "prompt")
+Q(mk, 'M.Probe.questOwn.close.scripts.OnClick(M.Probe.questOwn.close)')
+check("Dialogue UI: Close on the page closes our page AND our prompt AND the conversation (CloseGossip)",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is False
+      and Q(mk, 'return CLOSE_CALLS') == 1 and Q(mk, 'return M.db.probe.quest.pages[1].ownAction') == "close")
+# the prompt's own Close
+Q(mk, 'mock_advance(1); mock_fire("GOSSIP_SHOW"); mock_advance(0.6); MOTAQuestProbePrompt.open.scripts.OnClick(MOTAQuestProbePrompt.open); mock_advance(0.1)')
+check("Dialogue UI: the prompt comes back at the next conversation and opens the page again",
+      Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is True and Q(mk, 'return M.Probe.questOwn:IsShown()') is True
+      and Q(mk, 'return M.db.probe.quest.button.prompt.shown') == 2)
+Q(mk, 'MOTAQuestProbePrompt.close.scripts.OnClick(MOTAQuestProbePrompt.close)')
+check("Dialogue UI: Close on the prompt closes the prompt, our page and the conversation",
+      Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is False and Q(mk, 'return M.Probe.questOwn:IsShown()') is False
+      and Q(mk, 'return CLOSE_CALLS') == 2 and Q(mk, 'return M.db.probe.quest.button.prompt.closed') == 1)
+# in combat: only logged, the frame is left alone
+Q(mk, 'mock_advance(1); COMBAT = true; mock_fire("GOSSIP_SHOW"); mock_advance(0.6); COMBAT = false')
+check("Dialogue UI: in combat the prompt is not shown, it is only logged",
+      Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is False and Q(mk, 'return M.db.probe.quest.button.prompt.skippedCombat') == 1
+      and mk.said(r"you are in combat: our prompt is not shown"))
+mk.log.clear()
+mk.slash("probe quest off")
+check("Verdict (Dialogue UI): replacement Dialogue UI, our row not visible, Blizzard window not shown, use our own prompt",
+      mk.said(r"Replacement addon detected: Dialogue UI") and mk.said(r"Our injected row visible to the player: no")
+      and mk.said(r"Blizzard gossip window shown: no") and mk.said(r"Meaning: Our row cannot be used with this add-on, use our own prompt instead\.")
+      and mk.said(r"Dialogue UI: loaded yes, globals found: .*DUIDialogueFrame.*frames: DUIDialogueFrame shown")
+      and mk.said(r"our prompt: shown 2 times, clicked 2 times, test page opened from it: yes")
+      and mk.said(r"our made-up quest found anywhere in their frames: no")
+      and Q(mk, 'local v = M.db.probe.quest.replaceVerdict return v.replacement == "Dialogue UI" and v.rowVisible == false and v.gossipShown == false and v.promptShown == 2 and v.promptClicks == 2 and v.promptPageOpened == true') is True)
+check("Dialogue UI: our prompt is gone when the probe is off, and no real quest or option was touched",
+      Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is False and Q(mk, 'return #REAL_SAQ + #REAL_SO') == 0 and Q(mk, 'return ACC2 == ACC2_0') is True)
+
+# (c) Immersion: its frame is shown; the game's window is moved under a hidden parent and hears nothing.
+Q(mk, '''
+  DUIDialogueFrame = nil; DialogueUIAPI = nil
+  C_AddOns.IsAddOnLoaded = function(n) return n == "Immersion" end
+  ImmersionFrame = CreateFrame("Frame", "ImmersionFrame", UIParent)
+  ImmersionFrame:Show()
+  GossipFrame:Show(); GossipFrame.parent = HIDDEN; GossipFrame.events = {}
+  CLOSE_CALLS = 0
+''')
+mk.log.clear()
+mk.slash("probe quest button")
+Q(mk, 'mock_fire("GOSSIP_SHOW"); mock_advance(0.6)')
+check("Immersion: the prompt is shown and the check sees the window shown but under a hidden parent (so not visible)",
+      Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is True
+      and Q(mk, 'local s = M.db.probe.quest.button.shows[1] return s.gfShown == true and s.gfVisible == false and s.gfParent == "MOTAHiddenParent" and s.gfParentIsUIParent == false and s.gfRegShow == false and s.windowSeen == false and s.playerSeesRow == false and s.replacement == "Immersion"') is True)
+Q(mk, 'MOTAQuestProbePrompt.open.scripts.OnClick(MOTAQuestProbePrompt.open); mock_advance(0.1)')
+check("Immersion: the prompt's button opens the test page",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is True and Q(mk, 'return M.db.probe.quest.button.prompt.clicks') == 1)
+Q(mk, 'M.Probe.questOwn.close.scripts.OnClick(M.Probe.questOwn.close)')
+check("Immersion: Close closes the page, the prompt, and asks the game to close the conversation",
+      Q(mk, 'return M.Probe.questOwn:IsShown()') is False and Q(mk, 'return MOTAQuestProbePrompt:IsShown()') is False and Q(mk, 'return CLOSE_CALLS') >= 1)
+mk.log.clear()
+mk.slash("probe quest off")
+check("Verdict (Immersion): replacement Immersion, our row not visible, Blizzard window not shown",
+      mk.said(r"Replacement addon detected: Immersion") and mk.said(r"Our injected row visible to the player: no")
+      and mk.said(r"Blizzard gossip window shown: no") and mk.said(r"use our own prompt instead")
+      and mk.said(r"Immersion: loaded yes, globals found: ImmersionFrame.*frames: ImmersionFrame shown"))
+# the replacement add-on's own list holding our made-up quest would be noticed (it should not)
+Q(mk, 'ImmersionFrame.list = { { questID = 99999901 } }')
+check("Immersion: the search for our made-up quest in their frames finds it when it is there",
+      Q(mk, 'return M.Probe:QuestReplacers().hasFake') is True)
+# another known replacement add-on is named "other"; a frame of theirs that errors on every access never breaks the check
+Q(mk, '''
+  ImmersionFrame = nil
+  DUIFrame = setmetatable({}, { __index = function() error("boom") end })
+  C_AddOns.IsAddOnLoaded = function(n) if n == "Storyline" then return true end error("no") end
+''')
+check("Other: Storyline is named other; a frame that errors on every access does not break the check",
+      Q(mk, 'local r = M.Probe:QuestReplacers() return r.detected == true') is True
+      and Q(mk, 'DUIFrame = nil local r = M.Probe:QuestReplacers() return r.name == "other" and r.other[1] == "Storyline" and r.detected == true') is True)
+Q(mk, '''
+  GossipFrame.parent = UIParent; GossipFrame.events = { GOSSIP_SHOW = true }; GossipFrame:Show()
+  C_AddOns.IsAddOnLoaded = function(n) return n == "QuickQuest" end
+  ImmersionFrame = nil
+''')
+check("Replacement add-ons: nothing in this section raised a Lua error", len(errors) == 0)
+
 print()
 print("Lua errors:", len(errors))
 for e in errors:

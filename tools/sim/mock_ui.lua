@@ -73,7 +73,16 @@ function Methods:Hide()
 end
 function Methods:SetShown(v) if v then self:Show() else self:Hide() end end
 function Methods:IsShown() return self.shown end
-function Methods:IsVisible() return self.shown end
+function Methods:IsVisible()
+  -- shown, and so is everything above it (a frame moved under a hidden parent is not visible, as in the game)
+  if not self.shown then return false end
+  local p = rawget(self, "parent")
+  if p and p.IsVisible then return p:IsVisible() end
+  return true
+end
+function Methods:IsEventRegistered(e) return self.events[e] == true end
+function Methods:GetParent() return rawget(self, "parent") end
+function Methods:GetName() return rawget(self, "mockName") end
 function Methods:SetScript(name, fn) self.scripts[name] = fn end
 function Methods:GetScript(name) return self.scripts[name] end
 -- As in the game, a hook runs after what the frame already had; hooks stack (11 Nov: a second add-on
@@ -276,7 +285,7 @@ function Methods:AddLine(text) self.lines = self.lines or {} table.insert(self.l
 function CreateFrame(kind, name, parent)
   local f = region(kind or "Frame", parent)
   allFrames[#allFrames + 1] = f
-  if name then _G[name] = f end
+  if name then _G[name] = f; rawset(f, "mockName", name) end
   -- a frame's child frames, as GetChildren gives them (added 12 Nov, the NPC nameplates)
   if parent then
     local kids = rawget(parent, "kids") or {}
